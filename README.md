@@ -22,25 +22,25 @@ npm run build       # outputs to dist/
 npm run preview     # serve dist/ locally
 ```
 
-## Deploy to Cloudflare (from your phone)
+## Deploy to Cloudflare
 
-1. Cloudflare dashboard → **Workers & Pages** → **Create** → **Import a repository**
-   (Workers tab) → connect GitHub if asked → pick **luzari-games/atomic-drifter-web**.
-2. On the setup screen enter:
-   - **Project name:** `atomic-drifter-web` (must match `name` in `wrangler.jsonc`)
-   - **Build command:** `npm run build`
-   - **Deploy command:** `npx wrangler deploy`
-   - **Path / root directory:** `/` (leave default)
-   - Production branch: `main`
+Deploys run from GitHub Actions (`.github/workflows/deploy.yml`):
+push to `main` = live, push to any other branch = preview URL
+(shown in the run summary under the repo's **Actions** tab).
 
-   Then tap **Create and deploy**. `wrangler.jsonc` tells Cloudflare to serve `dist/`
-   with single-page-app fallback; no output-directory field is needed.
-3. After the first deploy succeeds: open the Worker → **Settings** →
-   **Domains & Routes** → **Add** → **Custom domain** → `adw.luzari-games.com` →
-   **Add domain**. (`luzari-games.com` must be a zone in the same Cloudflare account;
-   DNS and the certificate are created automatically, give it a few minutes.)
+One-time setup (works from a phone):
+1. Cloudflare → profile icon → **Profile** → **API Tokens** → **Create Token** →
+   template **Edit Cloudflare Workers** → **Use template** → Account: yours,
+   Zone: All zones → **Continue to summary** → **Create Token** → copy it.
+2. Copy your **Account ID**: the long code in the URL after `dash.cloudflare.com/`.
+3. GitHub repo → **Settings** → **Secrets and variables** → **Actions** →
+   **New repository secret** twice: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+4. GitHub → **Actions** → latest run → **Re-run all jobs** (or push a commit).
+5. After the first successful `main` deploy: Cloudflare → **Workers & Pages** →
+   `atomic-drifter-web` → **Settings** → **Domains & Routes** → **Add** →
+   **Custom domain** → `adw.luzari-games.com`.
 
-Every push to `main` redeploys automatically. Pushes to other branches get preview URLs.
+Never paste the API token anywhere except GitHub Secrets.
 
 ## Project layout
 

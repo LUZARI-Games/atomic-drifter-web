@@ -3,6 +3,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "atomic-drifter-web",
   "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  // Branch builds get their own preview URL.
+  "preview_urls": true,
   "assets": {
     "directory": "./dist",
     // Unknown paths serve index.html (SPA fallback).
