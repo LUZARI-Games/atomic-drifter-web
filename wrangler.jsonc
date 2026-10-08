@@ -1,0 +1,11 @@
+{
+  // Cloudflare Workers – static assets only (no Worker script yet).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "atomic-drifter-web",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    // Unknown paths serve index.html (SPA fallback).
+    "not_found_handling": "single-page-application"
+  }
+}

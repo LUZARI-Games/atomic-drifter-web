@@ -1,0 +1,123 @@
+/* Design tokens – see CLAUDE.md. Keep colors in sync with src/render/palette.ts. */
+:root {
+  --bg: #030806;
+  --green: #1aff80;
+  --amber: #ffb43a; /* enemy / warning */
+  --red: #ff4a3a; /* error / damage */
+  --font: 'Share Tech Mono', monospace;
+  --fs-l: 24px;
+  --fs-m: 18px;
+  --fs-s: 15px;
+  --frame: 3px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--green);
+  font-family: var(--font);
+  font-size: var(--fs-m);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+#app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  text-shadow: 0 0 6px rgb(26 255 128 / 0.6);
+}
+
+#topbar {
+  border-bottom: 1px solid rgb(26 255 128 / 0.35);
+}
+
+#infobar {
+  border-top: 1px solid rgb(26 255 128 / 0.35);
+}
+
+.title {
+  font-size: var(--fs-l);
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+
+.info {
+  font-size: var(--fs-m);
+}
+
+#game {
+  position: relative;
+  min-height: 0;
+  touch-action: none;
+}
+
+/* Every clickable element gets a 3 px frame. */
+.btn {
+  font: inherit;
+  font-size: var(--fs-s);
+  color: var(--green);
+  background: transparent;
+  border: var(--frame) solid var(--green);
+  padding: 4px 10px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+.btn:active {
+  background: rgb(26 255 128 / 0.2);
+}
+
+/* CRT overlay: static scanlines + vignette, no flicker. */
+#crt {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgb(0 0 0 / 0) 0,
+      rgb(0 0 0 / 0) 2px,
+      rgb(0 0 0 / 0.28) 3px,
+      rgb(0 0 0 / 0) 4px
+    ),
+    radial-gradient(ellipse at center, rgb(0 0 0 / 0) 55%, rgb(0 0 0 / 0.75) 100%);
+}
+
+#rotate-hint {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  background: var(--bg);
+  font-size: var(--fs-l);
+}
+
+@media (orientation: portrait) and (max-width: 900px) {
+  #rotate-hint {
+    display: flex;
+  }
+}
