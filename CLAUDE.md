@@ -42,3 +42,8 @@ Rules:
 ## Deploy
 Cloudflare Workers static assets (`wrangler.jsonc`, SPA fallback), serving `dist/`.
 No backend yet; multiplayer comes in a later handoff. Handoff specs live in `docs/handoffs/`.
+
+## Communication with the owner
+- Always answer in **English**, short and to the point.
+- Always give honest **critique** of what the owner plans or implements,
+  plus a concrete **suggested fix / alternative**.
