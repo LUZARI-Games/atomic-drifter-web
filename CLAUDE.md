@@ -25,6 +25,9 @@ The owner works from an Android phone and is not a programmer: keep explanations
 ## Two looks
 - **Terminal UI** (HTML overlay: bars, menus, HUD) – green phosphor rules below.
 - **Game world** (the ship in Phaser) – flat 2D top-down like FTL / Void War, no 3D / 2.5D / perspective.
+  Setting: post-nuclear Earth (Fallout-like); ships are patched-up pre-war **airships** flying low over the wasteland –
+  hull with a rounded-pointed nose at the bow (right), propellers + tail fins at the stern (left). Never space/rockets.
+  Each system's machine tiles form ONE continuous block (gap to the walls, dark rim, system symbol) – `src/core/hull.ts`.
   Grimdark, desaturated Fallout 3 tones from `WORLD` in `src/render/palette.ts` (olive-grey steel, rust, dim lamp-yellow).
   No green glow and no scanlines on the world. Selection = pale lamp-yellow outline.
 

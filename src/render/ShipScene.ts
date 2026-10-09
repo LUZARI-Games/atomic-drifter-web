@@ -1,21 +1,28 @@
-// Draws the ship (planner Godot export) from core state: flat top-down like FTL / Void War, bow pointing right.
+// Draws the airship (planner Godot export) from core state: flat top-down like FTL / Void War, bow pointing right.
 // World look = grimdark Fallout 3 tones (see WORLD in palette.ts), NOT the green terminal UI look.
 // Owns NO game state: taps are converted to ship meters and forwarded to core via the store.
 import Phaser from 'phaser';
+import { airshipHull, blockPolygons, systemBlocks, type HullShape, type SystemBlock } from '../core/hull';
 import { tapPoint } from '../core/selection';
-import { roomCenter, roomOutline, shipBounds } from '../core/ship';
+import { roomFloorCenter, roomOutline } from '../core/ship';
 import type { Store } from '../core/store';
 import type { GameState, Point } from '../core/types';
 import { FONT_FAMILY, FONT_SIZES, GAME_HEIGHT, GAME_WIDTH, WORLD } from './palette';
 
 // Free play area between the HTML top bar and info line (game units).
-const AREA = { x: 60, y: 110, w: GAME_WIDTH - 120, h: GAME_HEIGHT - 220 };
-const MAX_SCALE = 90; // px per meter
+const AREA = { x: 50, y: 110, w: GAME_WIDTH - 100, h: GAME_HEIGHT - 220 };
+const MAX_SCALE = 80; // px per meter
+const BLOCK_GAP_M = 0.32; // gap between a system block and the walls
+const BLOCK_RIM_M = 0.09; // dark rim around a system block
+
+type V = Phaser.Math.Vector2;
 
 export class ShipScene extends Phaser.Scene {
   private gfx!: Phaser.GameObjects.Graphics;
   private scaleM = 1;
   private origin = { x: 0, y: 0 };
+  private hull!: HullShape;
+  private blocks: SystemBlock[] = [];
   private unsubscribe: (() => void) | null = null;
 
   constructor(private readonly store: Store<GameState>) {
@@ -31,17 +38,32 @@ export class ShipScene extends Phaser.Scene {
     return [(py - this.origin.y) / this.scaleM, -(px - this.origin.x) / this.scaleM];
   }
 
+  private poly(points: Point[]): V[] {
+    return points.map((p) => {
+      const s = this.toScreen(p);
+      return new Phaser.Math.Vector2(s.x, s.y);
+    });
+  }
+
   create(): void {
     const { ship } = this.store.get();
-    const b = shipBounds(ship);
-    const HULL_MARGIN_M = 0.7; // hull plating drawn outside the deck tiles
-    const lenM = b.maxZ - b.minZ + HULL_MARGIN_M * 2;
-    const widM = b.maxX - b.minX + HULL_MARGIN_M * 2;
-    this.scaleM = Math.min(AREA.w / lenM, AREA.h / widM, MAX_SCALE);
-    // centre the bounding box in the play area
+    this.hull = airshipHull(ship);
+    this.blocks = systemBlocks(ship);
+
+    // fit the whole airship (hull, fins, propellers) into the play area
+    const r = this.hull.propRadius;
+    const all: Point[] = [
+      ...this.hull.outline,
+      ...this.hull.fins.flat(),
+      ...this.hull.propellers.flatMap(([x, z]) => [[x - r, z + r], [x + r, z + r]] as Point[]),
+    ];
+    const xs = all.map((p) => p[0]);
+    const zs = all.map((p) => p[1]);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
+    this.scaleM = Math.min(AREA.w / (maxZ - minZ), AREA.h / (maxX - minX), MAX_SCALE);
     this.origin = {
-      x: AREA.x + AREA.w / 2 + ((b.minZ + b.maxZ) / 2) * this.scaleM,
-      y: AREA.y + AREA.h / 2 - ((b.minX + b.maxX) / 2) * this.scaleM,
+      x: AREA.x + AREA.w / 2 + ((minZ + maxZ) / 2) * this.scaleM,
+      y: AREA.y + AREA.h / 2 - ((minX + maxX) / 2) * this.scaleM,
     };
 
     this.gfx = this.add.graphics();
@@ -57,13 +79,17 @@ export class ShipScene extends Phaser.Scene {
     this.draw();
   }
 
+  /** Stencil paint on the free deck of each system room. Hidden when it does not fit. */
   private createLabels(): void {
     const { ship } = this.store.get();
     for (const room of ship.rooms) {
-      if (room.kind !== 'system') continue; // plain rooms / balconies stay unlabelled, like FTL
-      const c = roomCenter(ship, room.id);
+      if (room.kind !== 'system') continue; // plain rooms / balconies stay unlabelled
+      const c = roomFloorCenter(ship, room.id);
       if (!c) continue;
-      const pts = ship.tiles.filter((t) => t.room === room.id).flatMap((t) => t.polygon.map((p) => this.toScreen(p)));
+      const free = ship.tiles.filter((t) => t.room === room.id && !t.machinery);
+      const pts = (free.length ? free : ship.tiles.filter((t) => t.room === room.id)).flatMap((t) =>
+        t.polygon.map((p) => this.toScreen(p)),
+      );
       const roomW = Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x));
       const pos = this.toScreen(c);
       const make = (size: number, spacing: number) =>
@@ -74,7 +100,7 @@ export class ShipScene extends Phaser.Scene {
             color: '#' + WORLD.label.toString(16).padStart(6, '0'),
           })
           .setLetterSpacing(spacing)
-          .setAlpha(0.7) // worn stencil paint on the deck
+          .setAlpha(0.7) // worn paint on the deck
           .setOrigin(0.5);
       let label = make(FONT_SIZES.medium, 3);
       if (label.width > roomW * 0.9) {
@@ -85,57 +111,34 @@ export class ShipScene extends Phaser.Scene {
     }
   }
 
-  private poly(points: Point[]): Phaser.Math.Vector2[] {
-    return points.map((p) => {
-      const s = this.toScreen(p);
-      return new Phaser.Math.Vector2(s.x, s.y);
-    });
-  }
-
-  /** Tile polygon grown outward by `m` meters (for the hull silhouette around the deck). */
-  private grow(t: { center: Point; polygon: Point[] }, m: number): Point[] {
-    return t.polygon.map(([x, z]) => {
-      const dx = x - t.center[0];
-      const dz = z - t.center[1];
-      const len = Math.hypot(dx, dz) || 1;
-      return [x + (dx / len) * m * Math.SQRT2, z + (dz / len) * m * Math.SQRT2] as Point;
-    });
-  }
-
   private draw(): void {
     const { ship, selectedRoomId } = this.store.get();
     const g = this.gfx;
     const px = this.scaleM;
     g.clear();
 
-    // 1. Hull: dark plating around the deck, with a faint rim
-    const HULL_M = 0.45;
-    g.fillStyle(WORLD.hullEdge, 1);
-    for (const t of ship.tiles) g.fillPoints(this.poly(this.grow(t, HULL_M + 0.08)), true);
-    g.fillStyle(WORLD.hull, 1);
-    for (const t of ship.tiles) g.fillPoints(this.poly(this.grow(t, HULL_M)), true);
+    this.drawHull(g);
 
-    // 2. Deck: plates with seams; machinery as rusty blocks with a cross brace
+    // Deck plates with seams
     for (const t of ship.tiles) {
-      const pts = this.poly(t.polygon);
       g.fillStyle(WORLD.floor, 1);
-      g.fillPoints(pts, true);
+      g.fillPoints(this.poly(t.polygon), true);
       g.lineStyle(Math.max(1, px * 0.05), WORLD.floorSeam, 1);
-      g.strokePoints(this.poly(this.grow(t, -0.12)), true);
-      if (t.machinery) {
-        const inner = this.poly(this.grow(t, -0.25));
-        g.fillStyle(WORLD.machinery, 1);
-        g.fillPoints(inner, true);
-        g.lineStyle(Math.max(1, px * 0.06), WORLD.machineryDark, 1);
-        g.strokePoints(inner, true);
-        if (inner.length === 4) {
-          g.lineBetween(inner[0]!.x, inner[0]!.y, inner[2]!.x, inner[2]!.y);
-          g.lineBetween(inner[1]!.x, inner[1]!.y, inner[3]!.x, inner[3]!.y);
-        }
-      }
+      g.strokePoints(this.poly(this.shrink(t.polygon, t.center, 0.1)), true);
     }
 
-    // 3. Walls: dark body + light top edge; square caps fill the joints
+    // System blocks: one continuous shape per system, dark rim, symbol in the middle
+    for (const b of this.blocks) {
+      g.fillStyle(WORLD.machineryDark, 1);
+      for (const p of blockPolygons(b, BLOCK_GAP_M)) g.fillPoints(this.poly(p), true);
+      g.fillStyle(WORLD.machinery, 1);
+      for (const p of blockPolygons(b, BLOCK_GAP_M + BLOCK_RIM_M)) g.fillPoints(this.poly(p), true);
+      const c = this.toScreen(b.center);
+      const size = Math.max(10, Math.min((b.minSide - BLOCK_GAP_M * 2) * px * 0.32, 34));
+      this.drawSymbol(g, b.system, c.x, c.y, size);
+    }
+
+    // Walls: dark body + light top edge; square caps fill the joints
     for (const w of ship.walls) {
       const a = this.toScreen(w.a);
       const b = this.toScreen(w.b);
@@ -155,45 +158,187 @@ export class ShipScene extends Phaser.Scene {
       g.lineBetween(a.x, a.y, b.x, b.y);
     }
 
-    // 4. Doors: closed slabs in the wall gap; airlocks rust-orange with hazard stripes
+    // Doors: closed slabs in the wall gap; airlocks rust-orange with hazard stripes
     for (const d of ship.doors) {
       const c = this.toScreen(d.center);
       const len = d.width * px;
       const thick = Math.max(4, px * (d.kind === 'airlock' ? 0.36 : 0.26));
-      const [w, h] = d.axis === 'x' ? [thick, len] : [len, thick]; // x axis = screen vertical
+      const [w, h] = d.axis === 'x' ? [thick, len] : [len, thick]; // ship x axis = screen vertical
       const x0 = c.x - w / 2;
       const y0 = c.y - h / 2;
       g.fillStyle(d.kind === 'airlock' ? WORLD.airlock : WORLD.door, 1);
       g.fillRect(x0, y0, w, h);
       if (d.kind === 'airlock') {
         g.fillStyle(WORLD.hazard, 0.8);
-        const n = 4;
-        for (let i = 0; i < n; i++) {
-          if (d.axis === 'x') g.fillRect(x0, y0 + ((i + 0.25) * h) / n, w, h / n / 2);
-          else g.fillRect(x0 + ((i + 0.25) * w) / n, y0, w / n / 2, h);
+        for (let i = 0; i < 4; i++) {
+          if (d.axis === 'x') g.fillRect(x0, y0 + ((i + 0.25) * h) / 4, w, h / 8);
+          else g.fillRect(x0 + ((i + 0.25) * w) / 4, y0, w / 8, h);
         }
       }
       g.lineStyle(1, WORLD.wall, 1);
       g.strokeRect(x0, y0, w, h);
-      // split line: two leaves meeting in the middle
-      g.lineStyle(1, WORLD.wall, 0.8);
       if (d.axis === 'x') g.lineBetween(x0, c.y, x0 + w, c.y);
       else g.lineBetween(c.x, y0, c.x, y0 + h);
     }
 
-    // 5. Selection: faint lamp-light tint on the floor + crisp outline around the room
+    // Selection: faint lamp-light tint on the floor + crisp outline around the room
     if (selectedRoomId) {
       g.fillStyle(WORLD.select, 0.1);
       for (const t of ship.tiles) if (t.room === selectedRoomId) g.fillPoints(this.poly(t.polygon), true);
       g.lineStyle(3, WORLD.select, 1);
+      g.fillStyle(WORLD.select, 1);
       for (const [p, q] of roomOutline(ship, selectedRoomId)) {
         const s1 = this.toScreen(p);
         const s2 = this.toScreen(q);
         g.lineBetween(s1.x, s1.y, s2.x, s2.y);
-        g.fillStyle(WORLD.select, 1);
-        g.fillRect(s1.x - 1.5, s1.y - 1.5, 3, 3); // square joints
+        g.fillRect(s1.x - 1.5, s1.y - 1.5, 3, 3);
         g.fillRect(s2.x - 1.5, s2.y - 1.5, 3, 3);
       }
+    }
+  }
+
+  /** Polygon pulled towards its centre by `m` meters (for plate seams). */
+  private shrink(poly: Point[], c: Point, m: number): Point[] {
+    return poly.map(([x, z]) => {
+      const dx = x - c[0];
+      const dz = z - c[1];
+      const len = Math.hypot(dx, dz) || 1;
+      return [x - (dx / len) * m * Math.SQRT2, z - (dz / len) * m * Math.SQRT2] as Point;
+    });
+  }
+
+  /** Airship body: tail fins and propellers behind, then the hull plating with a rim and a centre keel line. */
+  private drawHull(g: Phaser.GameObjects.Graphics): void {
+    const px = this.scaleM;
+    const h = this.hull;
+
+    // propeller struts + discs (behind the hull)
+    for (const p of h.propellers) {
+      const c = this.toScreen(p);
+      const r = h.propRadius * px;
+      g.lineStyle(Math.max(3, px * 0.18), WORLD.wall, 1);
+      g.lineBetween(c.x, c.y, c.x + r + 0.9 * px, c.y); // strut to the stern
+      g.fillStyle(WORLD.wallTop, 0.12); // spinning blur
+      g.fillCircle(c.x, c.y, r);
+      g.lineStyle(Math.max(3, px * 0.14), WORLD.hullEdge, 1);
+      g.lineBetween(c.x - r * 0.25, c.y - r * 0.95, c.x + r * 0.25, c.y + r * 0.95); // two blades
+      g.lineBetween(c.x - r * 0.25, c.y + r * 0.95, c.x + r * 0.25, c.y - r * 0.95);
+      g.fillStyle(WORLD.wall, 1);
+      g.fillCircle(c.x, c.y, Math.max(3, r * 0.22));
+    }
+
+    // tail fins
+    for (const f of h.fins) {
+      const pts = this.poly(f);
+      g.fillStyle(WORLD.hull, 1);
+      g.fillPoints(pts, true);
+      g.lineStyle(Math.max(2, px * 0.08), WORLD.hullEdge, 1);
+      g.strokePoints(pts, true);
+    }
+
+    // hull body with a light rim
+    const body = this.poly(h.outline);
+    g.fillStyle(WORLD.hull, 1);
+    g.fillPoints(body, true);
+    g.lineStyle(Math.max(3, px * 0.12), WORLD.hullEdge, 1);
+    g.strokePoints(body, true);
+
+    // keel line along the centre, from stern to nose tip (subtle plating detail)
+    const zs = h.outline.map((p) => p[1]);
+    const xs = h.outline.map((p) => p[0]);
+    const xc = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const a = this.toScreen([xc, Math.max(...zs)]);
+    const b = this.toScreen([xc, Math.min(...zs)]);
+    g.lineStyle(Math.max(1, px * 0.05), WORLD.hullEdge, 0.5);
+    g.lineBetween(a.x + 4, a.y, b.x - 4, b.y);
+  }
+
+  /** Simple top-down symbol per system, painted in worn stencil colour. */
+  private drawSymbol(g: Phaser.GameObjects.Graphics, system: string | null, x: number, y: number, s: number): void {
+    const id = String(system ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const lw = Math.max(2, s * 0.14);
+    g.lineStyle(lw, WORLD.label, 0.75);
+    g.fillStyle(WORLD.label, 0.75);
+    switch (id) {
+      case 'reactor': // core with radiation trefoil
+        g.strokeCircle(x, y, s);
+        for (let i = 0; i < 3; i++) {
+          const a0 = -Math.PI / 2 + (i * 2 * Math.PI) / 3 - 0.45;
+          g.slice(x, y, s * 0.8, a0, a0 + 0.9, false);
+          g.fillPath();
+        }
+        g.fillStyle(WORLD.machinery, 1);
+        g.fillCircle(x, y, s * 0.25);
+        g.fillStyle(WORLD.label, 0.75);
+        g.fillCircle(x, y, s * 0.15);
+        break;
+      case 'engine':
+      case 'engines': // two chevrons pointing to the bow
+        for (const dx of [-0.45, 0.35]) {
+          g.lineBetween(x + (dx - 0.35) * s, y - s * 0.7, x + (dx + 0.35) * s, y);
+          g.lineBetween(x + (dx + 0.35) * s, y, x + (dx - 0.35) * s, y + s * 0.7);
+        }
+        break;
+      case 'cockpit':
+      case 'piloting': // ship's wheel
+        g.strokeCircle(x, y, s * 0.75);
+        for (let i = 0; i < 8; i++) {
+          const a = (i * Math.PI) / 4;
+          g.lineBetween(x + Math.cos(a) * s * 0.2, y + Math.sin(a) * s * 0.2, x + Math.cos(a) * s, y + Math.sin(a) * s);
+        }
+        g.fillCircle(x, y, s * 0.2);
+        break;
+      case 'weapon':
+      case 'weapons': // crosshair
+        g.strokeCircle(x, y, s * 0.7);
+        g.lineBetween(x - s, y, x - s * 0.3, y);
+        g.lineBetween(x + s * 0.3, y, x + s, y);
+        g.lineBetween(x, y - s, x, y - s * 0.3);
+        g.lineBetween(x, y + s * 0.3, x, y + s);
+        break;
+      case 'shield':
+      case 'shields': // shield
+        g.strokePoints(
+          [
+            new Phaser.Math.Vector2(x, y - s),
+            new Phaser.Math.Vector2(x + s * 0.8, y - s * 0.65),
+            new Phaser.Math.Vector2(x + s * 0.7, y + s * 0.2),
+            new Phaser.Math.Vector2(x, y + s),
+            new Phaser.Math.Vector2(x - s * 0.7, y + s * 0.2),
+            new Phaser.Math.Vector2(x - s * 0.8, y - s * 0.65),
+          ],
+          true,
+        );
+        break;
+      case 'sensor':
+      case 'sensors': // radar dish
+        g.beginPath();
+        g.arc(x, y + s * 0.2, s * 0.8, Math.PI * 1.1, Math.PI * 1.9, false);
+        g.strokePath();
+        g.lineBetween(x, y + s * 0.2, x, y + s);
+        g.lineBetween(x - s * 0.5, y + s, x + s * 0.5, y + s);
+        g.fillCircle(x, y - s * 0.25, s * 0.15);
+        break;
+      case 'medbay': // cross
+        g.fillRect(x - s * 0.22, y - s * 0.75, s * 0.44, s * 1.5);
+        g.fillRect(x - s * 0.75, y - s * 0.22, s * 1.5, s * 0.44);
+        break;
+      case 'doors': // door frame with split
+        g.strokeRect(x - s * 0.55, y - s * 0.85, s * 1.1, s * 1.7);
+        g.lineBetween(x, y - s * 0.85, x, y + s * 0.85);
+        break;
+      case 'crewteleporter': // two pads
+        g.strokeEllipse(x, y - s * 0.55, s * 1.6, s * 0.5);
+        g.strokeEllipse(x, y + s * 0.55, s * 1.6, s * 0.5);
+        g.lineBetween(x, y - s * 0.3, x, y + s * 0.3);
+        break;
+      case 'drones': // body + 4 rotors
+        g.strokeRect(x - s * 0.3, y - s * 0.3, s * 0.6, s * 0.6);
+        for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const)
+          g.strokeCircle(x + dx * s * 0.7, y + dy * s * 0.7, s * 0.25);
+        break;
+      default: // unknown system: plain square plate
+        g.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
     }
   }
 }

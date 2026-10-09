@@ -45,7 +45,7 @@
   {
    "room": "engines",
    "shape": "full",
-   "machinery": false,
+   "machinery": true,
    "center": [
     -1.0,
     3.0
@@ -99,7 +99,7 @@
   {
    "room": "weapons",
    "shape": "full",
-   "machinery": false,
+   "machinery": true,
    "center": [
     -1.0,
     1.0
@@ -180,7 +180,7 @@
   {
    "room": "shields",
    "shape": "full",
-   "machinery": false,
+   "machinery": true,
    "center": [
     1.0,
     -1.0
@@ -207,7 +207,7 @@
   {
    "room": "piloting",
    "shape": "full",
-   "machinery": false,
+   "machinery": true,
    "center": [
     -1.0,
     -3.0

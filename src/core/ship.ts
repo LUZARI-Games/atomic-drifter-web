@@ -77,23 +77,32 @@ export function roomCenter(ship: Ship, id: string): Point | null {
   return [ts.reduce((s, t) => s + t.center[0], 0) / ts.length, ts.reduce((s, t) => s + t.center[1], 0) / ts.length];
 }
 
-/**
- * Outer outline of a room: every tile edge that is not shared with another tile of the same room.
- * Used for the selection outline. Edges are matched with 1 mm tolerance.
- */
+/** Outer outline of a room (shared tile edges removed) – used for the selection outline. */
 export function roomOutline(ship: Ship, id: string): [Point, Point][] {
-  const k = ([x, z]: Point) => `${Math.round(x * 1000)},${Math.round(z * 1000)}`;
-  const count = new Map<string, { seg: [Point, Point]; n: number }>();
-  for (const t of ship.tiles) {
-    if (t.room !== id) continue;
+  return tilesOutline(ship.tiles.filter((t) => t.room === id));
+}
+
+/** Average of a room's free-floor tile centres (falls back to all tiles) – where the floor label goes. */
+export function roomFloorCenter(ship: Ship, id: string): Point | null {
+  const free = ship.tiles.filter((t) => t.room === id && !t.machinery);
+  if (!free.length) return roomCenter(ship, id);
+  return [free.reduce((s, t) => s + t.center[0], 0) / free.length, free.reduce((s, t) => s + t.center[1], 0) / free.length];
+}
+
+/** Stable map key for a point (1 mm precision). */
+export const pointKey = ([x, z]: Point) => `${Math.round(x * 1000)},${Math.round(z * 1000)}`;
+
+/** Outer edges of a group of tiles: every edge not shared by two tiles of the group. */
+export function tilesOutline(tiles: ShipTile[]): [Point, Point][] {
+  const seen = new Map<string, { seg: [Point, Point]; n: number }>();
+  for (const t of tiles)
     for (let i = 0; i < t.polygon.length; i++) {
       const a = t.polygon[i]!;
       const b = t.polygon[(i + 1) % t.polygon.length]!;
-      const key = [k(a), k(b)].sort().join('|');
-      const e = count.get(key);
+      const k = [pointKey(a), pointKey(b)].sort().join('|');
+      const e = seen.get(k);
       if (e) e.n++;
-      else count.set(key, { seg: [a, b], n: 1 });
+      else seen.set(k, { seg: [a, b], n: 1 });
     }
-  }
-  return [...count.values()].filter((e) => e.n === 1).map((e) => e.seg);
+  return [...seen.values()].filter((e) => e.n === 1).map((e) => e.seg);
 }
