@@ -1,0 +1,114 @@
+/* Design tokens – keep in sync with src/render/palette.ts */
+:root {
+  --bg: #030806;
+  --green: #1aff80;
+  --green-dim: #0d6b3a;
+  --amber: #ffb43a;
+  --red: #ff4a3a;
+  --font: 'Share Tech Mono', monospace;
+  --fs-l: 24px;
+  --fs-m: 18px;
+  --fs-s: 15px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--green);
+  font-family: var(--font);
+  font-size: var(--fs-m);
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+}
+
+/* HTML overlay above the canvas; only real controls receive input. */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+#hud button { pointer-events: auto; }
+
+.topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  border-bottom: 3px solid var(--green-dim);
+  background: rgba(3, 8, 6, 0.85);
+}
+.title {
+  font-size: var(--fs-l);
+  letter-spacing: 4px;
+  text-shadow: 0 0 6px rgba(26, 255, 128, 0.6);
+}
+
+.btn {
+  font-family: var(--font);
+  font-size: var(--fs-s);
+  color: var(--green);
+  background: transparent;
+  border: 3px solid var(--green);
+  padding: 6px 12px;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+.btn:active { background: rgba(26, 255, 128, 0.18); }
+
+.infoline {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 10px 16px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  font-size: var(--fs-m);
+  letter-spacing: 2px;
+  border-top: 3px solid var(--green-dim);
+  background: rgba(3, 8, 6, 0.85);
+}
+.prompt { color: var(--amber); }
+.cursor { animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.rotate-hint {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  background: var(--bg);
+  color: var(--amber);
+  font-size: var(--fs-l);
+  letter-spacing: 3px;
+}
+@media (orientation: portrait) and (max-width: 900px) {
+  .rotate-hint { display: flex; pointer-events: auto; }
+}
+
+/* CRT overlay: static scanlines + vignette (no flicker). */
+#crt {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.65) 100%);
+}

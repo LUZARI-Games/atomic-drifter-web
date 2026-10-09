@@ -1,0 +1,26 @@
+{
+  "name": "atomic-drifter-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "preview": "vite preview --host",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.1.0",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.40.0"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}
