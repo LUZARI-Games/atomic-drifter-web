@@ -152,3 +152,36 @@ html, body {
 .sh-face .hp.warn i { background: var(--amber); }
 .sh-face .hp.bad i { background: var(--red); }
 .sh-face .badge { position: absolute; right: 3px; top: 3px; width: 10px; height: 10px; border: 1px solid #000; }
+
+/* ===== Terminal boot screen (POWER ON / REBOOT + OPTIONS), shared by the terminal pages ===== */
+.boot-screen {
+  position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 64px 16px 24px; box-sizing: border-box; overflow-y: auto;
+  background: radial-gradient(ellipse at center, #07160e 0%, #020805 70%, #010302 100%);
+  color: var(--green); font-family: var(--font);
+}
+.boot-screen.hidden { display: none; }
+.boot-power {
+  width: 240px; height: 56px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 10px;
+  border: 3px solid color-mix(in srgb, var(--green) 60%, transparent); background: transparent; color: var(--green);
+  font-family: var(--font); font-size: var(--fs-m); letter-spacing: 0.18em; cursor: pointer;
+  box-shadow: 0 0 calc(14px * var(--bloom, 1)) color-mix(in srgb, var(--green) 25%, transparent);
+}
+.boot-cap { font-size: var(--fs-s); letter-spacing: 0.3em; opacity: 0.5; margin-top: 8px; }
+.boot-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.boot-tog {
+  min-height: 48px; padding: 0 18px; box-sizing: border-box; border: 3px solid color-mix(in srgb, var(--green) 35%, transparent);
+  background: transparent; color: color-mix(in srgb, var(--green) 70%, transparent); font-family: var(--font);
+  font-size: var(--fs-s); letter-spacing: 0.15em; cursor: pointer;
+}
+.boot-tog.on {
+  border-color: var(--green); color: var(--green); background: color-mix(in srgb, var(--green) 10%, transparent);
+  box-shadow: 0 0 calc(12px * var(--bloom, 1)) color-mix(in srgb, var(--green) 35%, transparent);
+  text-shadow: 0 0 calc(6px * var(--bloom, 1)) color-mix(in srgb, var(--green) 65%, transparent);
+}
+.boot-tog.dim { opacity: 0.75; }
+.boot-bloom { display: flex; align-items: center; gap: 14px; font-size: var(--fs-s); letter-spacing: 0.15em; width: min(460px, 100%); }
+.boot-bloom input { flex: 1; accent-color: var(--green); min-width: 80px; }
+.boot-bloom b { font-weight: normal; min-width: 64px; text-align: right; }
+.boot-extra { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(1180px, 100%); }
+.boot-extra:empty { display: none; }
