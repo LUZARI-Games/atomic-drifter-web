@@ -184,7 +184,7 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   if (ringColor !== undefined) {
     // selected: ring on the floor (team colour is already the outline)
     g.lineStyle(Math.max(2, 0.08 * pxPerM), ringColor, 1);
-    g.strokePoints(floorEllipse(W + 0.3, sit ? sit.hip : 0).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
+    g.strokePoints(floorEllipse(W + 0.3, sit ? (sit.kind === 'pod' ? 0.74 : sit.hip) : 0).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
   }
 
   // --- legs (trousers = dark origin colour) ---

@@ -106,8 +106,8 @@ export interface SeatPose {
 export const SEATS = {
   bike: { du: -0.25, hip: 0.74, foot: 0.3 },
   car: { rowDu: { back: -0.62, front: 0.48 }, sideDw: 0.45, hip: 0.62, foot: 0.42, wheelSide: 1 },
-  pod: { du: -0.15, hip: 0.7 },
-  podOffset: 0.85, // pod centre beside the bike (m, towards the pod tile)
+  pod: { du: -0.12, hip: 0.4 }, // low inside the egg (its rim is at 0.72 m): only shoulders + head look out
+  podOffset: 1.05, // pod centre beside the bike (m, towards the pod tile) – room between rider and passenger
 } as const;
 
 /** Where and how a crew member sits on seat `t` (= tile) of vehicle `vi`. */

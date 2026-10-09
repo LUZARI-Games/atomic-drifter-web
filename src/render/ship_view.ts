@@ -12,7 +12,7 @@ import type { Point, Ship, ShipVehicle } from '../core/types';
 import { drawCrewIso, type IdlePose, type SitPose } from './crew_iso';
 import { drawSystemIcon } from './icons';
 import { FONT_FAMILY, FONT_SIZES, VEHICLE, WORLD, worldPaint } from './palette';
-import { balconyRoomIds, dockArms, railingParts, vehicleFrame } from '../core/exterior';
+import { balconyRoomIds, dockArms, railingParts, SEATS, vehicleFrame } from '../core/exterior';
 
 type G = Phaser.GameObjects.Graphics;
 type Item = { key: number; box: FloorBox; draw: (g: G) => void };
@@ -136,8 +136,9 @@ export class ShipView {
       vehicleItem.push(items.length + dockArms(this.ship, v).length);
       for (const arm of dockArms(this.ship, v)) items.push({ key: this.sortKey(arm.footprint, 0), box: box(arm.footprint), draw: (g) => this.drawSolid(g, arm) });
       const fp = v.tiles.flatMap((t) => t.polygon);
-      items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: (g) => this.drawVehicle(g, v, v.type === 'car' ? 'body' : 'all') });
-      if (v.type === 'car') {
+      const hasRim = v.type === 'car' || (v.type === 'sidecar' && v.tiles.length >= 2);
+      items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: (g) => this.drawVehicle(g, v, hasRim ? 'body' : 'all') });
+      if (hasRim) {
         mustFollow.push([items.length - 1, items.length]);
         vehicleRim.push(items.length);
         items.push({ key: this.sortKey(fp, 0) + 0.0001, box: box(fp), draw: (g) => this.drawVehicle(g, v, 'rim') });
@@ -419,17 +420,18 @@ export class ShipView {
     const at = (o: Point, du: number, dw: number): Point => [o[0] + u[0] * du + w[0] * dw, o[1] + u[1] * du + w[1] * dw];
     // layer: 0 = wheels (under the body), 1 = floor pan, 2 = everything else (back to front)
     // shell = car walls / hood / trunk / windscreen: the ones nearer the viewer than the car's middle form the "rim"
-    const parts: { fp: Point[]; z0: number; z1: number; top: number; side: number; layer: number; shell?: boolean }[] = [];
+    // pod = the sidecar's egg: drawn whole under the passenger, its sides again over them (they sit IN it)
+    const parts: { fp: Point[]; z0: number; z1: number; top: number; side: number; layer: number; shell?: boolean; pod?: boolean }[] = [];
     const box = (o: Point, du0: number, du1: number, dw0: number, dw1: number, z0: number, z1: number, col: number, layer = 2, shell = false) =>
       parts.push({ fp: [at(o, du0, dw0), at(o, du1, dw0), at(o, du1, dw1), at(o, du0, dw1)], z0, z1, top: col, side: shade(col, 30), layer, shell });
     /** Egg shape (convex): length 2·ru along u, width 2·rw, narrower towards the front (+u). */
-    const egg = (o: Point, ru: number, rw: number, z0: number, z1: number, col: number) => {
+    const egg = (o: Point, ru: number, rw: number, z0: number, z1: number, col: number, pod = false) => {
       const fp = Array.from({ length: 18 }, (_, i): Point => {
         const a = (i / 18) * Math.PI * 2;
         const cu = Math.cos(a);
         return at(o, cu * ru, Math.sin(a) * rw * (cu > 0 ? 1 - 0.3 * cu : 1));
       });
-      parts.push({ fp, z0, z1, top: col, side: shade(col, 30), layer: 2 });
+      parts.push({ fp, z0, z1, top: col, side: shade(col, 30), layer: 2, pod });
     };
     const bike = (o: Point) => {
       box(o, -0.85, -0.45, -0.06, 0.06, 0, 0.55, VEHICLE.tyre); // rear wheel
@@ -464,10 +466,10 @@ export class ShipView {
       bike(bc);
       const o = sorted[sorted.length - 1]!.center;
       const l = Math.hypot(o[0] - bc[0], o[1] - bc[1]) || 1;
-      const t: Point = [bc[0] + ((o[0] - bc[0]) / l) * 0.85, bc[1] + ((o[1] - bc[1]) / l) * 0.85];
-      box(t, -0.9, -0.2, -0.02, 0.02, 0.38, 0.46, VEHICLE.chrome); // strut to the bike
+      const t: Point = [bc[0] + ((o[0] - bc[0]) / l) * SEATS.podOffset, bc[1] + ((o[1] - bc[1]) / l) * SEATS.podOffset];
+      for (const du of [-0.45, 0.25]) box(bc, du, du + 0.05, 0.12, SEATS.podOffset - 0.35, 0.38, 0.46, VEHICLE.chrome); // struts to the bike
       box(t, -0.35, 0.15, 0.3, 0.44, 0, 0.45, VEHICLE.tyre); // pod wheel
-      egg(t, 0.75, 0.45, 0.2, 0.72, VEHICLE.olive); // egg-shaped pod
+      egg(t, 0.75, 0.45, 0.2, 0.72, VEHICLE.olive, true); // egg-shaped pod
       egg(at(t, -0.12, 0), 0.4, 0.27, 0.72, 0.73, VEHICLE.seat); // open cockpit of the pod
       box(t, -0.45, -0.32, -0.2, 0.2, 0.55, 0.9, shade(VEHICLE.seat, -10)); // backrest
     } else {
@@ -482,7 +484,10 @@ export class ShipView {
     parts.sort((p, q) => p.layer - q.layer || mid(p) - mid(q));
     const centre = depth(this.view, W(c, 0.6));
     const isRim = (p: (typeof parts)[number]) => !!p.shell && mid(p) > centre + 0.05;
-    for (const p of parts) if (part === 'all' || (part === 'rim') === isRim(p)) this.prism(g, p.fp, p.z0, p.z1, p.top, p.side);
+    for (const p of parts) {
+      if (part === 'rim' && p.pod) this.prism(g, p.fp, p.z0, p.z1, p.top, p.side, undefined, false); // pod sides only
+      else if (part === 'all' || (part === 'rim') === isRim(p)) this.prism(g, p.fp, p.z0, p.z1, p.top, p.side);
+    }
   }
 
   /** Stencil paint on the free deck of each system room, squashed like the floor. */
@@ -530,7 +535,7 @@ export class ShipView {
   }
 
   /** Convex footprint extruded from z0 to z1: front faces darker, top in the base paint. */
-  private prism(g: G, footprint: Point[], z0: number, z1: number, top: number, side: number, edge?: number): void {
+  private prism(g: G, footprint: Point[], z0: number, z1: number, top: number, side: number, edge?: number, withTop = true): void {
     const pts = footprint.map((p) => W(p));
     const n = pts.length;
     const cx = pts.reduce((s, p) => s + p[0], 0) / n;
@@ -545,6 +550,7 @@ export class ShipView {
         g.fillPoints([[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], z1], [a[0], a[1], z1]].map((p) => this.S(p as Vec3)), true);
       }
     }
+    if (!withTop) return;
     const topPts = pts.map((p) => this.S([p[0], p[1], z1]));
     g.fillStyle(top, 1);
     g.fillPoints(topPts, true);

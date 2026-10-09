@@ -88,7 +88,8 @@ never restate the owner's tasks back to them.
   seats (driver at the wheel, legs hidden), low in the sidecar pod. Seated crew face the driving direction (`SitPose`
   in crew_iso.ts). Car: front and back row are walled apart (`vehicles[].walls` from the export) – you get in at your
   row's door only and can switch seats only within the row; a rust partition shows it. The car's near walls are a
-  separate "rim" item drawn over the people inside.
+  separate "rim" item drawn over the people inside; the sidecar pod likewise (its egg sides are drawn again over the
+  passenger, who sits low in it, 1.05 m beside the bike).
 - Taps: a figure on screen selects / deselects it; with crew selected a tap sends them; tapping the void lets go.
 - Rendering: `ShipView.mountObjects` draws every standing object ONCE into its own graphics (stacked by depth);
   per frame only crew (and moving doors) are redrawn and slotted in by `isBehind`. Never redraw the whole ship per frame.
