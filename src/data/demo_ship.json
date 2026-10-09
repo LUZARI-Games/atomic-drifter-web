@@ -1,536 +1,576 @@
 {
- "format": "atomic-drifter-ship-godot",
- "version": 1,
- "revision": "demo",
- "name": "DEMO SHIP",
- "design_id": null,
- "tile_size": 2,
- "wall_height": 1.0,
- "door_width": 1.2,
- "size": {
-  "x": 4.0,
-  "z": 8.0
- },
- "rooms": [
-  {
-   "id": "engines",
-   "kind": "system",
-   "system": "engines",
-   "label": "ENGINES",
-   "color": null
+  "format": "atomic-drifter-ship-godot",
+  "version": 1,
+  "revision": "demo",
+  "name": "DEMO SHIP",
+  "design_id": null,
+  "tile_size": 2,
+  "wall_height": 1.0,
+  "door_width": 1.2,
+  "size": {
+    "x": 4.0,
+    "z": 8.0
   },
-  {
-   "id": "weapons",
-   "kind": "system",
-   "system": "weapons",
-   "label": "WEAPONS",
-   "color": null
-  },
-  {
-   "id": "shields",
-   "kind": "system",
-   "system": "shields",
-   "label": "SHIELDS",
-   "color": null
-  },
-  {
-   "id": "piloting",
-   "kind": "system",
-   "system": "piloting",
-   "label": "COCKPIT",
-   "color": null
-  }
- ],
- "tiles": [
-  {
-   "room": "engines",
-   "shape": "full",
-   "machinery": true,
-   "center": [
-    -1.0,
-    3.0
-   ],
-   "polygon": [
-    [
-     -2.0,
-     4.0
-    ],
-    [
-     -2.0,
-     2.0
-    ],
-    [
-     0.0,
-     2.0
-    ],
-    [
-     0.0,
-     4.0
-    ]
-   ]
-  },
-  {
-   "room": "engines",
-   "shape": "full",
-   "machinery": false,
-   "center": [
-    1.0,
-    3.0
-   ],
-   "polygon": [
-    [
-     0.0,
-     4.0
-    ],
-    [
-     0.0,
-     2.0
-    ],
-    [
-     2.0,
-     2.0
-    ],
-    [
-     2.0,
-     4.0
-    ]
-   ]
-  },
-  {
-   "room": "weapons",
-   "shape": "full",
-   "machinery": true,
-   "center": [
-    -1.0,
-    1.0
-   ],
-   "polygon": [
-    [
-     -2.0,
-     2.0
-    ],
-    [
-     -2.0,
-     0.0
-    ],
-    [
-     0.0,
-     0.0
-    ],
-    [
-     0.0,
-     2.0
-    ]
-   ]
-  },
-  {
-   "room": "shields",
-   "shape": "full",
-   "machinery": false,
-   "center": [
-    1.0,
-    1.0
-   ],
-   "polygon": [
-    [
-     0.0,
-     2.0
-    ],
-    [
-     0.0,
-     0.0
-    ],
-    [
-     2.0,
-     0.0
-    ],
-    [
-     2.0,
-     2.0
-    ]
-   ]
-  },
-  {
-   "room": "weapons",
-   "shape": "full",
-   "machinery": false,
-   "center": [
-    -1.0,
-    -1.0
-   ],
-   "polygon": [
-    [
-     -2.0,
-     0.0
-    ],
-    [
-     -2.0,
-     -2.0
-    ],
-    [
-     0.0,
-     -2.0
-    ],
-    [
-     0.0,
-     0.0
-    ]
-   ]
-  },
-  {
-   "room": "shields",
-   "shape": "full",
-   "machinery": true,
-   "center": [
-    1.0,
-    -1.0
-   ],
-   "polygon": [
-    [
-     0.0,
-     0.0
-    ],
-    [
-     0.0,
-     -2.0
-    ],
-    [
-     2.0,
-     -2.0
-    ],
-    [
-     2.0,
-     0.0
-    ]
-   ]
-  },
-  {
-   "room": "piloting",
-   "shape": "full",
-   "machinery": true,
-   "center": [
-    -1.0,
-    -3.0
-   ],
-   "polygon": [
-    [
-     -2.0,
-     -2.0
-    ],
-    [
-     -2.0,
-     -4.0
-    ],
-    [
-     0.0,
-     -4.0
-    ],
-    [
-     0.0,
-     -2.0
-    ]
-   ]
-  },
-  {
-   "room": "piloting",
-   "shape": "full",
-   "machinery": false,
-   "center": [
-    1.0,
-    -3.0
-   ],
-   "polygon": [
-    [
-     0.0,
-     -2.0
-    ],
-    [
-     0.0,
-     -4.0
-    ],
-    [
-     2.0,
-     -4.0
-    ],
-    [
-     2.0,
-     -2.0
-    ]
-   ]
-  }
- ],
- "walls": [
-  {
-   "kind": "hull",
-   "a": [
-    -2.0,
-    4.0
-   ],
-   "b": [
-    0.0,
-    4.0
-   ]
-  },
-  {
-   "kind": "interior",
-   "a": [
-    -2.0,
-    2.0
-   ],
-   "b": [
-    -1.6,
-    2.0
-   ]
-  },
-  {
-   "kind": "interior",
-   "a": [
-    -0.4,
-    2.0
-   ],
-   "b": [
-    0.0,
-    2.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    -2.0,
-    4.0
-   ],
-   "b": [
-    -2.0,
-    2.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    0.0,
-    4.0
-   ],
-   "b": [
-    2.0,
-    4.0
-   ]
-  },
-  {
-   "kind": "interior",
-   "a": [
-    0.0,
-    2.0
-   ],
-   "b": [
-    2.0,
-    2.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    2.0,
-    4.0
-   ],
-   "b": [
-    2.0,
-    2.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    -2.0,
-    2.0
-   ],
-   "b": [
-    -2.0,
-    0.0
-   ]
-  },
-  {
-   "kind": "interior",
-   "a": [
-    0.0,
-    2.0
-   ],
-   "b": [
-    0.0,
-    1.6
-   ]
-  },
-  {
-   "kind": "interior",
-   "a": [
-    0.0,
-    0.4
-   ],
-   "b": [
-    0.0,
-    0.0
-   ]
-  },
-  {
-   "kind": "interior",
-   "a": [
-    -2.0,
-    -2.0
-   ],
-   "b": [
-    -1.6,
-    -2.0
-   ]
-  },
-  {
-   "kind": "interior",
-   "a": [
-    -0.4,
-    -2.0
-   ],
-   "b": [
-    0.0,
-    -2.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    -2.0,
-    0.0
-   ],
-   "b": [
-    -2.0,
-    -2.0
-   ]
-  },
-  {
-   "kind": "interior",
-   "a": [
-    0.0,
-    0.0
-   ],
-   "b": [
-    0.0,
-    -2.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    2.0,
-    2.0
-   ],
-   "b": [
-    2.0,
-    0.0
-   ]
-  },
-  {
-   "kind": "interior",
-   "a": [
-    0.0,
-    -2.0
-   ],
-   "b": [
-    2.0,
-    -2.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    2.0,
-    0.0
-   ],
-   "b": [
-    2.0,
-    -2.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    -2.0,
-    -4.0
-   ],
-   "b": [
-    0.0,
-    -4.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    -2.0,
-    -2.0
-   ],
-   "b": [
-    -2.0,
-    -4.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    0.0,
-    -4.0
-   ],
-   "b": [
-    2.0,
-    -4.0
-   ]
-  },
-  {
-   "kind": "hull",
-   "a": [
-    2.0,
-    -2.0
-   ],
-   "b": [
-    2.0,
-    -4.0
-   ]
-  }
- ],
- "doors": [
-  {
-   "kind": "door",
-   "center": [
-    -1.0,
-    2.0
-   ],
-   "axis": "x",
-   "width": 1.2,
-   "rooms": [
-    "engines",
-    "weapons"
-   ]
-  },
-  {
-   "kind": "door",
-   "center": [
-    0.0,
-    1.0
-   ],
-   "axis": "z",
-   "width": 1.2,
-   "rooms": [
-    "weapons",
-    "shields"
-   ]
-  },
-  {
-   "kind": "door",
-   "center": [
-    -1.0,
-    -2.0
-   ],
-   "axis": "x",
-   "width": 1.2,
-   "rooms": [
-    "weapons",
-    "piloting"
-   ]
-  }
- ]
+  "rooms": [
+    {
+      "id": "engines",
+      "kind": "system",
+      "system": "engines",
+      "label": "ENGINES",
+      "color": null,
+      "console": {
+        "tile": [
+          1.0,
+          3.0
+        ],
+        "facing": [
+          -1.0,
+          0.0
+        ]
+      }
+    },
+    {
+      "id": "weapons",
+      "kind": "system",
+      "system": "weapons",
+      "label": "WEAPONS",
+      "color": null,
+      "console": {
+        "tile": [
+          -1.0,
+          -1.0
+        ],
+        "facing": [
+          0.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "id": "shields",
+      "kind": "system",
+      "system": "shields",
+      "label": "SHIELDS",
+      "color": null,
+      "console": {
+        "tile": [
+          1.0,
+          1.0
+        ],
+        "facing": [
+          0.0,
+          -1.0
+        ]
+      }
+    },
+    {
+      "id": "piloting",
+      "kind": "system",
+      "system": "piloting",
+      "label": "COCKPIT",
+      "color": null,
+      "console": {
+        "tile": [
+          1.0,
+          -3.0
+        ],
+        "facing": [
+          -1.0,
+          0.0
+        ]
+      }
+    }
+  ],
+  "tiles": [
+    {
+      "room": "engines",
+      "shape": "full",
+      "machinery": true,
+      "center": [
+        -1.0,
+        3.0
+      ],
+      "polygon": [
+        [
+          -2.0,
+          4.0
+        ],
+        [
+          -2.0,
+          2.0
+        ],
+        [
+          0.0,
+          2.0
+        ],
+        [
+          0.0,
+          4.0
+        ]
+      ]
+    },
+    {
+      "room": "engines",
+      "shape": "full",
+      "machinery": false,
+      "center": [
+        1.0,
+        3.0
+      ],
+      "polygon": [
+        [
+          0.0,
+          4.0
+        ],
+        [
+          0.0,
+          2.0
+        ],
+        [
+          2.0,
+          2.0
+        ],
+        [
+          2.0,
+          4.0
+        ]
+      ]
+    },
+    {
+      "room": "weapons",
+      "shape": "full",
+      "machinery": true,
+      "center": [
+        -1.0,
+        1.0
+      ],
+      "polygon": [
+        [
+          -2.0,
+          2.0
+        ],
+        [
+          -2.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          2.0
+        ]
+      ]
+    },
+    {
+      "room": "shields",
+      "shape": "full",
+      "machinery": false,
+      "center": [
+        1.0,
+        1.0
+      ],
+      "polygon": [
+        [
+          0.0,
+          2.0
+        ],
+        [
+          0.0,
+          0.0
+        ],
+        [
+          2.0,
+          0.0
+        ],
+        [
+          2.0,
+          2.0
+        ]
+      ]
+    },
+    {
+      "room": "weapons",
+      "shape": "full",
+      "machinery": false,
+      "center": [
+        -1.0,
+        -1.0
+      ],
+      "polygon": [
+        [
+          -2.0,
+          0.0
+        ],
+        [
+          -2.0,
+          -2.0
+        ],
+        [
+          0.0,
+          -2.0
+        ],
+        [
+          0.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "room": "shields",
+      "shape": "full",
+      "machinery": true,
+      "center": [
+        1.0,
+        -1.0
+      ],
+      "polygon": [
+        [
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          -2.0
+        ],
+        [
+          2.0,
+          -2.0
+        ],
+        [
+          2.0,
+          0.0
+        ]
+      ]
+    },
+    {
+      "room": "piloting",
+      "shape": "full",
+      "machinery": true,
+      "center": [
+        -1.0,
+        -3.0
+      ],
+      "polygon": [
+        [
+          -2.0,
+          -2.0
+        ],
+        [
+          -2.0,
+          -4.0
+        ],
+        [
+          0.0,
+          -4.0
+        ],
+        [
+          0.0,
+          -2.0
+        ]
+      ]
+    },
+    {
+      "room": "piloting",
+      "shape": "full",
+      "machinery": false,
+      "center": [
+        1.0,
+        -3.0
+      ],
+      "polygon": [
+        [
+          0.0,
+          -2.0
+        ],
+        [
+          0.0,
+          -4.0
+        ],
+        [
+          2.0,
+          -4.0
+        ],
+        [
+          2.0,
+          -2.0
+        ]
+      ]
+    }
+  ],
+  "walls": [
+    {
+      "kind": "hull",
+      "a": [
+        -2.0,
+        4.0
+      ],
+      "b": [
+        0.0,
+        4.0
+      ]
+    },
+    {
+      "kind": "interior",
+      "a": [
+        -2.0,
+        2.0
+      ],
+      "b": [
+        -1.6,
+        2.0
+      ]
+    },
+    {
+      "kind": "interior",
+      "a": [
+        -0.4,
+        2.0
+      ],
+      "b": [
+        0.0,
+        2.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        -2.0,
+        4.0
+      ],
+      "b": [
+        -2.0,
+        2.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        0.0,
+        4.0
+      ],
+      "b": [
+        2.0,
+        4.0
+      ]
+    },
+    {
+      "kind": "interior",
+      "a": [
+        0.0,
+        2.0
+      ],
+      "b": [
+        2.0,
+        2.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        2.0,
+        4.0
+      ],
+      "b": [
+        2.0,
+        2.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        -2.0,
+        2.0
+      ],
+      "b": [
+        -2.0,
+        0.0
+      ]
+    },
+    {
+      "kind": "interior",
+      "a": [
+        0.0,
+        2.0
+      ],
+      "b": [
+        0.0,
+        1.6
+      ]
+    },
+    {
+      "kind": "interior",
+      "a": [
+        0.0,
+        0.4
+      ],
+      "b": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "kind": "interior",
+      "a": [
+        -2.0,
+        -2.0
+      ],
+      "b": [
+        -1.6,
+        -2.0
+      ]
+    },
+    {
+      "kind": "interior",
+      "a": [
+        -0.4,
+        -2.0
+      ],
+      "b": [
+        0.0,
+        -2.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        -2.0,
+        0.0
+      ],
+      "b": [
+        -2.0,
+        -2.0
+      ]
+    },
+    {
+      "kind": "interior",
+      "a": [
+        0.0,
+        0.0
+      ],
+      "b": [
+        0.0,
+        -2.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        2.0,
+        2.0
+      ],
+      "b": [
+        2.0,
+        0.0
+      ]
+    },
+    {
+      "kind": "interior",
+      "a": [
+        0.0,
+        -2.0
+      ],
+      "b": [
+        2.0,
+        -2.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        2.0,
+        0.0
+      ],
+      "b": [
+        2.0,
+        -2.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        -2.0,
+        -4.0
+      ],
+      "b": [
+        0.0,
+        -4.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        -2.0,
+        -2.0
+      ],
+      "b": [
+        -2.0,
+        -4.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        0.0,
+        -4.0
+      ],
+      "b": [
+        2.0,
+        -4.0
+      ]
+    },
+    {
+      "kind": "hull",
+      "a": [
+        2.0,
+        -2.0
+      ],
+      "b": [
+        2.0,
+        -4.0
+      ]
+    }
+  ],
+  "doors": [
+    {
+      "kind": "door",
+      "center": [
+        -1.0,
+        2.0
+      ],
+      "axis": "x",
+      "width": 1.2,
+      "rooms": [
+        "engines",
+        "weapons"
+      ]
+    },
+    {
+      "kind": "door",
+      "center": [
+        0.0,
+        1.0
+      ],
+      "axis": "z",
+      "width": 1.2,
+      "rooms": [
+        "weapons",
+        "shields"
+      ]
+    },
+    {
+      "kind": "door",
+      "center": [
+        -1.0,
+        -2.0
+      ],
+      "axis": "x",
+      "width": 1.2,
+      "rooms": [
+        "weapons",
+        "piloting"
+      ]
+    }
+  ]
 }

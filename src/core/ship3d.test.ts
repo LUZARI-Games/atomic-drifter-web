@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import demo from '../data/demo_ship.json';
-import { doorEnds, doorFrame, SHIP_HEIGHTS, segmentBox, shipSolids, wallHeight, wallPieces, wallSolid } from './ship3d';
+import { consoleDesk, doorEnds, doorFrame, SHIP_HEIGHTS, segmentBox, shipSolids, wallHeight, wallPieces, wallSolid } from './ship3d';
 import { parseShip } from './ship';
 
 describe('ship heights', () => {
@@ -41,8 +41,19 @@ describe('ship heights', () => {
     expect(SHIP_HEIGHTS.door_frame_height_m).toBeGreaterThan(SHIP_HEIGHTS.wall_height_m);
   });
 
-  it('demo ship: one solid per wall + three per door', () => {
+  it('demo ship: one solid per wall + three per door + one console desk per system with a console', () => {
     const ship = parseShip(demo).ship!;
-    expect(shipSolids(ship)).toHaveLength(ship.walls.length + ship.doors.length * 3);
+    const consoles = ship.rooms.filter((r) => r.console).length;
+    expect(consoles).toBe(4);
+    expect(shipSolids(ship)).toHaveLength(ship.walls.length + ship.doors.length * 3 + consoles);
+  });
+
+  it('console desk sits on the machinery edge and overhangs the floor tile only a little', () => {
+    // crew tile centred at [0, 0], machinery to +x (tile edge at x = 1)
+    const d = consoleDesk({ tile: [0, 0], facing: [1, 0] });
+    const xs = d.footprint.map((p) => p[0]);
+    expect(Math.min(...xs)).toBeCloseTo(0.72); // only 0.28 m over the floor tile
+    expect(Math.max(...xs)).toBeCloseTo(1.5); // reaches onto the machinery block (which starts at 1.32)
+    expect(d.height).toBeGreaterThan(SHIP_HEIGHTS.system_height_m); // a keyboard panel on top of the block edge
   });
 });

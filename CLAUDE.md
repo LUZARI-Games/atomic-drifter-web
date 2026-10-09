@@ -49,6 +49,9 @@ never restate the owner's tasks back to them.
   draw order via `drawOrder` (core/projection.ts, with fixed pairs like symbol-after-block) – long walls / blocks are drawn
   in 1 m / per-tile pieces. Shading in ship_view is proportional (dark paint never turns black). Heights in `src/data/ship_view.json` (half walls 1 m, systems 1 m, door frames 1.5 m) → `src/core/ship3d.ts`.
   Doors = brass frame (2 posts + lintel) + floor plate; airlocks rust-orange with hazard stripes.
+- Consoles: a system's console tile is where crew stands to use it (never a door there). The keyboard desk sits ON the
+  machinery edge facing that tile and overhangs it ~0.28 m (`consoleDesk` in core/ship3d.ts; drawn in ShipScene + Ship Lab).
+  Planner export: `rooms[].console = { tile, facing } | null` – older exports without it still load.
   The main game view (`ShipScene`) is unchanged until the owner picks an angle.
 
 ## Design rules (terminal UI)

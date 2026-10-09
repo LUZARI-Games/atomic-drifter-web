@@ -1327,7 +1327,9 @@ function edgeState(ek) {
   const wall = !!(A || B) && !(A && B && A.room === B.room);
   const kind = A && B ? (A.room !== B.room ? 'door' : null) : (A || B ? 'airlock' : null);
   const blocked = isMach(A) || isMach(B);
-  return { ...e, A, B, wall, kind, blocked };
+  // [website] the console tile is where crew stands to use the system: no door on any of its edges
+  const onConsole = isConsoleTile(key(e.a[0], e.a[1])) || isConsoleTile(key(e.b[0], e.b[1]));
+  return { ...e, A, B, wall, kind, blocked, onConsole };
 }
 function tileEdge(x, y, side) {
   return { n: `h:${x},${y}`, s: `h:${x},${y + 1}`, w: `v:${x},${y}`, e: `v:${x + 1},${y}` }[side];
@@ -1337,6 +1339,11 @@ const OPP = { n: 's', s: 'n', e: 'w', w: 'e' };
 function tileArea(t) { return t.shape === 'full' ? 1 : 0.5; }
 function tileCap(t) { return t.kind === 'machine' ? 0 : t.shape === 'full' ? CREW_PER_TILE : 1; }
 const isMach = t => !!t && t.kind === 'machine';
+// [website] tile k is the console (interaction) spot of a manned system
+function isConsoleTile(k) {
+  const t = S.tiles.get(k), r = t && S.rooms.get(t.room);
+  return !!(r && r.console === k && r.system && SYS[r.system] && SYS[r.system].console);
+}
 // side of a console tile that faces machinery of the same room (default north)
 function consoleSide(k) {
   const [x, y] = unkey(k), t = S.tiles.get(k); if (!t) return 'n';
@@ -1377,11 +1384,25 @@ function drawMachineTile(g, L, T, s) {
   g.lineWidth = Math.max(1.5, s * .04); g.strokeStyle = C.p; g.strokeRect(L + s * .12, T + s * .12, s * .76, s * .76);
   g.beginPath(); g.arc(L + s / 2, T + s / 2, s * .18, 0, Math.PI * 2); g.fillStyle = C.bg; g.fill(); g.stroke();
 }
+// [website] the console = a keyboard desk ON the machinery, at the edge facing the console tile; it overhangs that floor
+// tile only a little (the floor tile itself is just the spot where crew stands to use it)
 function drawConsoleRect(g, L, T, s, side, col = C.p) {
-  const d = s * .3, l = s * .6, m = s * .08, o = s * .2;
-  const r = { n: [L + o, T + m, l, d], s: [L + o, T + s - m - d, l, d], w: [L + m, T + o, d, l], e: [L + s - m - d, T + o, d, l] }[side];
+  const into = s * .34, over = s * .14, l = s * .62, o = (s - l) / 2; // depth into the machinery / over the floor, length
+  const r = { n: [L + o, T - into, l, into + over], s: [L + o, T + s - over, l, into + over],
+    w: [L - into, T + o, into + over, l], e: [L + s - over, T + o, into + over, l] }[side];
+  g.fillStyle = C.bg; g.fillRect(...r);
+  g.fillStyle = rgba(col, .35); g.fillRect(...r);
   g.lineWidth = Math.max(1.5, s * .045); g.strokeStyle = col; g.strokeRect(...r);
-  g.fillStyle = rgba(col, .5); g.fillRect(r[0] + s * .05, r[1] + s * .05, r[2] - s * .1, r[3] - s * .1);
+  // key rows along the long side, on the half facing the crew
+  const horiz = side === 'n' || side === 's', keysAtEnd = side === 's' || side === 'e';
+  g.fillStyle = col;
+  const n = 5, gap = l / (n + 1), ks = Math.max(1.5, s * .045);
+  for (let row = 0; row < 2; row++) for (let i = 1; i <= n; i++) {
+    const along = (horiz ? r[0] : r[1]) + gap * i - ks / 2;
+    const depth = horiz ? r[3] : r[2], start = horiz ? r[1] : r[0];
+    const across = keysAtEnd ? start + depth * (.22 + row * .22) : start + depth * (.56 + row * .22);
+    if (horiz) g.fillRect(along, across - ks / 2, ks, ks); else g.fillRect(across - ks / 2, along, ks, ks);
+  }
 }
 function railEdge(st) { const t = st.A && !st.B ? st.A : st.B && !st.A ? st.B : null; return !!t && isBalc(t.room); }
 function roomsWithDoor() { const o = new Set(); for (const ek of S.doors.keys()) { const st = edgeState(ek); if (st.A) o.add(st.A.room); if (st.B) o.add(st.B.room); } return o; }
@@ -1811,6 +1832,7 @@ function tapAction(h) {
       if (S.doors.has(ek)) { S.doors.delete(ek); commit(); status(`${st.kind === 'airlock' ? 'AIRLOCK' : 'DOOR'} REMOVED`); }
       else if (!st.kind) error(st.A && st.B ? 'SAME ROOM · NO WALL HERE' : 'NO STRAIGHT WALL HERE');
       else if (st.blocked) error('NO DOOR NEXT TO MACHINERY');
+      else if (st.onConsole) error('NO DOOR ON THE CONSOLE SPOT · CREW STANDS THERE'); // [website]
       else if (railEdge(st)) error('BALCONY RAILING · NO DOOR NEEDED · VEHICLES DOCK HERE');
       else { S.doors.set(ek, { kind: st.kind }); commit(); status(`${st.kind === 'airlock' ? 'AIRLOCK' : 'DOOR'} PLACED`); }
       break;
@@ -2870,8 +2892,15 @@ function godotShip() {
     while (used.has(id)) id += '_2'; used.add(id); rid.set(r.id, id);
   }
   const hex = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c.toLowerCase() : null;
+  // [website] console = tile where crew stands + direction (unit [x, z]) towards the machinery it faces
+  const consoleOf = r => {
+    if (!r.console || !isConsoleTile(r.console)) return null;
+    const [x, y] = unkey(r.console), [nx, ny] = neighbor(x, y, consoleSide(r.console));
+    const c = W(x + .5, y + .5), m = W(nx + .5, ny + .5), len = Math.hypot(m[0] - c[0], m[1] - c[1]) || 1;
+    return { tile: c, facing: [r3((m[0] - c[0]) / len), r3((m[1] - c[1]) / len)] };
+  };
   const rooms = order.map(({ r }) => ({ id: rid.get(r.id), kind: r.balcony ? 'balcony' : (r.system && r.system !== 'corridor') ? 'system' : 'room',
-    system: r.system && r.system !== 'corridor' ? r.system : null, label: roomName(r.id), color: hex(roomCol(r)) }));
+    system: r.system && r.system !== 'corridor' ? r.system : null, label: roomName(r.id), color: hex(roomCol(r)), console: consoleOf(r) }));
   const tiles = [];
   for (const [k, t] of S.tiles) {
     const [x, y] = unkey(k);
@@ -2906,6 +2935,7 @@ function godotShip() {
     shapes: 'full | nw | ne | se | sw (diagonal half tile; polygon gives the exact outline)',
     walls_info: 'kind: interior | hull | railing. Segments a -> b; door gaps are already cut out.',
     doors_info: 'kind: door | airlock. center [x, z]; axis = world axis the door runs along (x or z); the panel slides into the wall along that axis.',
+    console_info: 'rooms[].console: null or { tile: [x, z] centre of the floor tile where crew stands, facing: [x, z] unit direction to the machinery (the keyboard sits on the machinery edge) }.',
     rooms, tiles, walls, doors } };
 }
 function exportGodot(all, copyOnly) {
@@ -3090,12 +3120,12 @@ function spotsFor(sh) {
   const cells = sh.cells.map(c => ({ x: (c.X - 1) / 2, y: (c.Y - 1) / 2, t: c.t }));
   const b = bbox(), out = [];
   for (const [k, t] of S.tiles) {
-    if (isMach(t)) continue;
+    if (isMach(t) || isConsoleTile(k)) continue; // [website] no door on a console spot
     const [fx, fy] = unkey(k);
     for (const sd of ['n', 'e', 's', 'w']) {
       const [nx, ny] = neighbor(fx, fy, sd); if (S.tiles.has(key(nx, ny))) continue;
       for (const c of cells) {
-        if (c.t === 'M') continue;
+        if (c.t === 'M' || c.t === 'S') continue; // [website] doors only on plain floor, never on the console spot
         const ox = nx - c.x, oy = ny - c.y;
         if (cells.some(q => S.tiles.has(key(ox + q.x, oy + q.y)))) continue;
         let x0 = b.x0, y0 = b.y0, x1 = b.x1, y1 = b.y1, touch = 0;
@@ -3144,7 +3174,7 @@ function generateShip(o) {
   let locks = 0;
   for (const k of shuffle([...S.tiles.keys()])) {
     if (locks >= o.airlocks) break;
-    const t = S.tiles.get(k); if (isMach(t)) continue;
+    const t = S.tiles.get(k); if (isMach(t) || isConsoleTile(k)) continue; // [website] no airlock on a console spot
     const [x, y] = unkey(k);
     for (const sd of shuffle(['n', 'e', 's', 'w'])) { const ek = tileEdge(x, y, sd), st = edgeState(ek);
       if (st.kind === 'airlock' && !st.blocked && !S.doors.has(ek)) { S.doors.set(ek, { kind: 'airlock' }); locks++; break; } }

@@ -1,5 +1,5 @@
 // Ship loading + geometry. Pure TypeScript – no Phaser, no DOM.
-import type { Point, Ship, ShipRoom, ShipTile } from './types';
+import type { Point, Ship, ShipConsole, ShipRoom, ShipTile } from './types';
 
 export const SHIP_FORMAT = 'atomic-drifter-ship-godot';
 
@@ -20,7 +20,9 @@ export function parseShip(data: unknown): { ship: Ship | null; problems: string[
 
   const tiles = (d.tiles as ShipTile[]).filter((t) => Array.isArray(t.polygon) && t.polygon.length >= 3 && t.polygon.every(isPoint));
   if (tiles.length < (d.tiles as ShipTile[]).length) problems.push('SOME TILES WERE DAMAGED AND SKIPPED');
-  const rooms = (Array.isArray(d.rooms) ? d.rooms : []).filter((r): r is ShipRoom => !!r && typeof r.id === 'string');
+  const rooms = (Array.isArray(d.rooms) ? d.rooms : [])
+    .filter((r): r is ShipRoom => !!r && typeof r.id === 'string')
+    .map((r) => ({ ...r, console: parseConsole(r.console) }));
   const walls = (Array.isArray(d.walls) ? d.walls : []).filter((w) => isPoint(w.a) && isPoint(w.b));
   const doors = (Array.isArray(d.doors) ? d.doors : []).filter((o) => isPoint(o.center));
 
@@ -39,6 +41,15 @@ export function parseShip(data: unknown): { ship: Ship | null; problems: string[
 }
 
 /** Even-odd point-in-polygon test. */
+/** A console spot from the export, or null when missing / damaged (older exports have none). */
+export function parseConsole(c: unknown): ShipConsole | null {
+  const o = c as Partial<ShipConsole> | null;
+  if (!o || !isPoint(o.tile) || !isPoint(o.facing)) return null;
+  const len = Math.hypot(o.facing[0], o.facing[1]);
+  if (len < 1e-6) return null;
+  return { tile: o.tile, facing: [o.facing[0] / len, o.facing[1] / len] };
+}
+
 export function pointInPolygon(p: Point, poly: Point[]): boolean {
   let inside = false;
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {

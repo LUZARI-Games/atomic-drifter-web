@@ -4,12 +4,20 @@
 
 export type Point = [number, number];
 
+/** Where crew stands to use a system: centre of that floor tile + unit direction [x, z] to the machinery it faces. */
+export interface ShipConsole {
+  tile: Point;
+  facing: Point;
+}
+
 export interface ShipRoom {
   id: string;
   kind: 'system' | 'room' | 'balcony';
   system: string | null;
   label: string;
   color: string | null;
+  /** Optional (newer planner exports): the system's console spot. */
+  console?: ShipConsole | null;
 }
 
 export interface ShipTile {

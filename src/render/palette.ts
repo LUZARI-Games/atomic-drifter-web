@@ -26,6 +26,9 @@ export const WORLD = {
   hazard: 0x1b1c17, // hazard stripe on airlocks
   label: 0xb4aa86, // stencil paint on the floor
   select: 0xe6d98a, // selection outline (pale lamp yellow)
+  console: 0x5a5a4b, // console desk (worn steel)
+  consoleKeys: 0x24251f, // keyboard plate
+  consoleKey: 0xb4aa86, // key caps (same worn paint as the floor stencils)
 } as const;
 
 /**

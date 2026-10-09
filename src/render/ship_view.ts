@@ -6,7 +6,7 @@ import type { CrewLook } from '../core/crew';
 import { airshipHull, blockPolygons, systemBlocks } from '../core/hull';
 import { depth, drawOrder, project, turn, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
 import { roomFloorCenter } from '../core/ship';
-import { doorThreshold, SHIP_HEIGHTS, shipSolids, wallPieces, type Solid } from '../core/ship3d';
+import { consoleDesk, doorThreshold, SHIP_HEIGHTS, shipSolids, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
 import type { Point, Ship } from '../core/types';
 import { drawCrewIso } from './crew_iso';
@@ -85,6 +85,7 @@ export class ShipView {
     };
     // long walls and big blocks are drawn in short pieces, so crew in front of one end is never painted over
     for (const s of shipSolids(this.ship)) {
+      if (s.kind === 'console') continue; // drawn below with its keyboard, after its system block
       if (s.segment) {
         for (const p of wallPieces(s)) items.push({ key: this.sortKey(p.footprint, 0), box: box(p.footprint), draw: () => this.drawWallPiece(objects, s, p) });
       } else {
@@ -108,6 +109,14 @@ export class ShipView {
         : b.anchor;
       for (const p of pieces) mustFollow.push([p, items.length]);
       items.push({ key: this.sortKey(polys.flat(), 0) + 0.0005, box: box(polys.flat()), draw: () => this.drawBlockIcon(objects, b.system, anchor, b.room) });
+      // console desk: on the block edge facing the crew spot, drawn after the block
+      const con = this.ship.rooms.find((r) => r.id === b.room)?.console;
+      if (con) {
+        const desk = consoleDesk(con, this.ship.tile_size);
+        const deskIdx = items.length;
+        for (const p of pieces) mustFollow.push([p, deskIdx]);
+        items.push({ key: this.sortKey(desk.footprint, 0) + 0.0006, box: box(desk.footprint), draw: () => this.drawConsole(objects, desk) });
+      }
     }
     for (const c of crew) {
       const feet = W(c.at, 0);
@@ -343,6 +352,23 @@ export class ShipView {
       const a = this.S(W(p, h));
       const b = this.S(W(q, h));
       g.lineBetween(a.x, a.y, b.x, b.y);
+    }
+  }
+
+  /** Console desk ("keyboard") with a key plate on the crew side. */
+  private drawConsole(g: G, desk: ReturnType<typeof consoleDesk>): void {
+    this.prism(g, desk.footprint, 0, desk.height, WORLD.console, shade(WORLD.console, 35), shade(WORLD.console, 50));
+    const h = desk.height;
+    g.fillStyle(WORLD.consoleKeys, 1);
+    g.fillPoints(desk.keys.map((p) => this.S(W(p, h))), true);
+    // 2 rows x 5 keys; corners 0/3 = crew side, 1/2 = machinery side
+    const [k0, k1, k2, k3] = desk.keys as [Point, Point, Point, Point];
+    const lerp = (a: Point, b: Point, t: number): Point => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    g.fillStyle(WORLD.consoleKey, 0.85);
+    const r = Math.max(1, this.pxPerM * 0.045);
+    for (const u of [0.3, 0.7]) for (let i = 1; i <= 5; i++) {
+      const p = this.S(W(lerp(lerp(k0, k1, u), lerp(k3, k2, u), i / 6), h));
+      g.fillRect(p.x - r, p.y - r * this.view.sin, r * 2, r * 2 * this.view.sin);
     }
   }
 

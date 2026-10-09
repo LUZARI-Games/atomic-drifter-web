@@ -3,6 +3,7 @@
 // Owns NO game state: taps are converted to ship meters and forwarded to core via the store.
 import Phaser from 'phaser';
 import { airshipHull, blockNotches, blockPolygons, systemBlocks, type HullShape, type SystemBlock } from '../core/hull';
+import { consoleDesk } from '../core/ship3d';
 import { tapPoint } from '../core/selection';
 import { roomFloorCenter, roomOutline } from '../core/ship';
 import { systemColor } from '../core/systems';
@@ -151,6 +152,26 @@ export class ShipScene extends Phaser.Scene {
       }
       const c = this.toScreen(b.anchor);
       drawSystemIcon(g, b.system, c.x, c.y, ICON_RADIUS_M * px, fill);
+    }
+
+    // Console desks ("keyboards") on the block edge facing the crew spot
+    for (const room of ship.rooms) {
+      if (!room.console) continue;
+      const d = consoleDesk(room.console, ship.tile_size);
+      g.fillStyle(WORLD.console, 1);
+      g.fillPoints(this.poly(d.footprint), true);
+      g.lineStyle(Math.max(1, px * 0.04), WORLD.wall, 1);
+      g.strokePoints(this.poly(d.footprint), true);
+      g.fillStyle(WORLD.consoleKeys, 1);
+      g.fillPoints(this.poly(d.keys), true);
+      const [k0, k1, k2, k3] = d.keys as [Point, Point, Point, Point];
+      const lerp = (a: Point, b: Point, t: number): Point => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+      g.fillStyle(WORLD.consoleKey, 0.85);
+      const r = Math.max(1, px * 0.045);
+      for (const u of [0.3, 0.7]) for (let i = 1; i <= 5; i++) {
+        const c = this.toScreen(lerp(lerp(k0, k1, u), lerp(k3, k2, u), i / 6));
+        g.fillRect(c.x - r, c.y - r, r * 2, r * 2);
+      }
     }
 
     // Walls: dark body + light top edge; square caps fill the joints

@@ -1,11 +1,11 @@
 // Heights for the look-down views: every wall, door frame and system block becomes a flat footprint + height range.
 // Half walls (1 m) so you can look into the rooms. Pure geometry in ship space ([x, z] meters) – engine-neutral.
 import VIEW from '../data/ship_view.json';
-import type { Point, Ship, ShipDoor, ShipWall } from './types';
+import type { Point, Ship, ShipConsole, ShipDoor, ShipWall } from './types';
 
 export const SHIP_HEIGHTS = VIEW;
 
-export type SolidKind = 'wall' | 'railing' | 'door_post' | 'door_lintel';
+export type SolidKind = 'wall' | 'railing' | 'door_post' | 'door_lintel' | 'console';
 
 export interface Solid {
   kind: SolidKind;
@@ -95,5 +95,33 @@ export function doorThreshold(d: ShipDoor): Point[] {
 
 export function shipSolids(ship: Ship): Solid[] {
   const h = wallHeight(ship);
-  return [...ship.walls.map((w) => wallSolid(w, h)), ...ship.doors.flatMap(doorFrame)];
+  return [...ship.walls.map((w) => wallSolid(w, h)), ...ship.doors.flatMap(doorFrame), ...consoleSolids(ship)];
+}
+
+/**
+ * Console desk (the "keyboard"): sits ON the machinery at the edge facing the console tile and overhangs that floor
+ * tile only a little – the tile itself stays free floor where crew stands. Returns the desk footprint plus the strip
+ * on its top where the keys are (on the crew side).
+ */
+export function consoleDesk(c: ShipConsole, tileSize = 2): { footprint: Point[]; keys: Point[]; height: number } {
+  const [fx, fz] = c.facing;
+  const edge: Point = [c.tile[0] + fx * (tileSize / 2), c.tile[1] + fz * (tileSize / 2)];
+  const at = (along: number, across: number): Point => [edge[0] + fx * along - fz * across, edge[1] + fz * along + fx * across];
+  const over = 0.28; // overhang over the floor tile
+  const into = 0.5; // depth onto the machinery (block starts 0.32 m in; symbol starts 0.5 m in, so it stays free)
+  const half = 0.5; // half length of the desk
+  return {
+    footprint: [at(-over, -half), at(into, -half), at(into, half), at(-over, half)],
+    keys: [at(-over + 0.07, -half + 0.08), at(0.22, -half + 0.08), at(0.22, half - 0.08), at(-over + 0.07, half - 0.08)],
+    height: VIEW.console_height_m,
+  };
+}
+
+/** Console desks of all rooms that have a console spot. */
+export function consoleSolids(ship: Ship): Solid[] {
+  return ship.rooms.flatMap((r) => {
+    if (!r.console) return [];
+    const d = consoleDesk(r.console, ship.tile_size);
+    return [{ kind: 'console' as const, footprint: d.footprint, z0: 0, z1: d.height }];
+  });
 }
