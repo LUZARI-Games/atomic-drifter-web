@@ -37,7 +37,9 @@ never restate the owner's tasks back to them.
 ## Crew look (in evaluation)
 - OLD look: `src/render/crew.ts` (armour baked into the origin). NEW look: `src/render/crew_v2.ts` – plain clothes in the
   origin `color` (`crew_looks.json`), gear = neutral metal add-ons, one per slot (`crew_gear.json`, `equip` in core),
-  friend/foe ring under the feet. The Crew Lab shows OLD | NEW | NEW + GEAR side by side until the owner decides.
+  friend/foe ring under the feet. ISO test: `src/render/crew_iso.ts` – NEW look seen from a 45° look-down camera,
+  orthographic, still flat 2D shapes (projection + angle in `src/core/projection.ts`, `VIEW_PITCH_DEG`).
+  The Crew Lab shows OLD | NEW | NEW + GEAR | ISO side by side until the owner decides.
 
 ## Design rules (terminal UI)
 - Colors: background `#030806`, phosphor green `#1AFF80`, amber `#FFB43A` = enemy/warning, red `#FF4A3A` = error/damage.
