@@ -92,3 +92,11 @@ html, body {
 
 /* Contrast check (menu: GREYSCALE ON/OFF): game world without colour; the menu stays readable in green. */
 #game.greyscale { filter: grayscale(1); }
+
+/* COPY SHIP / SAVE SHIP FILE feedback */
+.chip.toast { bottom: auto; top: 64px; }
+.share-box {
+  position: fixed; inset: 64px 16px 16px; z-index: 30; display: flex; flex-direction: column; gap: 8px;
+  background: var(--bg); border: 3px solid var(--green); padding: 8px; pointer-events: auto;
+}
+.share-box textarea { flex: 1; background: var(--bg); color: var(--green); border: 0; font-family: var(--font); font-size: var(--fs-s); }

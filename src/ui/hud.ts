@@ -4,6 +4,7 @@ import { getSelectedRoom } from '../core/selection';
 import type { Store } from '../core/store';
 import type { GameState } from '../core/types';
 import { applyGreyscale, greyscaleItem, mountMenu, toggleFullscreen, type MenuItem } from './menu';
+import { shipShareItems } from './shipShare';
 
 export interface HudOptions {
   source: 'planner' | 'demo';
@@ -19,7 +20,7 @@ export function mountHud(root: HTMLElement, store: Store<GameState>, opts: HudOp
     { label: 'PLANNER', href: '/planner/' },
   ];
   if (opts.source === 'planner') items.push({ label: 'DEMO SHIP', onClick: opts.onUseDemo });
-  items.push(...(opts.extraItems ?? []), greyscaleItem());
+  items.push(...shipShareItems(), ...(opts.extraItems ?? []), greyscaleItem());
   if (document.fullscreenEnabled) items.push({ label: 'FULLSCREEN', onClick: () => void toggleFullscreen() });
   applyGreyscale();
   mountMenu(root, store.get().ship.name.toUpperCase(), items);

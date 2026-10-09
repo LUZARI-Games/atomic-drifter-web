@@ -98,6 +98,23 @@ function spot(ship: Ship, others: CrewMember[], node: string, self: string): Poi
   return [base[0] + s[0], base[1] + s[1]];
 }
 
+/** Put crew member `id` straight onto the spot under ship point `p` (deck tile or vehicle seat) – test scenes. */
+export function placeCrew(state: GameState, id: string, p: Point): GameState {
+  const nav = navOf(state.ship);
+  const node = nodeAt(state.ship, nav, p);
+  if (!node || !state.crew.some((c) => c.id === id)) return state;
+  if (node.startsWith('v') && state.crew.some((m) => m.id !== id && m.dest === node)) return state; // seat taken
+  const pos = spot(state.ship, state.crew, node, id);
+  const seat = seatOf(state.ship, node);
+  const desk = consoleOf(state.ship, node);
+  return {
+    ...state,
+    crew: state.crew.map((c) => (c.id === id
+      ? { ...c, node, dest: node, pos, path: [], pathEnd: undefined, moved: 0, heading: seat ? seat.heading : desk ? headingOf(desk) : c.heading }
+      : c)),
+  };
+}
+
 export function selectCrew(state: GameState, id: string | null): GameState {
   if (id !== null && !state.crew.some((c) => c.id === id)) return state;
   return state.selectedCrewId === id ? state : { ...state, selectedCrewId: id };

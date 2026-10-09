@@ -6,14 +6,21 @@ import { COLORS, FONT_FAMILY } from './render/palette';
 import { ShipScene } from './render/ShipScene';
 import { HazeScene, WastelandScene } from './render/wasteland';
 import { mountHud } from './ui/hud';
+import { parseShip } from './core/ship';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
+import { applyTestScene, testSceneFromUrl, testShip } from './ui/testScene';
 import { Sound } from './ui/sound';
 import './ui/styles.css';
 
 async function boot(): Promise<void> {
-  const loaded = loadShip();
+  // ?test=<name>: a fixed test scene (src/data/test_scenes.json) instead of the saved / demo ship
+  const scene = testSceneFromUrl();
+  const sceneShip = scene?.ship ? parseShip(testShip(scene.ship)).ship : null;
+  const loaded = sceneShip ? { ship: sceneShip, source: 'demo' as const, problems: [] } : loadShip(!scene); // scenes use the demo ship
   // the planner export carries no crew yet -> random crew from the Crew Lab types
-  const store = new Store({ ...createGameState(loaded.ship), crew: generateCrew(loaded.ship) });
+  let start = { ...createGameState(loaded.ship), crew: generateCrew(loaded.ship) };
+  if (scene) start = applyTestScene(start, scene);
+  const store = new Store(start);
   const sound = new Sound();
 
   mountHud(document.getElementById('hud')!, store, {
@@ -37,7 +44,9 @@ async function boot(): Promise<void> {
     /* fall back to monospace */
   }
 
-  const shipScene = new ShipScene(store, sound);
+  const shipScene = new ShipScene(store, sound, scene?.focus ? { at: scene.focus, zoom: scene.zoom ?? 1 } : undefined);
+  // debug hook for automated checks: window.adw.screenOf([x, z]) = where to tap for a ship point
+  (window as unknown as { adw: unknown }).adw = { store, scene: shipScene };
   new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',

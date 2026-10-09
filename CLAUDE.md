@@ -102,6 +102,14 @@ never restate the owner's tasks back to them.
   Menu: `SOUND: ON/OFF`, `VOLUME` (25/50/75/100 %), remembered per browser. ShipScene only calls the `ShipSounds`
   interface; main.ts wires it to `Sound`.
 
+## Fast checks (for Claude)
+- Test scenes: open the game with `?test=<name>` (`src/data/test_scenes.json`: car, bike, sidecar, idle, walk,
+  consoles, overview). Crew are placed straight onto seats / spots (`placeCrew` in core), the camera zooms onto `focus`.
+  Add a scene for every new feature instead of tapping around. Ships for scenes: `src/data/test_ships/<name>.json`.
+- `window.adw` = { store, scene }: `scene.screenOf([x, z])` gives the exact screen point to tap for a ship point.
+- Owner's ships: menu `COPY SHIP` (clipboard) / `SAVE SHIP FILE` (download) hands over the ship as loaded (planner
+  export from TEST IN GAME, else the demo ship). Save pasted ships into `src/data/test_ships/` to reproduce bugs.
+
 ## Design rules (terminal UI)
 - Colors: background `#030806`, phosphor green `#1AFF80`, amber `#FFB43A` = enemy/warning, red `#FF4A3A` = error/damage.
   Tokens live in `src/ui/styles.css` (`:root`) and `src/render/palette.ts` – keep both in sync.

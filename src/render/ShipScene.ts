@@ -8,7 +8,7 @@ import { tapPoint } from '../core/selection';
 import { roomOutline } from '../core/ship';
 import { wallHeight } from '../core/ship3d';
 import type { Store } from '../core/store';
-import type { GameState } from '../core/types';
+import type { GameState, Point } from '../core/types';
 import { attachPanZoom } from './panzoom';
 import { WORLD } from './palette';
 import { ShipView, type CrewOnDeck, type ObjectLayer } from './ship_view';
@@ -50,7 +50,12 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   ready = false;
   private unsubscribe: (() => void) | null = null;
 
-  constructor(private readonly store: Store<GameState>, private readonly sfx: ShipSounds = SILENT) {
+  constructor(
+    private readonly store: Store<GameState>,
+    private readonly sfx: ShipSounds = SILENT,
+    /** Test scenes: camera centred on this ship point, `zoom` times the fitted view. */
+    private readonly focus?: { at: Point; zoom: number },
+  ) {
     super({ key: 'ship', active: true });
   }
 
@@ -80,7 +85,16 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     });
     // zoom right after fitting = "1" for the wasteland's zoom parallax (refit on resize happens first)
     this.fitZoom = this.cameras.main.zoom;
-    this.scale.on(Phaser.Scale.Events.RESIZE, () => (this.fitZoom = this.cameras.main.zoom));
+    const focus = () => {
+      if (!this.focus) return;
+      const f = this.view.deckPoint(this.focus.at);
+      this.cameras.main.setZoom(this.fitZoom * this.focus.zoom).centerOn(f.x, f.y);
+    };
+    focus();
+    this.scale.on(Phaser.Scale.Events.RESIZE, () => {
+      this.fitZoom = this.cameras.main.zoom; // refitted by panzoom just before
+      focus();
+    });
     this.ready = true;
 
     let lastSel = this.store.get().selectedCrewId;
@@ -109,6 +123,13 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       y: (this.area.centerY - this.bob / cam.zoom - cy) * cam.zoom + cam.height / 2, // without the bob: the ground does not bob
       zoom: cam.zoom / this.fitZoom,
     };
+  }
+
+  /** Where ship point `p` (height `h` m) is on the screen right now – for automated tap checks (window.adw). */
+  screenOf(p: Point, h = 0): { x: number; y: number } {
+    const cam = this.cameras.main;
+    const w = this.view.deckPoint(p, h);
+    return { x: (w.x - cam.scrollX - cam.width / 2) * cam.zoom + cam.width / 2, y: (w.y - cam.scrollY - cam.height / 2) * cam.zoom + cam.height / 2 };
   }
 
   /** Slide doors towards their open/closed state; redraw the standing objects only while something moves. */

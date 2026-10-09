@@ -6,11 +6,11 @@ import demoShip from '../data/demo_ship.json';
 /** Key the planner's TEST IN GAME button writes the exported ship to (see public/planner/bridge.js). */
 export const TEST_SHIP_KEY = 'adw.testShip';
 
-export function loadShip(): { ship: Ship; source: 'planner' | 'demo'; problems: string[] } {
+export function loadShip(useSaved = true): { ship: Ship; source: 'planner' | 'demo'; problems: string[] } {
   const demo = parseShip(demoShip).ship!;
   let raw: string | null = null;
   try {
-    raw = localStorage.getItem(TEST_SHIP_KEY);
+    if (useSaved) raw = localStorage.getItem(TEST_SHIP_KEY);
   } catch {
     /* storage blocked – use the demo ship */
   }
@@ -21,4 +21,15 @@ export function loadShip(): { ship: Ship; source: 'planner' | 'demo'; problems: 
   } catch {
     return { ship: demo, source: 'demo', problems: ['SAVED SHIP IS DAMAGED'] };
   }
+}
+
+/** The ship data as it was loaded (planner export from TEST IN GAME, else the demo ship) – for COPY SHIP. */
+export function rawShipText(): string {
+  try {
+    const raw = localStorage.getItem(TEST_SHIP_KEY);
+    if (raw) return raw;
+  } catch {
+    /* storage blocked */
+  }
+  return JSON.stringify(demoShip);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import demo from '../data/demo_ship.json';
-import { consoleOf, doorsInUse, generateCrew, navOf, selectCrew, tickCrew, walkFactor } from './crewmove';
+import { consoleOf, doorsInUse, generateCrew, navOf, placeCrew, selectCrew, tickCrew, walkFactor } from './crewmove';
 import { consoleDesk } from './ship3d';
 import { seatPose } from './exterior';
 import { findPath, nodeAt } from './nav';
@@ -142,5 +142,17 @@ describe('walking feel', () => {
       const ahead = (p: [number, number]) => p[0] * desk[0] + p[1] * desk[1];
       expect(ahead(c.pos) + 0.3).toBeLessThan(ahead(front as [number, number])); // body (0.3 m) clear of the desk
     }
+  });
+});
+
+describe('test scenes', () => {
+  it('placeCrew puts someone straight into a seat; a taken seat stays with its owner', () => {
+    let s: GameState = { ...createGameState(carShip), crew: generateCrew(ship, 2) }; // looks from the demo ship (the car ship has no indoor deck to start on)
+    const [a, b] = s.crew;
+    s = placeCrew(s, a!.id, [4, -1]);
+    expect(s.crew[0]!.node).toBe('v0:0');
+    expect(s.crew[0]!.path).toEqual([]);
+    s = placeCrew(s, b!.id, [4, -1]);
+    expect(s.crew[1]!.node).not.toBe('v0:0');
   });
 });
