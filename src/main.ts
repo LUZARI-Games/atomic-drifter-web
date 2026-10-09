@@ -39,9 +39,9 @@ async function boot(): Promise<void> {
     backgroundColor: COLORS.bg,
     scale: { mode: Phaser.Scale.RESIZE },
     input: { activePointers: 3 }, // two fingers for pinch-zoom
-    // bottom to top: wasteland far below (parallax) -> the airship -> haze drifting over it
+    // bottom to top: fog sea + towers + cloud decks (parallax) -> the airship -> cloud shadows + wind over it
     scene: [
-      new WastelandScene(loaded.ship, () => (shipScene.ready ? shipScene : null)),
+      new WastelandScene(() => (shipScene.ready ? shipScene : null)),
       shipScene,
       new HazeScene(() => (shipScene.ready ? shipScene : null)),
     ],

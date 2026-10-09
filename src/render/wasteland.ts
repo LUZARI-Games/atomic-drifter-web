@@ -1,26 +1,46 @@
-// Parallax flight over the Capital-Wasteland-style ground (Fallout 3 mood): the airship stays put, the world slides
-// past underneath it, opposite to the flight direction (bow). Every layer uses the same look-down view as the ship;
-// nearer layers are drawn bigger, so they move faster on screen = depth.
-//   WastelandScene (under the ship): ground → ruins / dead trees / pylons → ship shadow → low smog
-//   HazeScene (over the ship): faint wisps sliding over it
-// Purely visual; procedural from a seeded hash per grid cell, so it never repeats visibly and costs no data.
+// Flight over the wasteland (Fallout 3 mood). The airship never moves – everything else slides past it against the
+// flight direction (the bow), so it looks like it flies. Classic parallax: every layer has a depth factor `k`
+// (1 = the ship's own plane). It is drawn at k × the ship's zoom and moves k × as fast on screen:
+// far below = small and slow, just under the ship = bigger and faster, above the ship = biggest and fastest.
+//
+//   WastelandScene (under the ship), far → near:
+//     fog sea (no visible ground) → ruined high-rises / water towers / pylons poking out of it → 2 cloud decks
+//   HazeScene (over the ship): cloud shadows sliding over the ship → wind streaks flying past
+//
+// Cloud layers are tileable black-and-white noise textures, generated once at start and tinted (no image files).
+// Buildings belong to the fog layer (same k) – they stand in it, so they move exactly with it.
 import Phaser from 'phaser';
-import { airshipHull } from '../core/hull';
-import { makeView, project, unprojectFloor, type Vec2, type Vec3, type View } from '../core/projection';
-import type { Ship } from '../core/types';
+import { makeView, project, unprojectFloor, type Vec2, type Vec3 } from '../core/projection';
 import { WASTE } from './palette';
 
 /** What the wasteland needs from the ship scene each frame. */
 export interface ShipOnScreen {
-  /** Screen position of the ship centre and the camera zoom relative to the fitted view. */
+  /** Screen position of the ship centre, camera zoom relative to the fitted view, px per meter of the ship. */
   screen(): { x: number; y: number; zoom: number };
 }
 
-const FLIGHT_SPEED = 7; // m/s over the ground
-const PAN_FOLLOW = 0.35; // how much the far world follows when the player drags the ship view (parallax on pan too)
-const ZOOM_FOLLOW = 0.3; // how much the far world follows the zoom
+/** Ground speed of the airship in m/s, measured in the ship's own plane (k = 1). */
+const FLIGHT_SPEED = 3.2;
+/**
+ * true = physically right parallax: far layers slower, near layers faster.
+ * false = reversed (the lowest layer fastest, the layers near the ship slower).
+ */
+const FAR_IS_SLOWER = true;
+const SHIP_PX_PER_M = 40; // must match ShipScene
 
-/** Tiny deterministic random per cell: same cell -> same ruins, forever. */
+/** Depth factors (1 = the ship). */
+const K = { fog: 0.22, deckLow: 0.38, deckHigh: 0.62, shadow: 1.7, wind: 2.4 } as const;
+const speedOf = (k: number) => (FAR_IS_SLOWER ? k : 1 / (k * 4));
+
+const VIEW = makeView(60, 45);
+/** Screen direction the bow points to (unit vector) – the world moves the opposite way. */
+const BOW: Vec2 = (() => {
+  const [x, y] = project(VIEW, [1, 0, 0]);
+  const l = Math.hypot(x, y);
+  return [x / l, y / l];
+})();
+
+/** Tiny deterministic random per cell: same cell -> same tower, forever. */
 function rng(ix: number, iy: number, seed: number): () => number {
   let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(seed, 1442695041)) >>> 0;
   return () => {
@@ -31,262 +51,279 @@ function rng(ix: number, iy: number, seed: number): () => number {
   };
 }
 
-interface Layer {
-  scale: number; // px per meter (bigger = nearer = faster)
-  cell: number; // grid cell size in meters
-  seed: number;
+/**
+ * Tileable value noise as a white texture whose ALPHA is the cloud density (tint it in the scene).
+ * `cells` = lattice size of the coarsest octave (smaller = bigger clouds), `lo..hi` = density -> alpha ramp.
+ */
+function makeCloudTexture(scene: Phaser.Scene, key: string, seed: number, cells: number, lo: number, hi: number, size = 256): void {
+  if (scene.textures.exists(key)) return;
+  const octaves = 4;
+  const lattices = Array.from({ length: octaves }, (_, o) => {
+    const n = cells << o;
+    const r = rng(seed, o, 7);
+    return { n, v: Array.from({ length: n * n }, () => r()) };
+  });
+  const smooth = (t: number) => t * t * (3 - 2 * t);
+  const sample = (lat: { n: number; v: number[] }, x: number, y: number) => {
+    const fx = (x / size) * lat.n;
+    const fy = (y / size) * lat.n;
+    const x0 = Math.floor(fx);
+    const y0 = Math.floor(fy);
+    const tx = smooth(fx - x0);
+    const ty = smooth(fy - y0);
+    const at = (ix: number, iy: number) => lat.v[((iy % lat.n) + lat.n) % lat.n * lat.n + ((ix % lat.n) + lat.n) % lat.n]!;
+    const a = at(x0, y0) + (at(x0 + 1, y0) - at(x0, y0)) * tx;
+    const b = at(x0, y0 + 1) + (at(x0 + 1, y0 + 1) - at(x0, y0 + 1)) * tx;
+    return a + (b - a) * ty;
+  };
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const img = ctx.createImageData(size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let n = 0;
+      let amp = 0.5;
+      let sum = 0;
+      for (const lat of lattices) {
+        n += sample(lat, x, y) * amp;
+        sum += amp;
+        amp *= 0.5;
+      }
+      n /= sum;
+      const a = Math.min(1, Math.max(0, (n - lo) / (hi - lo)));
+      const i = (y * size + x) * 4;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = 255;
+      img.data[i + 3] = Math.round(smooth(a) * 255);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  scene.textures.addCanvas(key, canvas);
 }
 
-const GROUND: Layer = { scale: 12, cell: 10, seed: 1 };
-const RUINS: Layer = { scale: 15, cell: 16, seed: 2 };
-const SMOG: Layer = { scale: 26, cell: 20, seed: 3 };
-const HAZE: Layer = { scale: 70, cell: 34, seed: 4 };
-
-/** Draws one layer: maps layer meters to screen and loops over the visible grid cells. */
-class LayerPainter {
+/** A tinted, repeating cloud texture that fills the screen and drifts with its depth factor. */
+class CloudDeck {
+  readonly sprite: Phaser.GameObjects.TileSprite;
   constructor(
-    private readonly g: Phaser.GameObjects.Graphics,
-    private readonly view: View,
-  ) {}
-
-  ax = 0;
-  ay = 0;
-  scale = 1;
-  offset = 0; // meters flown (the world moves towards -x = against the bow)
-
-  S([x, y, z]: Vec3): Phaser.Math.Vector2 {
-    const [sx, sy] = project(this.view, [x - this.offset, y, z]);
-    return new Phaser.Math.Vector2(this.ax + sx * this.scale, this.ay + sy * this.scale);
+    scene: Phaser.Scene,
+    key: string,
+    private readonly k: number,
+    private readonly texScale: number, // texture px -> screen px at fitted zoom
+    tint: number,
+    alpha: number,
+    private readonly drift: Vec2 = [0, 0], // extra own wind drift (screen px/s at k)
+  ) {
+    const { width, height } = scene.scale;
+    this.sprite = scene.add.tileSprite(0, 0, width, height, key).setOrigin(0).setTint(tint).setAlpha(alpha);
   }
 
-  /** Visible cells (with `margin` meters extra for tall things), far ones first. */
-  cells(layer: Layer, w: number, h: number, margin: number): [number, number][] {
-    const corners: Vec2[] = [[0, 0], [w, 0], [0, h], [w, h]].map(([px, py]) =>
-      unprojectFloor(this.view, [(px! - this.ax) / this.scale, (py! - this.ay) / this.scale]),
-    );
-    const xs = corners.map((c) => c[0] + this.offset);
-    const ys = corners.map((c) => c[1]);
-    const c = layer.cell;
-    const out: [number, number][] = [];
-    for (let ix = Math.floor((Math.min(...xs) - margin) / c); ix <= Math.ceil((Math.max(...xs) + margin) / c); ix++)
-      for (let iy = Math.floor((Math.min(...ys) - margin) / c); iy <= Math.ceil((Math.max(...ys) + margin) / c); iy++) out.push([ix, iy]);
-    // painter's order in the turned view: smaller x + y = farther away
-    return out.sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
-  }
-
-  poly(pts: Vec3[], color: number, alpha = 1): void {
-    this.g.fillStyle(color, alpha);
-    this.g.fillPoints(pts.map((p) => this.S(p)), true);
-  }
-
-  blob(cx: number, cy: number, r: number, color: number, alpha: number, rand: () => number, z = 0): void {
-    const n = 7;
-    const pts: Vec3[] = Array.from({ length: n }, (_, i) => {
-      const a = (i / n) * Math.PI * 2;
-      const rr = r * (0.65 + rand() * 0.5);
-      return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, z];
-    });
-    this.poly(pts, color, alpha);
-  }
-
-  ring(cx: number, cy: number, r: number, color: number, alpha: number, width: number, z = 0): void {
-    const pts = Array.from({ length: 20 }, (_, i) => this.S([cx + Math.cos((i / 20) * Math.PI * 2) * r, cy + Math.sin((i / 20) * Math.PI * 2) * r, z]));
-    this.g.lineStyle(width, color, alpha);
-    this.g.strokePoints(pts, true);
-  }
-
-  line(a: Vec3, b: Vec3, color: number, width: number, alpha = 1): void {
-    const p = this.S(a);
-    const q = this.S(b);
-    this.g.lineStyle(width, color, alpha);
-    this.g.lineBetween(p.x, p.y, q.x, q.y);
+  update(t: number, ship: { x: number; y: number; zoom: number }, w: number, h: number): void {
+    const s = this.texScale * ship.zoom;
+    this.sprite.setSize(w, h);
+    this.sprite.setTileScale(s, s * VIEW.sin); // squashed like the floor in the 60° view
+    const moved = t * FLIGHT_SPEED * SHIP_PX_PER_M * ship.zoom * speedOf(this.k);
+    // the world moves against the bow; dragging the view moves near layers more than far ones
+    const ox = -BOW[0] * moved + this.drift[0] * t + (ship.x - w / 2) * this.k;
+    const oy = -BOW[1] * moved + this.drift[1] * t + (ship.y - h / 2) * this.k;
+    this.sprite.tilePositionX = -ox / s;
+    this.sprite.tilePositionY = -oy / (s * VIEW.sin);
   }
 }
 
 export class WastelandScene extends Phaser.Scene {
-  private g!: Phaser.GameObjects.Graphics;
-  private painter!: LayerPainter;
-  private readonly view = makeView(60, 45);
-  private shadow: Vec2[] = [];
+  private towers!: Phaser.GameObjects.Graphics;
+  private fogLow!: CloudDeck;
+  private decks: CloudDeck[] = [];
 
-  constructor(
-    private readonly ship: Ship,
-    private readonly getShip: () => ShipOnScreen | null,
-  ) {
+  constructor(private readonly getShip: () => ShipOnScreen | null) {
     super({ key: 'wasteland', active: true });
   }
 
   create(): void {
-    this.g = this.add.graphics();
-    this.painter = new LayerPainter(this.g, this.view);
-    // ship shadow: hull outline flat on the ground (ship space [x, z] -> view [-z, x])
-    this.shadow = airshipHull(this.ship).outline.map(([x, z]) => [-z, x]);
+    makeCloudTexture(this, 'fog', 11, 3, 0.25, 0.85);
+    makeCloudTexture(this, 'deck_low', 23, 4, 0.56, 0.82);
+    makeCloudTexture(this, 'deck_high', 37, 3, 0.6, 0.85);
+    this.cameras.main.setBackgroundColor(WASTE.fog);
+    this.towers = this.add.graphics();
+    // fog swirling around the tower feet (same depth as the towers), then two cloud decks between fog and ship
+    this.fogLow = new CloudDeck(this, 'fog', K.fog, 1.6, WASTE.fogLight, 0.35);
+    this.decks = [
+      new CloudDeck(this, 'deck_low', K.deckLow, 2.2, WASTE.cloudLow, 0.4, [6, -3]),
+      new CloudDeck(this, 'deck_high', K.deckHigh, 3.4, WASTE.cloudHigh, 0.32, [10, -5]),
+    ];
   }
 
   override update(time: number): void {
-    const { width, height } = this.scale;
-    const s = this.getShip()?.screen() ?? { x: width / 2, y: height / 2, zoom: 1 };
-    const zoom = Math.pow(Math.max(0.2, s.zoom), ZOOM_FOLLOW);
-    const ax = width / 2 + (s.x - width / 2) * PAN_FOLLOW;
-    const ay = height / 2 + (s.y - height / 2) * PAN_FOLLOW;
-    const flown = (time / 1000) * FLIGHT_SPEED;
-    const p = this.painter;
-    const g = this.g;
+    const { width: w, height: h } = this.scale;
+    const ship = this.getShip()?.screen() ?? { x: w / 2, y: h / 2, zoom: 1 };
+    const t = time / 1000;
+    this.drawTowers(t, ship, w, h);
+    this.fogLow.update(t, ship, w, h);
+    for (const d of this.decks) d.update(t, ship, w, h);
+  }
+
+  /** Ruined high-rises, water towers and pylons sticking out of the fog sea (fog layer, depth K.fog). */
+  private drawTowers(t: number, ship: { x: number; y: number; zoom: number }, w: number, h: number): void {
+    const g = this.towers;
     g.clear();
-    g.fillStyle(WASTE.ground, 1);
-    g.fillRect(0, 0, width, height);
-
-    const setLayer = (l: Layer) => {
-      p.scale = l.scale * zoom;
-      p.ax = ax;
-      p.ay = ay;
-      p.offset = flown;
+    const k = K.fog;
+    const scale = SHIP_PX_PER_M * k * ship.zoom; // px per meter on this layer
+    const offset = t * FLIGHT_SPEED * speedOf(k) / k; // meters this layer has slid (screen speed / scale)
+    const ax = w / 2 + (ship.x - w / 2) * k;
+    const ay = h / 2 + (ship.y - h / 2) * k;
+    const S = ([x, y, z]: Vec3) => {
+      const [sx, sy] = project(VIEW, [x - offset, y, z]);
+      return new Phaser.Math.Vector2(ax + sx * scale, ay + sy * scale);
     };
+    // visible cells: towers are tall, so look further "down" the screen
+    const corners = [[0, 0], [w, 0], [0, h + 60 * scale], [w, h + 60 * scale]].map(([px, py]) =>
+      unprojectFloor(VIEW, [(px! - ax) / scale, (py! - ay) / scale]),
+    );
+    const CELL = 28;
+    const xs = corners.map((c) => c[0] + offset);
+    const ys = corners.map((c) => c[1]);
+    const cells: [number, number][] = [];
+    for (let ix = Math.floor(Math.min(...xs) / CELL) - 1; ix <= Math.ceil(Math.max(...xs) / CELL) + 1; ix++)
+      for (let iy = Math.floor(Math.min(...ys) / CELL) - 1; iy <= Math.ceil(Math.max(...ys) / CELL) + 1; iy++) cells.push([ix, iy]);
+    cells.sort((a, b) => a[0] + a[1] - (b[0] + b[1])); // far first
 
-    // --- ground: dust patches, cracks, craters, broken highway, murky puddles, rubble ---
-    setLayer(GROUND);
-    for (const [ix, iy] of p.cells(GROUND, width, height, 4)) {
-      const r = rng(ix, iy, GROUND.seed);
-      const x0 = ix * GROUND.cell;
-      const y0 = iy * GROUND.cell;
-      const at = (): [number, number] => [x0 + r() * GROUND.cell, y0 + r() * GROUND.cell];
-      if (iy % 5 === 0) {
-        // old highway along the flight line: asphalt, faded lane paint, broken edges, missing chunks
-        if (r() > 0.12) {
-          p.poly([[x0, y0 + 1, 0], [x0 + GROUND.cell, y0 + 1, 0], [x0 + GROUND.cell, y0 + 6, 0], [x0, y0 + 6, 0]], WASTE.road);
-          p.line([x0, y0 + 1, 0], [x0 + GROUND.cell, y0 + 1, 0], WASTE.crack, Math.max(1, 1.2 * zoom));
-          p.line([x0, y0 + 6, 0], [x0 + GROUND.cell, y0 + 6, 0], WASTE.crack, Math.max(1, 1.2 * zoom));
-          if (r() > 0.3) p.line([x0 + 1.5, y0 + 3.5, 0], [x0 + 5, y0 + 3.5, 0], WASTE.roadPaint, Math.max(1, 1.4 * zoom), 0.8);
-          if (r() > 0.5) p.line([x0 + 6.5, y0 + 3.5, 0], [x0 + 9, y0 + 3.5, 0], WASTE.roadPaint, Math.max(1, 1.4 * zoom), 0.8);
-          if (r() < 0.35) { const cx = x0 + r() * GROUND.cell; p.blob(cx, y0 + 3.5, 1.2 + r(), WASTE.ground, 1, r); } // pothole
-        }
-        continue; // nothing else on the road
-      }
-      // soft dust patches (low contrast, so the ground stays calm behind the ship)
-      if (r() < 0.6) { const [cx, cy] = at(); p.blob(cx, cy, 3 + r() * 4, r() > 0.5 ? WASTE.dust : WASTE.dirtDark, 0.28, r); }
-      if (r() < 0.35) {
-        let [cx, cy] = at();
-        for (let k = 0; k < 4; k++) { const nx = cx + (r() - 0.5) * 6; const ny = cy + (r() - 0.5) * 6; p.line([cx, cy, 0], [nx, ny, 0], WASTE.crack, Math.max(1, 1.4 * zoom)); cx = nx; cy = ny; }
-      }
-      if (r() < 0.07) { const [cx, cy] = at(); const rr = 1.5 + r() * 2.5; p.blob(cx, cy, rr, WASTE.crater, 0.9, r); p.ring(cx, cy, rr * 1.05, WASTE.craterRim, 0.7, Math.max(1, 1.5 * zoom)); }
-      if (r() < 0.07) { const [cx, cy] = at(); p.blob(cx, cy, 1.5 + r() * 2, WASTE.puddle, 0.85, r); }
-      for (let k = 0; k < 3; k++) { const [cx, cy] = at(); p.blob(cx, cy, 0.25 + r() * 0.35, WASTE.rubble, 0.9, r); }
-    }
-
-    // --- ruins, dead trees, power pylons (taller -> drawn a bit nearer/faster) ---
-    setLayer(RUINS);
-    for (const [ix, iy] of p.cells(RUINS, width, height, 14)) {
-      const r = rng(ix, iy, RUINS.seed);
-      const x0 = ix * RUINS.cell + r() * RUINS.cell * 0.6;
-      const y0 = iy * RUINS.cell + r() * RUINS.cell * 0.6;
+    const FOG_TOP = 18; // meters: everything below is hidden in the fog sea
+    for (const [ix, iy] of cells) {
+      const r = rng(ix, iy, 5);
       const kind = r();
-      if (iy % 2 === 0 && (iy * RUINS.cell) % 5 === 0) continue; // keep the highway rows clear
-      if (kind < 0.3) this.ruin(x0, y0, r);
-      else if (kind < 0.46) this.deadTree(x0, y0, r, zoom);
-      else if (kind < 0.52) this.pylon(x0, y0, zoom);
-    }
-
-    // --- the airship's shadow far below (sun from the upper left) ---
-    setLayer(GROUND);
-    p.offset = 0; // the shadow travels with the ship
-    const sh = this.shadow.map(([x, y]): Vec3 => [x * 0.9 + 9, y * 0.9 + 6, 0]);
-    p.poly(sh, WASTE.shadow, 0.45);
-
-    // --- low smog drifting just under the ship ---
-    setLayer(SMOG);
-    for (const [ix, iy] of p.cells(SMOG, width, height, 6)) {
-      const r = rng(ix, iy, SMOG.seed);
-      if (r() > 0.28) continue;
-      const cx = ix * SMOG.cell + r() * SMOG.cell;
-      const cy = iy * SMOG.cell + r() * SMOG.cell;
-      for (let k = 0; k < 4; k++) p.blob(cx + (r() - 0.5) * 6, cy + (r() - 0.5) * 3, 2.5 + r() * 3, WASTE.smog, 0.16, r);
+      const x = ix * CELL + r() * CELL * 0.7;
+      const y = iy * CELL + r() * CELL * 0.7;
+      if (kind < 0.36) this.highRise(S, x, y, FOG_TOP, r);
+      else if (kind < 0.44) this.waterTower(S, x, y, FOG_TOP, r);
+      else if (kind < 0.54) this.pylon(S, x, y, FOG_TOP, scale);
     }
   }
 
-  /** Collapsed pre-war building: two visible walls with broken tops + dark window holes. */
-  private ruin(x: number, y: number, r: () => number): void {
-    const p = this.painter;
-    const w = 5 + r() * 5;
-    const d = 5 + r() * 5;
-    const h = 4 + r() * 7;
-    const top = () => h * (0.45 + r() * 0.55);
-    // footprint corners: (x,y) back … (x+w,y+d) front; visible faces = +x side and +y side
-    const hA = top(), hB = top(), hC = top(), hM = top();
-    p.poly([[x, y, 0], [x + w, y, 0], [x + w, y + d, 0], [x, y + d, 0]], WASTE.rubble, 0.8); // floor slab + debris
-    // +x face (towards the bow)
-    p.poly([[x + w, y, 0], [x + w, y + d, 0], [x + w, y + d, hC], [x + w, y + d * 0.5, hM], [x + w, y, hB]], WASTE.ruinSide);
-    // +y face (towards the viewer)
-    p.poly([[x, y + d, 0], [x + w, y + d, 0], [x + w, y + d, hC], [x + w * 0.5, y + d, hM * 0.8], [x, y + d, hA]], WASTE.ruinFront);
-    // window holes
-    for (let k = 0; k < 3; k++) {
-      const u = 0.15 + k * 0.28;
-      const z0 = 1 + r() * 0.5;
-      if (z0 + 1 < Math.min(hA, hC)) p.poly([[x + w * u, y + d, z0], [x + w * (u + 0.12), y + d, z0], [x + w * (u + 0.12), y + d, z0 + 1], [x + w * u, y + d, z0 + 1]], WASTE.window);
-      if (z0 + 1 < Math.min(hB, hC)) p.poly([[x + w, y + d * u, z0], [x + w, y + d * (u + 0.12), z0], [x + w, y + d * (u + 0.12), z0 + 1], [x + w, y + d * u, z0 + 1]], WASTE.window);
-    }
-    // rebar sticking out of the broken top
-    p.line([x + w, y + d, hC], [x + w + 0.3, y + d + 0.2, hC + 1], WASTE.rebar, 1.2);
-  }
-
-  private deadTree(x: number, y: number, r: () => number, zoom: number): void {
-    const p = this.painter;
-    const h = 3 + r() * 3;
-    p.blob(x, y, 0.6, WASTE.dirtDark, 0.7, r);
-    p.line([x, y, 0], [x, y, h], WASTE.tree, Math.max(1.5, 2.2 * zoom));
-    for (let k = 0; k < 3; k++) {
-      const z = h * (0.45 + k * 0.18);
-      const a = r() * Math.PI * 2;
-      p.line([x, y, z], [x + Math.cos(a) * 1.4, y + Math.sin(a) * 1.4, z + 0.9], WASTE.tree, Math.max(1, 1.4 * zoom));
+  /** Fill a vertical face from the fog line up to `top`, fading from fog colour into `col` (looks like rising out of it). */
+  private fadedFace(S: (p: Vec3) => Phaser.Math.Vector2, a: Vec2, b: Vec2, z0: number, topA: number, topB: number, col: number): void {
+    const g = this.towers;
+    const bands = 5;
+    for (let i = 0; i < bands; i++) {
+      const f0 = i / bands;
+      const f1 = (i + 1) / bands;
+      const za0 = z0 + (topA - z0) * f0, za1 = z0 + (topA - z0) * f1;
+      const zb0 = z0 + (topB - z0) * f0, zb1 = z0 + (topB - z0) * f1;
+      const c = Phaser.Display.Color.Interpolate.ColorWithColor(
+        Phaser.Display.Color.ValueToColor(WASTE.fog), Phaser.Display.Color.ValueToColor(col), bands, i + 1,
+      );
+      g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b), 1);
+      g.fillPoints([S([a[0], a[1], za0]), S([b[0], b[1], zb0]), S([b[0], b[1], zb1]), S([a[0], a[1], za1])], true);
     }
   }
 
-  private pylon(x: number, y: number, zoom: number): void {
-    const p = this.painter;
-    const h = 11;
-    const legs: [number, number][] = [[-1.2, -1.2], [1.2, -1.2], [1.2, 1.2], [-1.2, 1.2]];
-    const w = Math.max(1, 1.1 * zoom);
-    for (const [dx, dy] of legs) p.line([x + dx, y + dy, 0], [x + dx * 0.3, y + dy * 0.3, h], WASTE.pylon, w);
-    for (const z of [3.5, 7]) {
-      const k = 1 - (z / h) * 0.7;
-      for (let i = 0; i < 4; i++) {
-        const [ax, ay] = legs[i]!;
-        const [bx, by] = legs[(i + 1) % 4]!;
-        p.line([x + ax * k, y + ay * k, z], [x + bx * k, y + by * k, z], WASTE.pylon, w);
+  private highRise(S: (p: Vec3) => Phaser.Math.Vector2, x: number, y: number, fog: number, r: () => number): void {
+    const g = this.towers;
+    const w = 8 + r() * 8;
+    const d = 8 + r() * 8;
+    const top = fog + 8 + r() * 26;
+    const tA = top - r() * 6, tB = top, tC = top - r() * 9; // broken, uneven top
+    // visible faces in this view: +x (towards the bow) and +y (towards the viewer)
+    this.fadedFace(S, [x + w, y], [x + w, y + d], fog, tA, tB, WASTE.towerSide);
+    this.fadedFace(S, [x, y + d], [x + w, y + d], fog, tC, tB, WASTE.towerFront);
+    // roof (broken: missing corner)
+    g.fillStyle(WASTE.towerTop, 1);
+    g.fillPoints([S([x, y, tC]), S([x + w * 0.6, y, tA]), S([x + w, y + d * 0.4, tA]), S([x + w, y + d, tB]), S([x, y + d, tC])], true);
+    // dark window rows on the upper (fog-free) part
+    g.fillStyle(WASTE.window, 0.9);
+    for (let z = fog + 4; z < Math.min(tA, tB, tC) - 2; z += 4) {
+      for (let u = 0.12; u < 0.88; u += 0.19) {
+        if (r() < 0.25) continue; // some windows boarded / collapsed
+        g.fillPoints([S([x + w * u, y + d, z]), S([x + w * (u + 0.09), y + d, z]), S([x + w * (u + 0.09), y + d, z + 1.8]), S([x + w * u, y + d, z + 1.8])], true);
+        g.fillPoints([S([x + w, y + d * u, z]), S([x + w, y + d * (u + 0.09), z]), S([x + w, y + d * (u + 0.09), z + 1.8]), S([x + w, y + d * u, z + 1.8])], true);
       }
     }
-    p.line([x, y - 3.5, h - 1], [x, y + 3.5, h - 1], WASTE.pylon, w); // cross arm
+    // antenna / rebar on top
+    if (r() < 0.5) {
+      const p = S([x + w * 0.4, y + d * 0.5, tB]);
+      const q = S([x + w * 0.4, y + d * 0.5, tB + 6]);
+      g.lineStyle(1.5, WASTE.steel, 1);
+      g.lineBetween(p.x, p.y, q.x, q.y);
+    }
+  }
+
+  private waterTower(S: (p: Vec3) => Phaser.Math.Vector2, x: number, y: number, fog: number, r: () => number): void {
+    const g = this.towers;
+    const top = fog + 10 + r() * 6;
+    g.lineStyle(2, WASTE.steel, 1);
+    for (const [dx, dy] of [[-2, -2], [2, -2], [2, 2], [-2, 2]] as const) {
+      const p = S([x + dx, y + dy, fog]);
+      const q = S([x + dx * 0.6, y + dy * 0.6, top - 4]);
+      g.lineBetween(p.x, p.y, q.x, q.y);
+    }
+    // tank: a short drum (side as a band, then the lid)
+    const ring = (z: number, rad: number) => Array.from({ length: 16 }, (_, i) => S([x + Math.cos((i / 16) * Math.PI * 2) * rad, y + Math.sin((i / 16) * Math.PI * 2) * rad, z]));
+    const lower = ring(top - 4, 3.6);
+    const upper = ring(top, 3.6);
+    g.fillStyle(WASTE.tank, 1);
+    g.fillPoints([...lower.slice(0, 9), ...upper.slice(0, 9).reverse()], true);
+    g.fillStyle(WASTE.towerTop, 1);
+    g.fillPoints(ring(top + 1.2, 3.8), true);
+  }
+
+  private pylon(S: (p: Vec3) => Phaser.Math.Vector2, x: number, y: number, fog: number, scale: number): void {
+    const g = this.towers;
+    const top = fog + 14;
+    const lw = Math.max(1, scale * 0.25);
+    g.lineStyle(lw, WASTE.steel, 1);
+    const legs: [number, number][] = [[-2, -2], [2, -2], [2, 2], [-2, 2]];
+    const at = (dx: number, dy: number, z: number) => {
+      const k = 1 - ((z - fog) / (top - fog)) * 0.7;
+      return S([x + dx * k, y + dy * k, z]);
+    };
+    for (const [dx, dy] of legs) { const p = at(dx, dy, fog); const q = at(dx, dy, top); g.lineBetween(p.x, p.y, q.x, q.y); }
+    for (const z of [fog + 5, fog + 10]) {
+      for (let i = 0; i < 4; i++) { const p = at(...legs[i]!, z); const q = at(...legs[(i + 1) % 4]!, z); g.lineBetween(p.x, p.y, q.x, q.y); }
+    }
+    const a = S([x, y - 6, top - 1]);
+    const b = S([x, y + 6, top - 1]);
+    g.lineBetween(a.x, a.y, b.x, b.y);
   }
 }
 
-/** Faint haze wisps sliding OVER the ship (nearest layer, fastest). */
+/** Over the ship: cloud shadows sliding across it, and wind streaks flying past in the flight direction. */
 export class HazeScene extends Phaser.Scene {
-  private g!: Phaser.GameObjects.Graphics;
-  private painter!: LayerPainter;
+  private shadow!: CloudDeck;
+  private wind!: Phaser.GameObjects.Graphics;
+  private streaks: { x: number; y: number; len: number; speed: number; alpha: number }[] = [];
 
   constructor(private readonly getShip: () => ShipOnScreen | null) {
     super({ key: 'haze', active: true });
   }
 
   create(): void {
-    this.g = this.add.graphics();
-    this.painter = new LayerPainter(this.g, makeView(60, 45));
+    makeCloudTexture(this, 'cloud_shadow', 51, 2, 0.5, 0.75);
+    this.shadow = new CloudDeck(this, 'cloud_shadow', K.shadow, 6, 0x000000, 0.2);
+    this.wind = this.add.graphics();
+    const r = rng(9, 9, 9);
+    this.streaks = Array.from({ length: 34 }, () => ({ x: r(), y: r(), len: 14 + r() * 36, speed: 0.7 + r() * 0.6, alpha: 0.08 + r() * 0.16 }));
   }
 
-  override update(time: number): void {
-    const { width, height } = this.scale;
-    const s = this.getShip()?.screen() ?? { x: width / 2, y: height / 2, zoom: 1 };
-    const p = this.painter;
-    this.g.clear();
-    p.scale = HAZE.scale * Math.pow(Math.max(0.2, s.zoom), 0.6);
-    p.ax = width / 2 + (s.x - width / 2) * 0.8;
-    p.ay = height / 2 + (s.y - height / 2) * 0.8;
-    p.offset = (time / 1000) * FLIGHT_SPEED;
-    for (const [ix, iy] of p.cells(HAZE, width, height, 10)) {
-      const r = rng(ix, iy, HAZE.seed);
-      if (r() > 0.18) continue;
-      const cx = ix * HAZE.cell + r() * HAZE.cell;
-      const cy = iy * HAZE.cell + r() * HAZE.cell;
-      for (let k = 0; k < 5; k++) p.blob(cx + (r() - 0.5) * 9, cy + (r() - 0.5) * 3, 2 + r() * 3, WASTE.haze, 0.07, r);
+  override update(time: number, delta: number): void {
+    const { width: w, height: h } = this.scale;
+    const ship = this.getShip()?.screen() ?? { x: w / 2, y: h / 2, zoom: 1 };
+    this.shadow.update(time / 1000, ship, w, h);
+
+    // wind streaks: fast, thin, against the bow; wrap around the screen
+    const g = this.wind;
+    g.clear();
+    const v = FLIGHT_SPEED * SHIP_PX_PER_M * speedOf(K.wind) * (delta / 1000);
+    const span = w + h;
+    for (const s of this.streaks) {
+      s.x -= (BOW[0] * v * s.speed) / span;
+      s.y -= (BOW[1] * v * s.speed) / span;
+      if (s.x < -0.1) s.x += 1.2;
+      if (s.y < -0.1) s.y += 1.2;
+      const x = s.x * span - h * 0.1;
+      const y = s.y * span - w * 0.1;
+      if (x < -60 || y < -60 || x > w + 60 || y > h + 60) continue;
+      g.lineStyle(1.5, WASTE.wind, s.alpha);
+      g.lineBetween(x, y, x + BOW[0] * s.len, y + BOW[1] * s.len);
     }
   }
 }
