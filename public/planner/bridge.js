@@ -6,6 +6,8 @@
 // 2. Adds a "TEST IN GAME" button: it presses the planner's own DOWNLOAD GODOT JSON button (#gdBtn),
 //    catches that file instead of downloading it, stores it and opens the game.
 //    "SHIP LAB" does the same but opens the Ship Lab (same ship from all view angles).
+// 3. Keeps the planner's "BEFORE YOU START · LOAD YOUR GAME TABLES" window (#setup) from popping up by itself on load.
+//    Only the Unreal team needs those tables; they can still open it any time ([T] key or the tables button).
 (function () {
   'use strict';
   var TEST_KEY = 'adw.testShip';
@@ -81,7 +83,7 @@
     // Sits on the bottom edge of the planner's drawing area (its largest canvas), so it never covers the panels.
     // Below the planner's dialogs (z-index 20), styled like the planner's own buttons.
     bar.style.cssText = 'position:fixed;transform:translateX(-50%);z-index:15;display:flex;gap:8px';
-    var css = 'font:15px "Monofonto","Share Tech Mono",monospace;letter-spacing:2px;padding:6px 12px;cursor:pointer;' +
+    var css = 'font:15px "Monofonto","Share Tech Mono",monospace;letter-spacing:2px;padding:6px 12px;cursor:pointer;white-space:nowrap;' +
       'background:#15191C;color:#E8ECEE;border:3px solid #E8ECEE';
     var test = document.createElement('button');
     test.type = 'button'; test.textContent = '▶ TEST IN GAME'; test.style.cssText = css;
@@ -113,6 +115,27 @@
     window.addEventListener('scroll', place, true);
     setInterval(place, 1000); // planner panels can change size without a resize event
   }
+
+  // The planner opens #setup automatically shortly after start when tables are missing.
+  // Any opening before the first tap/key of the user is that automatic one -> close it again.
+  function suppressAutoSetup() {
+    var userActed = false;
+    var mark = function () { userActed = true; };
+    window.addEventListener('pointerdown', mark, true);
+    window.addEventListener('keydown', mark, true);
+    var watch = function () {
+      var el = document.getElementById('setup');
+      if (!el) return;
+      var close = function () { if (!userActed && !el.hidden) el.hidden = true; };
+      close();
+      var obs = new MutationObserver(close);
+      obs.observe(el, { attributes: true, attributeFilter: ['hidden'] });
+      setTimeout(function () { obs.disconnect(); }, 8000); // the planner opens it within 1.5 s
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch);
+    else watch();
+  }
+  suppressAutoSetup();
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addButtons);
   else addButtons();

@@ -16,7 +16,7 @@ never restate the owner's tasks back to them.
 | `src/render/` | Phaser scenes. Only *draws* core state and forwards input to core. | core, data, Phaser |
 | `src/ui/` | HTML/CSS overlay for all UI (menus, HUD, panels). | core |
 | `planner/source.html` | Ship Interior Planner artifact, **copied unchanged**. Never edit it – replace it with a new revision. | – |
-| `public/planner/bridge.js` | Website add-on for the planner (downloads, TEST IN GAME). See `docs/updating-planner.md`. | – |
+| `public/planner/bridge.js` | Website add-on for the planner (downloads, TEST IN GAME / SHIP LAB, hides the automatic "LOAD YOUR GAME TABLES" pop-up – owner doesn't need it; [T] still opens it). See `docs/updating-planner.md`. | – |
 
 - State lives in a `Store` (`src/core/store.ts`); updates are pure functions `(state) => newState`.
 - Renderer/UI subscribe to the store; they never hold their own copy of game state.
