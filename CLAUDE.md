@@ -98,6 +98,18 @@ never restate the owner's tasks back to them.
 - Demo ship: 4 rooms in a row (machinery port side, floors connected by doors) + a 2-tile balcony with a docked car
   (both rows at the railing) and a bike.
 
+## Run screens + HUD (from the owner's design mockups)
+- Run state `src/core/run.ts` (RunState: names, difficulty, modifiers, scrap, ammo, hull, evasion, system levels,
+  reactor bars, turrets), saved per browser by `src/ui/runStore.ts` (`adw.run`). The game HUD reads it (`statusFromRun`).
+- Top-left HUD `src/ui/statusHud.ts`: hull segments, shield pips + recharge, evasion | ammo, scrap; crew portraits
+  (captain first + bigger, health bar, station badge = system colour), tap = select. Portraits are placeholders until
+  the owner's webp images arrive.
+- Pages (plain DOM, no Phaser), each with rules in core + data JSON + tests:
+  `/new-run/` (newrun.ts: names, difficulty, modifiers → buildRun), `/upgrades/` (upgrades.ts: system levels, reactor
+  bars, undo/confirm), `/salvage/` (salvage.ts: seeded offer of 3 turrets by rarity, pick / scrap all; `?seed=`).
+  Look follows the mockups (corner-bracket panels, glow, CRT-on/off, glitch, ACCESS DENIED shake) at 24/18/15 px,
+  reflowed for a phone held upright.
+
 ## Sound
 - `src/ui/sound.ts`: all sounds made in code with Web Audio (no files): terminal blips (select / deselect / send),
   metal footsteps (one per stride), sliding doors, engine hum + wind ambience. Starts after the first tap (browser rule).

@@ -1,0 +1,86 @@
+{
+  "_info": "Ship turrets (salvage rewards). From the owner's mockup items.js – all numbers are PLACEHOLDERS for balancing. Rarity 1-5 = the SAME turret with perks 2..r applied on top (fx are appended, other keys replace). dmg = per projectile (beam: per room); ion = dmg is ion damage. cls = weapon class (shield rule). ammo = ammunition per volley (missiles), charges = shots per jump (lances). fx = [effect, n]. img = hologram drawing.",
+  "rarities": [
+    { "id": "common", "name": "COMMON", "color": "#E4EAE7", "sell": 10, "weight": 55 },
+    { "id": "uncommon", "name": "UNCOMMON", "color": "#5CFF2E", "sell": 15, "weight": 25 },
+    { "id": "rare", "name": "RARE", "color": "#4D9BFF", "sell": 25, "weight": 12 },
+    { "id": "epic", "name": "EPIC", "color": "#B46BFF", "sell": 40, "weight": 6 },
+    { "id": "legendary", "name": "LEGENDARY", "color": "#FFE45C", "sell": 60, "weight": 2 }
+  ],
+  "loot": { "scrap_min": 50, "scrap_max": 90, "scrap_step": 5, "ammo_min": 1, "ammo_max": 3 },
+  "turrets": {
+    "storm": { "name": "STORM CANNON", "cls": "CANNON", "img": "gun", "dmg": 1, "proj": 2, "charge": 12, "energy": 2, "fx": [],
+      "perks": { "2": { "proj": 3 }, "3": { "fx": [["fire", 20]] }, "4": { "proj": 4 }, "5": { "fx": [["breach", 20]] } } },
+    "pulse": { "name": "MAGNETIC PULSE", "cls": "MULTISHOT", "img": "laser", "dmg": 0, "proj": 2, "charge": 12, "energy": 1, "fx": [["stun", 5]],
+      "perks": { "2": { "proj": 3 }, "3": { "fx": [["crew", 15]] }, "4": { "proj": 4 }, "5": { "charge": 9 } } },
+    "beam": { "name": "LASER BEAM", "cls": "BEAM", "img": "laser", "dmg": 2, "proj": 3, "charge": 14, "energy": 2, "fx": [],
+      "perks": { "2": { "proj": 4 }, "3": { "fx": [["fire", 20]] }, "4": { "dmg": 3 }, "5": { "proj": 5 } } },
+    "ion": { "name": "DISRUPTOR", "cls": "CANNON", "img": "gun", "ion": true, "dmg": 1, "proj": 1, "charge": 9, "energy": 1, "fx": [],
+      "perks": { "2": { "proj": 2 }, "3": { "charge": 7 }, "4": { "dmg": 2 }, "5": { "proj": 3 } } },
+    "scatter": { "name": "ION SCATTER", "cls": "MULTISHOT", "img": "laser", "ion": true, "dmg": 1, "proj": 3, "charge": 15, "energy": 2, "fx": [],
+      "perks": { "2": { "proj": 4 }, "3": { "charge": 13 }, "4": { "proj": 5 }, "5": { "fx": [["stun", 3]] } } },
+    "sabre": { "name": "SABRE MISSILE", "cls": "MISSILE", "img": "missile", "dmg": 2, "proj": 1, "charge": 18, "energy": 1, "ammo": 1, "fx": [["crew", 30]],
+      "perks": { "2": { "fx": [["fire", 25]] }, "3": { "charge": 15 }, "4": { "dmg": 3 }, "5": { "proj": 2 } } },
+    "lance": { "name": "ENERGY LANCE", "cls": "LANCE", "img": "laser", "dmg": 2, "proj": 1, "charge": 12, "energy": 2, "charges": 2, "fx": [["breach", 30]],
+      "perks": { "2": { "charges": 3 }, "3": { "dmg": 3 }, "4": { "charges": 4 }, "5": { "fx": [["crew", 20]] } } },
+    "mortar": { "name": "ATOMIC MORTAR", "cls": "MISSILE", "img": "missile", "dmg": 3, "proj": 2, "charge": 22, "energy": 2, "ammo": 2, "fx": [["rad", 25]],
+      "perks": { "2": { "fx": [["crew", 30]] }, "3": { "charge": 20 }, "4": { "fx": [["breach", 30]] }, "5": { "dmg": 4 } } }
+  },
+  "classes": {
+    "CANNON": "Each shot knocks out 1 shield layer but cannot pass through. Hits the hull once the shields are down.",
+    "MULTISHOT": "Fires a wide spread. Less accurate, but every shot knocks out 1 shield layer: ideal to strip shields for your other weapons.",
+    "BEAM": "A continuous beam that cuts through several rooms (damage × rooms). Fully blocked by shields: no damage and no shield layer removed.",
+    "LANCE": "Starts every battle pre-charged. Very fast shots that pass through shields. Only a limited number of CHARGES per jump.",
+    "MISSILE": "Ignores shields and hits the ship directly. Uses AMMO for every volley. Slower projectiles."
+  },
+  "effects": {
+    "fire": { "name": "FIRE", "unit": "%", "info": "{n} % chance per projectile to start a fire in the room it hits." },
+    "stun": { "name": "STUN", "unit": "s", "info": "Stuns every crew member in the room it hits for {n} seconds: they cannot work, repair or fight." },
+    "crew": { "name": "CREW", "unit": "HP", "info": "Each projectile deals {n} HP damage to every crew member in the room it hits." },
+    "breach": { "name": "BREACH", "unit": "%", "info": "{n} % chance per projectile to tear a hull breach. The room loses oxygen until it is repaired." },
+    "rad": { "name": "RADIATION", "unit": "%", "info": "{n} % chance per projectile to irradiate the room. Crew inside lose HP over time until it is cleaned." }
+  },
+  "drawings": {
+    "laser": [
+      ["ellipse", { "cx": 140, "cy": 146, "rx": 100, "ry": 15, "stroke-opacity": 0.5 }],
+      ["ellipse", { "cx": 140, "cy": 146, "rx": 64, "ry": 9, "stroke-opacity": 0.3 }],
+      ["path", { "d": "M84 142 L100 114 H180 L196 142" }],
+      ["path", { "d": "M100 128 H180", "stroke-opacity": 0.35 }],
+      ["rect", { "x": 100, "y": 70, "width": 80, "height": 44 }],
+      ["path", { "d": "M110 70 L120 56 H160 L170 70" }],
+      ["path", { "d": "M100 92 H180 M140 70 V114", "stroke-opacity": 0.35 }],
+      ["rect", { "x": 180, "y": 82, "width": 100, "height": 16 }],
+      ["path", { "d": "M196 82 V98 M212 82 V98 M228 82 V98 M244 82 V98", "stroke-opacity": 0.4 }],
+      ["rect", { "x": 280, "y": 78, "width": 10, "height": 24 }],
+      ["circle", { "cx": 300, "cy": 90, "r": 6 }],
+      ["circle", { "cx": 300, "cy": 90, "r": 2, "fill": "currentColor" }]
+    ],
+    "gun": [
+      ["ellipse", { "cx": 140, "cy": 146, "rx": 100, "ry": 15, "stroke-opacity": 0.5 }],
+      ["ellipse", { "cx": 140, "cy": 146, "rx": 64, "ry": 9, "stroke-opacity": 0.3 }],
+      ["path", { "d": "M84 142 L100 114 H180 L196 142" }],
+      ["rect", { "x": 92, "y": 64, "width": 96, "height": 50 }],
+      ["path", { "d": "M92 80 H188 M92 96 H188", "stroke-opacity": 0.35 }],
+      ["path", { "d": "M110 64 V52 H146 V64", "stroke-opacity": 0.6 }],
+      ["rect", { "x": 188, "y": 70, "width": 20, "height": 38 }],
+      ["rect", { "x": 208, "y": 73, "width": 74, "height": 7 }],
+      ["rect", { "x": 208, "y": 85, "width": 74, "height": 7 }],
+      ["rect", { "x": 208, "y": 97, "width": 74, "height": 7 }],
+      ["rect", { "x": 278, "y": 68, "width": 12, "height": 42 }]
+    ],
+    "missile": [
+      ["ellipse", { "cx": 150, "cy": 146, "rx": 100, "ry": 15, "stroke-opacity": 0.5 }],
+      ["ellipse", { "cx": 150, "cy": 146, "rx": 64, "ry": 9, "stroke-opacity": 0.3 }],
+      ["path", { "d": "M110 142 L122 120 H178 L190 142" }],
+      ["path", { "d": "M136 120 V104 H164 V120" }],
+      ["path", { "d": "M96 104 L104 40 H236 L244 104 Z" }],
+      ["circle", { "cx": 132, "cy": 62, "r": 11 }],
+      ["circle", { "cx": 170, "cy": 62, "r": 11 }],
+      ["circle", { "cx": 208, "cy": 62, "r": 11 }],
+      ["circle", { "cx": 132, "cy": 88, "r": 11, "stroke-opacity": 0.6 }],
+      ["circle", { "cx": 170, "cy": 88, "r": 11, "stroke-opacity": 0.6 }],
+      ["circle", { "cx": 208, "cy": 88, "r": 11, "stroke-opacity": 0.6 }],
+      ["path", { "d": "M128 62 L136 62 M166 62 L174 62 M204 62 L212 62", "stroke-opacity": 0.5 }]
+    ]
+  }
+}

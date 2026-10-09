@@ -17,6 +17,7 @@ export function mountHud(root: HTMLElement, store: Store<GameState>, opts: HudOp
   const items: MenuItem[] = [
     { label: 'NEW RUN', href: '/new-run/' },
     { label: 'SHIP UPGRADES', href: '/upgrades/' },
+    { label: 'SALVAGE (TEST)', href: '/salvage/' },
     { label: 'SHIP LAB', href: '/ship-lab/' },
     { label: 'CREW LAB', href: '/crew-lab/' },
     { label: 'PLANNER', href: '/planner/' },
