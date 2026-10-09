@@ -483,7 +483,7 @@ export class ShipView {
         .text(pos.x, pos.y, (room.label || room.id).toUpperCase(), {
           fontFamily: FONT_FAMILY,
           fontSize: `${FONT_SIZES.small}px`,
-          color: '#' + WORLD.label.toString(16).padStart(6, '0'),
+          color: '#' + WORLD.stencil.toString(16).padStart(6, '0'),
           resolution: 4,
         })
         .setLetterSpacing(1)
@@ -540,7 +540,7 @@ export class ShipView {
   private drawSolid(g: G, s: Solid): void {
     switch (s.kind) {
       case 'wall':
-        this.prism(g, s.footprint, s.z0, s.z1, shade(WORLD.wall, -22), shade(WORLD.wall, -12), WORLD.wallTop);
+        this.prism(g, s.footprint, s.z0, s.z1, WORLD.innerWall, shade(WORLD.innerWall, 22), WORLD.innerWallTop);
         break;
       case 'railing':
         this.prism(g, s.footprint, s.z0, s.z1, WORLD.hullEdge, shade(WORLD.hullEdge, 30));
@@ -635,12 +635,12 @@ export class ShipView {
   /** Wall piece: visible side faces, top, and the light top edge only along the wall (no seams between pieces). */
   private drawWallPiece(g: G, s: Solid, p: { footprint: Point[]; first: boolean; last: boolean }): void {
     const railing = s.kind === 'railing';
-    const top = railing ? WORLD.hullEdge : shade(WORLD.wall, -22);
-    const side = railing ? shade(WORLD.hullEdge, 30) : shade(WORLD.wall, -12);
+    const top = railing ? WORLD.hullEdge : WORLD.innerWall;
+    const side = railing ? shade(WORLD.hullEdge, 30) : shade(WORLD.innerWall, 22);
     this.prism(g, p.footprint, s.z0, s.z1, top, side);
     if (railing) return;
     const t = p.footprint.map((q) => this.S(W(q, s.z1)));
-    g.lineStyle(Math.max(1, this.pxPerM * 0.04), WORLD.wallTop, 0.7);
+    g.lineStyle(Math.max(1, this.pxPerM * 0.05), WORLD.innerWallTop, 0.9);
     // segmentBox order: 0-1 and 2-3 run along the wall, 1-2 / 3-0 are the ends
     g.lineBetween(t[0]!.x, t[0]!.y, t[1]!.x, t[1]!.y);
     g.lineBetween(t[2]!.x, t[2]!.y, t[3]!.x, t[3]!.y);

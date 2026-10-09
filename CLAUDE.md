@@ -41,6 +41,9 @@ never restate the owner's tasks back to them.
   filled with the **Ship Planner colour, faded into Fallout paint** (`worldPaint` in palette.ts; no neon) (`src/data/systems.json`, `src/core/systems.ts`) – `src/core/hull.ts`.
   Grimdark, desaturated Fallout 3 tones from `WORLD` in `src/render/palette.ts` (olive-grey steel, rust, dim lamp-yellow).
   No green glow and no scanlines on the world. Selection = pale lamp-yellow outline.
+  Contrast rule (checked with GREYSCALE): dark world outside → bright, desaturated Vault-like interior (light concrete
+  floor, blue-grey steel half walls with bright tops, dark stencil labels) → crew darker + more saturated on top, with a
+  team-coloured outline (green = own crew, amber = hostile) and thin dark inner edges (`drawCrewIso`).
 
 ## Crew look (in evaluation)
 - OLD look: `src/render/crew.ts` (armour baked into the origin). NEW look: `src/render/crew_v2.ts` – plain clothes in the

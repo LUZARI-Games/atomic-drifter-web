@@ -15,8 +15,8 @@ export const COLORS = {
 export const WORLD = {
   hull: 0x2e2f29, // outer hull plating
   hullEdge: 0x55533f, // rim light on the hull silhouette
-  floor: 0x666453, // deck plates (light enough that crew stand out)
-  floorSeam: 0x52503f, // plate seams
+  floor: 0x9a9a90, // deck plates: light, well-lit concrete grey (Vault-like interior) so crew stand out
+  floorSeam: 0x7e7e75, // plate seams
   machinery: 0x5b4532, // rusty machine blocks
   machineryDark: 0x3d2e22,
   wall: 0x1b1c17, // wall body
@@ -24,13 +24,16 @@ export const WORLD = {
   door: 0x7a6d48, // brass/olive door slab
   airlock: 0x8f5a24, // rust-orange outer hatch
   hazard: 0x1b1c17, // hazard stripe on airlocks
-  label: 0xb4aa86, // stencil paint on the floor
+  label: 0xb4aa86, // worn light paint (key caps, raider spikes)
+  stencil: 0x45453f, // dark stencil paint on the light floor (room names)
+  innerWall: 0x77828a, // interior half walls: painted steel, blue-grey like Vault walls
+  innerWallTop: 0xc4cbcc, // bright top edge of the walls
   select: 0xe6d98a, // selection outline (pale lamp yellow)
   console: 0x5a5a4b, // console desk (worn steel)
   consoleKeys: 0x24251f, // keyboard plate
   consoleKey: 0xb4aa86, // key caps (same worn paint as the floor stencils)
-  grate: 0x3b3b32, // balcony floor: open steel grating
-  grateLine: 0x26261f,
+  grate: 0x5f5f57, // balcony floor: open steel grating
+  grateLine: 0x3c3c35,
   underside: 0x22231d, // edge / underside of a balcony platform
   hazard2: 0xb08a2e, // faded yellow of hazard stripes at a dock
 } as const;

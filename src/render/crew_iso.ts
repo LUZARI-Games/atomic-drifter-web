@@ -64,10 +64,22 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   const D3 = (p: Vec3) => depth(v, W3(p));
 
   const parts: { d: number; draw: () => void }[] = [];
+  // two passes: first every part as a thick silhouette in the team colour (green = own crew, amber = hostile),
+  // then the normal figure on top with thin dark edges -> a coloured outline that also reads in greyscale
+  const team = hostile ? COLORS.amber : COLORS.green;
+  const rim = Math.max(2.5, 0.1 * pxPerM);
+  let sil = false;
   const add = (center: Vec3, draw: () => void, bias = 0) => parts.push({ d: D3(center) + bias, draw });
   const line = () => g.lineStyle(Math.max(1, 0.025 * pxPerM), OUTLINE, 1);
   const fill = (pts: Vec2[], col: number, outline = true) => {
     const vs = pts.map(([a, b]) => new Phaser.Math.Vector2(a, b));
+    if (sil) {
+      g.fillStyle(team, 1);
+      g.fillPoints(vs, true);
+      g.lineStyle(rim, team, 1);
+      g.strokePoints(vs, true);
+      return;
+    }
     g.fillStyle(col, 1);
     g.fillPoints(vs, true);
     if (outline) {
@@ -85,6 +97,11 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   const sphere = (c: Vec3, r: number, col: number, bias = 0) =>
     add(c, () => {
       const p = S(c);
+      if (sil) {
+        g.fillStyle(team, 1);
+        g.fillCircle(p[0], p[1], r * pxPerM + rim / 2);
+        return;
+      }
       g.fillStyle(col, 1);
       g.fillCircle(p[0], p[1], r * pxPerM);
       line();
@@ -127,10 +144,13 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
       const [sx, sy] = project(v, [Math.cos((i / 24) * 2 * Math.PI) * r, Math.sin((i / 24) * 2 * Math.PI) * r, 0]);
       return [x + sx * pxPerM, y + sy * pxPerM];
     });
-  g.fillStyle(0x000000, 0.3);
-  g.fillPoints(floorEllipse(W + 0.12).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
-  g.lineStyle(Math.max(1.5, (ringColor !== undefined ? 0.08 : 0.05) * pxPerM), ringColor ?? (hostile ? COLORS.amber : COLORS.green), 1);
-  g.strokePoints(floorEllipse(W + 0.3).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
+  g.fillStyle(0x000000, 0.35);
+  g.fillPoints(floorEllipse(W + 0.14).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
+  if (ringColor !== undefined) {
+    // selected: ring on the floor (team colour is already the outline)
+    g.lineStyle(Math.max(2, 0.08 * pxPerM), ringColor, 1);
+    g.strokePoints(floorEllipse(W + 0.3).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
+  }
 
   // --- legs (trousers = dark origin colour) ---
   const legR = tank ? 0.085 : 0.07;
@@ -169,5 +189,8 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   }
 
   parts.sort((a, b) => a.d - b.d);
+  sil = true;
+  for (const p of parts) p.draw();
+  sil = false;
   for (const p of parts) p.draw();
 }

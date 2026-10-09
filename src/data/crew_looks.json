@@ -6,7 +6,7 @@
   "origins": {
     "raider": {
       "name": "RAIDER",
-      "color": "#8E3B2A",
+      "color": "#B0381F",
       "hostile": true,
       "outfit": "#4A3A2C",
       "accent": "#7A3A26",
@@ -15,7 +15,7 @@
     },
     "sentinel": {
       "name": "SENTINEL",
-      "color": "#4F6F8F",
+      "color": "#3A6FB0",
       "hostile": true,
       "outfit": "#5C6266",
       "accent": "#8A7A4A",
@@ -24,7 +24,7 @@
     },
     "deserter": {
       "name": "DESERTER",
-      "color": "#7A7A45",
+      "color": "#86902A",
       "hostile": false,
       "outfit": "#55574A",
       "accent": "#5E4A34",
@@ -33,7 +33,7 @@
     },
     "ironmall": {
       "name": "IRON MALL CITIZEN",
-      "color": "#3F7F7A",
+      "color": "#24928A",
       "hostile": false,
       "outfit": "#3F5A5E",
       "accent": "#9A8442",
