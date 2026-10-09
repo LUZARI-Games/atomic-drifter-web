@@ -89,6 +89,15 @@ export class ShipView {
     return this.S(W(p, height));
   }
 
+  /** Ship-space unit vector that points to screen-right (crew stand in the screen-left corner of a contested tile). */
+  screenRight(): Point {
+    const o = project(this.view, W([0, 0], 0));
+    const a = project(this.view, W([1, 0], 0))[0] - o[0];
+    const b = project(this.view, W([0, 1], 0))[0] - o[0];
+    const l = Math.hypot(a, b) || 1;
+    return [a / l, b / l];
+  }
+
   /** Ship-space floor point under a screen point (for taps). */
   toShip(x: number, y: number): Point {
     const [wx, wy] = unprojectFloor(this.view, [(x - this.ox) / this.pxPerM, (y - this.oy) / this.pxPerM]);

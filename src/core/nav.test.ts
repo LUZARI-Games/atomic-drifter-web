@@ -56,6 +56,7 @@ describe('crew', () => {
     let s = start(ship);
     const c = s.crew.find((m) => ship.tiles[Number(m.node.slice(1))]!.room === 'engines')!;
     s = selectCrew(s, c.id);
+    s = { ...s, crew: s.crew.filter((m) => m.id === c.id || ship.tiles[Number(m.node.slice(1))]!.room !== 'piloting') }; // cockpit free
     s = tapPoint(s, [1, -3]); // cockpit floor
     expect(s.crew.find((m) => m.id === c.id)!.path.length).toBeGreaterThan(0);
     let sawDoor = false;

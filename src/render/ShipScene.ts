@@ -3,7 +3,8 @@
 import Phaser from 'phaser';
 import { makeView } from '../core/projection';
 import COMBAT from '../data/combat.json';
-import { SYSTEM_MAX_DAMAGE, tickCombat } from '../core/combat';
+import { systemBars, tickCombat, workOf } from '../core/combat';
+import { systemBlocks } from '../core/hull';
 import { atDesk, doorsInUse, navOf, seatOf, selectCrew, STRIDE_M, tickCrew } from '../core/crewmove';
 import { keepDistance, moods, type Mood } from '../core/mood';
 import { nodeAt } from '../core/nav';
@@ -63,6 +64,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private hurtAt = new Map<string, number>();
   private floats: { text: Phaser.GameObjects.Text; born: number }[] = [];
   private moodNow = new Map<string, Mood>();
+  private blocks: ReturnType<typeof systemBlocks> = [];
   ready = false;
   private unsubscribe: (() => void) | null = null;
 
@@ -85,6 +87,9 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.doorOpen = ship.doors.map((_, i) => (this.store.get().openDoors.includes(i) ? 1 : 0));
     this.outline = this.add.graphics().setDepth(3); // outline on top of the walls, so the half walls never hide it
     this.overlay = this.add.graphics().setDepth(3.2);
+    this.blocks = systemBlocks(ship);
+    const axis = this.view.screenRight();
+    this.store.update((s) => ({ ...s, fightAxis: axis })); // crew left, enemies right on a shared tile (as seen here)
     this.energy = this.add.graphics().setDepth(0.6); // hull reactor, thrusters, levitation drives (outside the deck)
     this.view.drawStatic(this, deck, -b.x, -b.y);
     // walls, blocks, vehicles … drawn once (depth 1..2); crew + moving doors are redrawn and slotted in between
@@ -227,6 +232,8 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       }
       let idle: CrewOnDeck['idle'];
       let facing = toView(c.heading);
+      const work = workOf(this.store.get(), c);
+      if (work) return { ...base, at: c.pos, facing, step: 0, lift: 0, idle: { t, seed, typing: false, hurt, work } };
       if (!c.path.length) {
         idle = { t, seed, typing: atDesk(ship, c), hurt };
         const m = this.moodNow.get(c.id);
@@ -274,14 +281,46 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
 
   /** Health bars over fighters / the wounded, speech marks over chatting / wary / bored crew, wrecked systems. */
   private drawOverlay(t: number): void {
-    const { ship, crew, systemDamage } = this.store.get();
+    const state = this.store.get();
+    const { ship, crew, systemDamage } = state;
     const g = this.overlay;
     g.clear();
     // damaged systems: the block pulses red, stronger the more it is wrecked
     for (const [room, dmg] of Object.entries(systemDamage)) {
-      const a = (dmg / SYSTEM_MAX_DAMAGE) * (0.25 + 0.15 * Math.sin(t * 6));
+      const a = (dmg / Math.max(1, systemBars(state, room))) * (0.25 + 0.15 * Math.sin(t * 6));
       g.fillStyle(COLORS_HEX.red, a);
       for (const tile of ship.tiles) if (tile.room === room && tile.machinery) g.fillPoints(tile.polygon.map((p) => this.view.deckPoint(p, 1)), true);
+    }
+    // system health bars (one per power level) above the block while it is damaged or someone works on it
+    const worked = new Set(crew.filter((c) => workOf(state, c)).map((c) => ship.tiles[Number(c.node.slice(1))]?.room));
+    for (const b of this.blocks) {
+      const bars = systemBars(state, b.room);
+      if (!bars || (!systemDamage[b.room] && !worked.has(b.room))) continue;
+      const left = bars - (systemDamage[b.room] ?? 0); // remaining health in bars
+      const p = this.view.deckPoint(b.anchor, 1.9);
+      const w = 9;
+      const x0 = p.x - (bars * (w + 3)) / 2;
+      for (let i = 0; i < bars; i++) {
+        const fill = Math.max(0, Math.min(1, left - i));
+        g.fillStyle(0x000000, 0.75).fillRect(x0 + i * (w + 3) - 1, p.y - 1, w + 2, 16);
+        g.fillStyle(COLORS_HEX.red, 0.5).fillRect(x0 + i * (w + 3), p.y, w, 14);
+        if (fill > 0) g.fillStyle(COLORS_HEX.green, 1).fillRect(x0 + i * (w + 3), p.y + 14 * (1 - fill), w, 14 * fill);
+      }
+    }
+    // sparks where someone hammers (orange) or welds (white-yellow) at a console
+    for (const c of crew) {
+      const work = workOf(state, c);
+      if (!work) continue;
+      const fx: Point = [c.pos[0] + Math.cos(c.heading) * 0.5, c.pos[1] + Math.sin(c.heading) * 0.5];
+      const s = this.view.deckPoint(fx, 0.85);
+      const n = work === 'repair' ? 5 : Math.random() < 0.35 ? 7 : 0; // welding: steady; hammering: bursts
+      g.lineStyle(2, work === 'repair' ? 0xfff6c0 : 0xffa040, 1);
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 4 + Math.random() * 12;
+        g.lineBetween(s.x, s.y, s.x + Math.cos(a) * r, s.y + Math.sin(a) * r - 4);
+      }
+      if (work === 'repair') g.fillStyle(0xfff6c0, 0.35 + 0.35 * Math.random()).fillCircle(s.x, s.y, 5);
     }
     const seen = new Set<string>();
     for (const c of crew) {

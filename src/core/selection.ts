@@ -5,7 +5,7 @@ import { getRoom, roomAtPoint } from './ship';
 import type { GameState, Point, Ship, ShipRoom } from './types';
 
 export function createGameState(ship: Ship): GameState {
-  return { ship, selectedRoomId: null, openDoors: [], crew: [], selectedCrewId: null, status: startStatus(), systemDamage: {} };
+  return { ship, selectedRoomId: null, openDoors: [], crew: [], selectedCrewId: null, status: startStatus(), systemDamage: {}, systemBars: {}, fightAxis: [Math.SQRT1_2, -Math.SQRT1_2] };
 }
 
 /** Door under a ship point (within `radius` meters of its centre), or -1. */

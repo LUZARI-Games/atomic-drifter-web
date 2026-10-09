@@ -8,6 +8,8 @@ import { HazeScene, WastelandScene } from './render/wasteland';
 import { mountHud } from './ui/hud';
 import { spawnShipEnemies } from './core/combat';
 import { statusFromRun } from './core/run';
+import { systemId } from './core/systems';
+import { effectiveLevel } from './core/upgrades';
 import { parseShip } from './core/ship';
 import { loadRun } from './ui/runStore';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
@@ -26,7 +28,9 @@ async function boot(): Promise<void> {
   const run = loadRun();
   // the captain carries the name entered in New Run
   const crew = generateCrew(loaded.ship).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
-  let start = { ...createGameState(loaded.ship), crew, status: statusFromRun(run) };
+  // system health bars = their power level in this run (Ship Upgrades)
+  const systemBarsByRoom = Object.fromEntries(loaded.ship.rooms.filter((r) => r.system).map((r) => [r.id, effectiveLevel(run, systemId(r.system))]));
+  let start = { ...createGameState(loaded.ship), crew, status: statusFromRun(run), systemBars: systemBarsByRoom };
   start = spawnShipEnemies(start); // enemy boarders placed in the planner (ENEMY CREW)
   if (scene) start = applyTestScene(start, scene);
   const store = new Store(start);

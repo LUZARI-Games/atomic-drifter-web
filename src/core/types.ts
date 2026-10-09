@@ -109,6 +109,11 @@ export interface GameState {
   selectedCrewId: string | null;
   /** Hull, shields, evasion, ammo, scrap (HUD). */
   status: ShipStatus;
-  /** Boarder damage per system room (room id -> damage, 0 = intact … SYSTEM_MAX_DAMAGE = broken). */
+  /** Sabotage damage per system room in health bars (room id -> 0 = intact … systemBars[room] = wrecked). */
   systemDamage: Record<string, number>;
+  /** Health bars per system room = its power level (energy slots) from the run. */
+  systemBars: Record<string, number>;
+  /** Ship-space unit vector pointing to screen-right (set by the renderer from the camera): crew stand in the
+   *  screen-left corner of a tile, enemies in the screen-right corner. */
+  fightAxis: Point;
 }

@@ -88,8 +88,10 @@ never restate the owner's tasks back to them.
 - `src/core/crewmove.ts`: `generateCrew` (planner exports carry no crew yet → 4 random Crew Lab types, seeded by ship
   name, start at consoles), `selectCrew`, `sendSelected` (tap a tile / vehicle seat), `tickCrew` (real time; speed,
   start/stop easing and stride in `src/data/crew_move.json`, 3.2 m/s), `doorsInUse` (doors open by themselves while
-  someone walks through). Up to 4 crew share a deck tile, 1 per seat. On a console tile the first spot is at the desk
-  (crew face it and type); the other spots stay clear of the desk (`consoleOf`).
+  someone walks through). ONE per side per deck tile (2 m × 2 m), 1 per seat; a taken tile → nearest free tile of the
+  room, full room → order refused (`freeTileNear`). Spots (`tileSpot`): alone → tile centre (console tile: at the desk,
+  facing the machine); crew + enemy on one tile → crew in the screen-LEFT corner, enemy in the screen-RIGHT corner
+  (`GameState.fightAxis`, set by ShipScene from the camera). Everyone standing steps to their spot every tick.
 - Idle animation (`IdlePose` in crew_iso.ts): breathing, weight from foot to foot, looking around, hands on hips now
   and then, typing at a desk – each person on their own rhythm. Redrawn at ~20 fps while nobody walks.
 - Vehicles: 1 tile = 1 seat. `seatPose` (core/exterior.ts, layout `SEATS`): astride the bike (hands on the bar), car
@@ -127,15 +129,20 @@ never restate the owner's tasks back to them.
 ## Boarding combat + moods
 - Enemies: placed in the planner with the ENEMY CREW tool (key E) → export `crew: [{ side: 'enemy', tile }]` →
   `spawnShipEnemies` at game start (random hostile look from `combat.json` enemy_origins + enemy portrait).
-- `src/core/combat.ts` `tickCombat` (every frame): crew and boarders standing in the same room fight in melee (FTL);
-  blows every `attack_interval_s`, HP by build, death animation then removed. Boarders walk to the nearest system that
-  is not wrecked and damage it (`systemDamage`, red pulsing block); crew repair it when the room is clear.
+- `src/core/combat.ts` `tickCombat` (every frame): a fight starts only between opponents standing still on the SAME
+  tile, each in their corner – walkers are never attacked. Idle crew (not operating) walk onto a lone enemy's tile in
+  their room; boarders do the same towards crew in their room before going for systems. Blows every
+  `attack_interval_s`, HP by build, death animation then removed.
+- Sabotage / repair (`workOf`): a boarder alone at a system's console desk sabotages it, 5 s per health bar
+  (`sabotage_s_per_bar`); a system has as many bars as its power level (energy slots) in the run (`systemBars`, from
+  `effectiveLevel`). Crew at the desk repair 5 s per bar while no boarder is in the room. Animations: hammering with
+  orange sparks / wrench + welding sparks; a bar row above the block shows the remaining health.
   Enemies cannot be selected; tapping them does nothing. Numbers in `src/data/combat.json`.
 - `src/core/mood.ts` `moods`: bored (alone, not operating, idle ≥ 6 s; sits on the floor after 18 s, "zZ"),
   chat (same origin in one room: the one not operating tells a story – gestures, laughs, "!"/"HA" – the other nods),
   wary (different origins in one room: crossed arms, side glances, "?"; `keepDistance` makes one walk to another tile).
   No moods while boarders are in the room. Poses in `IdlePose` (crew_iso.ts), marks/health bars/damage numbers in
-  ShipScene's overlay. Test scenes: `?test=fight|boarders|chat|wary|bored`.
+  ShipScene's overlay. Test scenes: `?test=fight|boarders|sabotage|repair|chat|wary|bored`.
 
 ## Sound
 - `src/ui/sound.ts`: all sounds made in code with Web Audio (no files): terminal blips (select / deselect / send),

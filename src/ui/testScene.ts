@@ -20,6 +20,7 @@ export interface TestScene {
   crew: SceneCrew[];
   focus?: Point;
   zoom?: number;
+  damage?: Record<string, number>; // preset system damage in health bars (repair tests)
 }
 
 const SHIPS = import.meta.glob('../data/test_ships/*.json', { eager: true, import: 'default' }) as Record<string, unknown>;
@@ -63,6 +64,7 @@ export function applyTestScene(state: GameState, scene: TestScene): GameState {
     s = sendSelected(selectCrew(s, m.id), c.send) ?? s;
     s = selectCrew(s, null);
   });
+  if (scene.damage) s = { ...s, systemDamage: { ...s.systemDamage, ...scene.damage } };
   const sel = own.findIndex((c) => c.selected);
   if (sel >= 0 && s.crew[sel]) s = selectCrew(s, s.crew[sel]!.id);
   return s;

@@ -11,9 +11,10 @@ import type { CrewMember, GameState, Point, Ship } from './types';
 
 export const WALK_SPEED = MOVE.walk_speed_mps; // top speed, m/s
 export const STRIDE_M = MOVE.stride_m; // one step (drives walk cycle + footstep sounds)
-const SLOTS: Point[] = [[-0.45, -0.45], [0.45, 0.45], [-0.45, 0.45], [0.45, -0.45]]; // up to 4 crew share a deck tile
-/** Console tile: first spot = at the desk (operator), the others stay clear of the desk. (forward = towards the desk, side) */
-const CONSOLE_SLOTS: Point[] = [[0.3, 0], [-0.45, -0.45], [-0.45, 0.45], [-0.45, 0]];
+/** Desk spot on a console tile: 0.3 m from the tile centre towards the machine. */
+const DESK_OFFSET = 0.3;
+/** Facing an opponent on one tile: each stands this far from the centre, towards their screen corner (see fightAxis). */
+const CORNER_OFFSET = 0.7;
 
 /** Speed share (0…1): picks up over the first meters of a way, slows down before the end. */
 export function walkFactor(moved: number, left: number): number {
@@ -83,8 +84,9 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
     };
     const node = starts[i]!;
     const desk = consoleOf(ship, node);
+    const at = nav.nodes.get(node)!.pos;
     crew.push({
-      id: look.id, name: look.name, look, node, dest: node, pos: spot(ship, crew, node, look.id), path: [],
+      id: look.id, name: look.name, look, node, dest: node, pos: desk ? [at[0] + desk[0] * DESK_OFFSET, at[1] + desk[1] * DESK_OFFSET] : at, path: [],
       heading: desk ? headingOf(desk) : r() * Math.PI * 2, walked: 0,
       hp: maxHp(look), hpMax: maxHp(look), captain: i === 0, // the first one is the player's captain
       portrait: face?.id,
@@ -98,28 +100,59 @@ export function maxHp(look: CrewLook): number {
   return look.build === 'tank' ? COMBAT.hp.tank : COMBAT.hp.normal;
 }
 
-/** Free standing spot on a node: deck tiles have 4 slots, a vehicle seat one. */
-function spot(ship: Ship, others: CrewMember[], node: string, self: string): Point {
-  const base = navOf(ship).nodes.get(node)!.pos;
+const sideOf = (c: CrewMember) => c.side ?? 'crew';
+const standing = (c: CrewMember) => c.dying === undefined && c.hp > 0;
+
+/**
+ * Where `id` stands on deck tile `node` (one per side per tile): alone → the tile centre (on a console tile: at the
+ * desk); with an opponent on the same tile → own crew in the screen-left corner, enemies in the screen-right corner
+ * (`state.fightAxis` = ship direction of screen-right). Vehicle seats: the seat.
+ */
+export function tileSpot(state: GameState, id: string, node: string): Point {
+  const base = navOf(state.ship).nodes.get(node)!.pos;
   if (node.startsWith('v')) return base;
-  const desk = consoleOf(ship, node);
-  const slots: Point[] = desk ? CONSOLE_SLOTS.map(([f, s]) => [f * desk[0] - s * desk[1], f * desk[1] + s * desk[0]]) : SLOTS;
-  const used = new Set(others.filter((c) => c.id !== self && c.dest === node).map((c) => {
-    const d: Point = [c.pathEnd?.[0] ?? c.pos[0], c.pathEnd?.[1] ?? c.pos[1]];
-    return slots.findIndex((s) => Math.hypot(base[0] + s[0] - d[0], base[1] + s[1] - d[1]) < 0.05);
-  }));
-  const free = slots.findIndex((_, i) => !used.has(i));
-  const s = slots[free < 0 ? 0 : free]!;
-  return [base[0] + s[0], base[1] + s[1]];
+  const me = state.crew.find((c) => c.id === id);
+  const side = me ? sideOf(me) : 'crew';
+  const foe = state.crew.some((o) => o.id !== id && standing(o) && sideOf(o) !== side && o.dest === node);
+  if (foe) {
+    const k = (side === 'enemy' ? 1 : -1) * CORNER_OFFSET;
+    return [base[0] + state.fightAxis[0] * k, base[1] + state.fightAxis[1] * k];
+  }
+  const desk = consoleOf(state.ship, node);
+  return desk ? [base[0] + desk[0] * DESK_OFFSET, base[1] + desk[1] * DESK_OFFSET] : base;
+}
+
+/** Deck tile `node` taken by someone else of the same side (standing there or on the way)? */
+function taken(state: GameState, id: string, node: string): boolean {
+  const me = state.crew.find((c) => c.id === id);
+  const side = me ? sideOf(me) : 'crew';
+  return state.crew.some((o) => o.id !== id && standing(o) && sideOf(o) === side && o.dest === node);
+}
+
+/** `node` if free for `id`, else the nearest free deck tile of the same room (null = room full). */
+export function freeTileNear(state: GameState, id: string, node: string): string | null {
+  if (node.startsWith('v') || !taken(state, id, node)) return node;
+  const nav = navOf(state.ship);
+  const room = state.ship.tiles[Number(node.slice(1))]?.room;
+  const from = nav.nodes.get(node)!.pos;
+  let best: { d: number; id: string } | null = null;
+  for (const n of nav.nodes.values()) {
+    if (n.vehicle !== null || n.room !== room || n.id === node || taken(state, id, n.id)) continue;
+    const d = Math.hypot(n.pos[0] - from[0], n.pos[1] - from[1]);
+    if (!best || d < best.d) best = { d, id: n.id };
+  }
+  return best?.id ?? null;
 }
 
 /** Put crew member `id` straight onto the spot under ship point `p` (deck tile or vehicle seat) – test scenes. */
 export function placeCrew(state: GameState, id: string, p: Point): GameState {
   const nav = navOf(state.ship);
-  const node = nodeAt(state.ship, nav, p);
-  if (!node || !state.crew.some((c) => c.id === id)) return state;
-  if (node.startsWith('v') && state.crew.some((m) => m.id !== id && m.dest === node)) return state; // seat taken
-  const pos = spot(state.ship, state.crew, node, id);
+  const tapped = nodeAt(state.ship, nav, p);
+  if (!tapped || !state.crew.some((c) => c.id === id)) return state;
+  if (tapped.startsWith('v') && state.crew.some((m) => m.id !== id && m.dest === tapped)) return state; // seat taken
+  const node = freeTileNear(state, id, tapped);
+  if (!node) return state;
+  const pos = tileSpot(state, id, node);
   const seat = seatOf(state.ship, node);
   const desk = consoleOf(state.ship, node);
   return {
@@ -145,15 +178,17 @@ export function sendSelected(state: GameState, p: Point): GameState | null {
 /** Walk crew member / boarder `id` to the spot under ship point `p`; null if `p` is not walkable. */
 export function moveTo(state: GameState, id: string, p: Point): GameState | null {
   const nav = navOf(state.ship);
-  const target = nodeAt(state.ship, nav, p);
-  if (!target) return null;
+  const tapped = nodeAt(state.ship, nav, p);
+  if (!tapped) return null;
   const c = state.crew.find((m) => m.id === id);
   if (!c || c.dying !== undefined) return state;
-  // a vehicle seat holds one person
-  if (target.startsWith('v') && state.crew.some((m) => m.id !== id && m.dest === target)) return state;
+  // a vehicle seat holds one person; a deck tile one per side – else the nearest free tile of that room
+  if (tapped.startsWith('v') && state.crew.some((m) => m.id !== id && m.dest === tapped)) return state;
+  const target = freeTileNear(state, id, tapped);
+  if (!target) return state; // room full
   const way = findPath(nav, c.node, target);
   if (!way) return state; // unreachable (e.g. behind machinery)
-  const end = spot(state.ship, state.crew, target, id);
+  const end = tileSpot({ ...state, crew: state.crew.map((m) => (m.id === id ? { ...m, dest: target } : m)) }, id, target);
   // walking already: first back to the last spot reached, so nobody cuts through a wall
   const back: Point[] = c.path.length ? [nav.nodes.get(c.node)!.pos] : [];
   const points = [...back, ...way.points.slice(0, -1), end];
@@ -166,7 +201,7 @@ export function atDesk(ship: Ship, c: CrewMember): boolean {
   if (c.path.length) return false;
   const desk = consoleOf(ship, c.node);
   const base = navOf(ship).nodes.get(c.node)?.pos;
-  return !!desk && !!base && Math.hypot(c.pos[0] - base[0] - desk[0] * 0.3, c.pos[1] - base[1] - desk[1] * 0.3) < 0.05;
+  return !!desk && !!base && Math.hypot(c.pos[0] - base[0] - desk[0] * DESK_OFFSET, c.pos[1] - base[1] - desk[1] * DESK_OFFSET) < 0.05;
 }
 
 /** Advance everybody along their way by `dt` seconds. */

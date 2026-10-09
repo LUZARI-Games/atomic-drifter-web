@@ -39,6 +39,8 @@ export interface IdlePose {
   sit?: number;
   /** Head turn towards someone (rad, relative to the body) – listener / wary side glances. */
   glance?: number;
+  /** Working on a system at its console: hammering it (sabotage) or fixing it with a wrench (repair). */
+  work?: 'sabotage' | 'repair';
   /** Melee: punch 0…1 (1 = fist fully out), which arm, hurt 0…1 (just got hit), dying 0…1 (falling). */
   punch?: number;
   punchSide?: number;
@@ -89,6 +91,11 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   const it = idle?.t ?? 0;
   const sd = idle?.seed ?? 0;
   const mood = idle?.mood;
+  const work = idle?.work;
+  if (work === 'sabotage' && idle) {
+    // hammering the machine: big alternating blows, faster than a fist fight
+    idle = { ...idle, punch: Math.max(0, Math.sin((idle.t + idle.seed) * 7)) ** 2, punchSide: Math.sin((idle.t + idle.seed) * 3.5) > 0 ? 1 : -1 };
+  }
   const fighting = idle?.punch !== undefined;
   const special = !!mood || fighting || idle?.dying !== undefined;
   const breath = idle ? Math.sin((it / (2.6 + (sd % 1) * 1.2)) * Math.PI * 2) * (mood === 'bored' ? 0.03 : 0.022) : 0;
@@ -267,6 +274,11 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
       hand = sit.hands === 'bar' ? [0.66, side * 0.34, 0.93] // on the handlebar grips
         : sit.hands === 'wheel' ? [0.34, side * 0.15, hip + 0.28 + grip * side]
           : [0.24, side * W * 0.75, hip + 0.1];
+    } else if (work === 'repair') {
+      // wrench hand works in small circles at the machine, the other hand steadies on the desk
+      hand = side > 0
+        ? [0.46 + 0.04 * Math.sin(it * 9), 0.08 + 0.05 * Math.cos(it * 9), 0.86 + 0.03 * Math.sin(it * 4.5)]
+        : [0.4, -W * 0.7, 0.8];
     } else if (idle?.typing) hand = [0.42, side * W * 0.55 + shift, 0.82 + tap];
     else if (fighting) {
       // fists up; the punching arm shoots forward
