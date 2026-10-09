@@ -1,0 +1,31 @@
+{
+  "_info": "New Run screen: difficulties, bonus modifiers, ship name list. Modifier effects map onto the run start values (RunState).",
+  "name_max_length": 18,
+  "max_active_modifiers": 4,
+  "default_ship_name": "SENTINEL DESERTER",
+  "ship_names": ["FRONTIER", "VAGRANT", "LAST LIGHT", "IRON MULE", "DRIFTWOOD", "NIGHTJAR"],
+  "default_difficulty": "normal",
+  "difficulties": [
+    { "id": "easy", "label": "EASY", "locked": false, "text": "MORE SCRAP, WEAKER HOSTILES. FOR LEARNING THE SYSTEMS." },
+    { "id": "normal", "label": "NORMAL", "locked": false, "text": "BALANCED THREAT LEVEL. THE INTENDED EXPERIENCE." },
+    { "id": "hard", "label": "HARD", "locked": true, "text": "LOCKED — WIN A RUN ON NORMAL TO UNLOCK." },
+    { "id": "expert", "label": "EXPERT", "locked": true, "text": "LOCKED — WIN A RUN ON HARD TO UNLOCK." },
+    { "id": "nuclear_winter", "label": "NUCLEAR WINTER", "locked": true, "text": "LOCKED — WIN A RUN ON EXPERT TO UNLOCK." }
+  ],
+  "modifiers": [
+    { "id": "reinforced_hull", "icon": "hull", "name": "REINFORCED HULL", "text": "+5 MAX HULL AT START.", "locked": false, "effect": { "hull_max": 5 } },
+    { "id": "missile_cache", "icon": "missile", "name": "MISSILE CACHE", "text": "+5 MISSILES AT START.", "locked": false, "effect": { "ammo": 5 } },
+    { "id": "spare_turret", "icon": "turret", "name": "SPARE TURRET", "text": "START WITH AN EXTRA TURRET.", "locked": false, "effect": { "turret": "spare_turret" } },
+    { "id": "extra_recruit", "icon": "crew", "name": "EXTRA RECRUIT", "text": "START WITH +1 CREW MEMBER.", "locked": false, "effect": { "crew": 1 } },
+    { "id": "scrap_stash", "icon": "scrap", "name": "SCRAP STASH", "text": "+50 SCRAP AT START.", "locked": false, "effect": { "scrap": 50 } },
+    { "id": "overcharged_reactor", "icon": "reactor", "name": "OVERCHARGED REACTOR", "text": "+2 REACTOR POWER AT START.", "locked": false, "effect": { "reactor": 2 } },
+    { "id": "locked_1", "icon": "lock", "name": "LOCKED", "text": "[UNLOCK CONDITION]", "locked": true, "effect": {} },
+    { "id": "locked_2", "icon": "lock", "name": "LOCKED", "text": "[UNLOCK CONDITION]", "locked": true, "effect": {} },
+    { "id": "locked_3", "icon": "lock", "name": "LOCKED", "text": "[UNLOCK CONDITION]", "locked": true, "effect": {} },
+    { "id": "locked_4", "icon": "lock", "name": "LOCKED", "text": "[UNLOCK CONDITION]", "locked": true, "effect": {} },
+    { "id": "locked_5", "icon": "lock", "name": "LOCKED", "text": "[UNLOCK CONDITION]", "locked": true, "effect": {} },
+    { "id": "locked_6", "icon": "lock", "name": "LOCKED", "text": "[UNLOCK CONDITION]", "locked": true, "effect": {} },
+    { "id": "locked_7", "icon": "lock", "name": "LOCKED", "text": "[UNLOCK CONDITION]", "locked": true, "effect": {} },
+    { "id": "locked_8", "icon": "lock", "name": "LOCKED", "text": "[UNLOCK CONDITION]", "locked": true, "effect": {} }
+  ]
+}
