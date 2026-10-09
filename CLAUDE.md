@@ -34,6 +34,11 @@ never restate the owner's tasks back to them.
   Grimdark, desaturated Fallout 3 tones from `WORLD` in `src/render/palette.ts` (olive-grey steel, rust, dim lamp-yellow).
   No green glow and no scanlines on the world. Selection = pale lamp-yellow outline.
 
+## Crew look (in evaluation)
+- OLD look: `src/render/crew.ts` (armour baked into the origin). NEW look: `src/render/crew_v2.ts` – plain clothes in the
+  origin `color` (`crew_looks.json`), gear = neutral metal add-ons, one per slot (`crew_gear.json`, `equip` in core),
+  friend/foe ring under the feet. The Crew Lab shows OLD | NEW | NEW + GEAR side by side until the owner decides.
+
 ## Design rules (terminal UI)
 - Colors: background `#030806`, phosphor green `#1AFF80`, amber `#FFB43A` = enemy/warning, red `#FF4A3A` = error/damage.
   Tokens live in `src/ui/styles.css` (`:root`) and `src/render/palette.ts` – keep both in sync.

@@ -1,9 +1,10 @@
-// Crew Lab test page (/crew-lab/): every origin x build, close-up + walking at in-game size.
+// Crew Lab test page (/crew-lab/): every origin x build. OLD look vs NEW look (origin colour + gear), close-up + walking at in-game size.
 import Phaser from 'phaser';
 import { CREW_LOOKS, loopPose, parseCrewLook, turnTowards, type CrewLook } from './core/crew';
 import type { Point } from './core/types';
 import LAB from './data/crew_lab.json';
 import { drawCrew } from './render/crew';
+import { drawCrewV2 } from './render/crew_v2';
 import { COLORS, FONT_FAMILY, FONT_SIZES, WORLD } from './render/palette';
 import { attachPanZoom } from './render/panzoom';
 import { mountMenu, toggleFullscreen } from './ui/menu';
@@ -13,8 +14,10 @@ const PX_PER_M = 36; // roughly the in-game zoom on a phone
 const TILE = 2 * PX_PER_M; // planner tiles are 2 m
 const WALK_SPEED = 1.4; // m/s
 const TURN_SPEED = 9; // rad/s
-const CELL_W = 310;
-const CELL_H = 255;
+const CELL_W = 340;
+const CELL_H = 354;
+const CLOSE = { w: 100, h: 120, y: 62, xs: [8, 118, 228] }; // close-ups: OLD | NEW | NEW + GEAR
+const WALK = { y: 210, xs: [8, 170] }; // walking at in-game size: OLD | NEW + GEAR
 const GAP = 15;
 const isPortrait = () => window.innerHeight > window.innerWidth;
 
@@ -39,11 +42,14 @@ class CrewLabScene extends Phaser.Scene {
       const y = Math.floor(i / cols) * (CELL_H + GAP);
       this.cells.push({ x, y });
       this.facing.push(0);
-      this.add.text(x + 8, y, l.name, { fontFamily: FONT_FAMILY, fontSize: FONT_SIZES.small, color: '#1aff80', resolution: 4 });
+      const small = (tx: number, ty: number, text: string, color = '#0d6b3a') =>
+        this.add.text(x + tx, y + ty, text, { fontFamily: FONT_FAMILY, fontSize: FONT_SIZES.small, color, resolution: 4 });
+      small(8, 0, l.name, '#1aff80');
       const o = CREW_LOOKS.origins[l.origin];
-      this.add.text(x + 8, y + 20, o.hostile ? 'HOSTILE' : 'FRIENDLY', {
-        fontFamily: FONT_FAMILY, fontSize: FONT_SIZES.small, color: o.hostile ? '#ffb43a' : '#0d6b3a', resolution: 4,
-      });
+      small(8, 18, o.hostile ? 'HOSTILE' : 'FRIENDLY', o.hostile ? '#ffb43a' : '#0d6b3a');
+      ['OLD', 'NEW', 'NEW + GEAR'].forEach((t, k) => small(CLOSE.xs[k]!, CLOSE.y - 18, t));
+      small(WALK.xs[0]!, WALK.y - 18, 'IN-GAME: OLD');
+      small(WALK.xs[1]!, WALK.y - 18, 'NEW + GEAR');
     });
 
     const rows = Math.ceil(looks.length / cols);
@@ -67,23 +73,39 @@ class CrewLabScene extends Phaser.Scene {
       const { x, y } = this.cells[i]!;
       const size = CREW_LOOKS.builds[l.build].size_m;
 
-      // in-game size: walk a loop over 2x2 deck tiles
-      const dx = x + 135;
-      const dy = y + 50;
-      g.fillStyle(WORLD.floor, 1);
-      g.fillRect(dx, dy, TILE * 2, TILE * 2);
-      g.lineStyle(1, WORLD.floorSeam, 1);
-      for (let k = 0; k < 2; k++) for (let m = 0; m < 2; m++) g.strokeRect(dx + k * TILE + 3, dy + m * TILE + 3, TILE - 6, TILE - 6);
+      const hostile = CREW_LOOKS.origins[l.origin].hostile;
+      const bare = { ...l, gear: [] };
       const inset = 0.9;
       const path: Point[] = [[inset, inset], [4 - inset, inset], [4 - inset, 4 - inset], [inset, 4 - inset], [2, 2]];
       const pose = loopPose(path, (time / 1000) * WALK_SPEED + i * 1.3);
       this.facing[i] = turnTowards(this.facing[i]!, pose.facing, (TURN_SPEED * delta) / 1000);
-      drawCrew(g, l, dx + pose.pos[0] * PX_PER_M, dy + pose.pos[1] * PX_PER_M, (size / 2) * PX_PER_M, this.facing[i]!);
+      const f = this.facing[i]!;
 
-      // close-up, same facing
-      g.fillStyle(WORLD.floor, 1);
-      g.fillRect(x + 8, y + 50, 118, 144);
-      drawCrew(g, l, x + 67, y + 122, 34 * (size / CREW_LOOKS.builds.normal.size_m), this.facing[i]!);
+      // in-game size: walk a loop over 2x2 deck tiles
+      WALK.xs.forEach((wx, k) => {
+        const dx = x + wx;
+        const dy = y + WALK.y;
+        g.fillStyle(WORLD.floor, 1);
+        g.fillRect(dx, dy, TILE * 2, TILE * 2);
+        g.lineStyle(1, WORLD.floorSeam, 1);
+        for (let a = 0; a < 2; a++) for (let m = 0; m < 2; m++) g.strokeRect(dx + a * TILE + 3, dy + m * TILE + 3, TILE - 6, TILE - 6);
+        const px = dx + pose.pos[0] * PX_PER_M;
+        const py = dy + pose.pos[1] * PX_PER_M;
+        const r = (size / 2) * PX_PER_M;
+        if (k === 0) drawCrew(g, l, px, py, r, f);
+        else drawCrewV2(g, l, px, py, r, f, hostile);
+      });
+
+      // close-ups, same facing
+      const cr = 28 * (size / CREW_LOOKS.builds.normal.size_m);
+      CLOSE.xs.forEach((cx, k) => {
+        g.fillStyle(WORLD.floor, 1);
+        g.fillRect(x + cx, y + CLOSE.y, CLOSE.w, CLOSE.h);
+        const mx = x + cx + CLOSE.w / 2;
+        const my = y + CLOSE.y + CLOSE.h / 2;
+        if (k === 0) drawCrew(g, l, mx, my, cr, f);
+        else drawCrewV2(g, k === 1 ? bare : l, mx, my, cr, f, hostile);
+      });
     });
   }
 }

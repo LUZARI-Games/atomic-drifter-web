@@ -1,10 +1,10 @@
 [
-  { "id": "raider_normal", "name": "RAIDER NORMAL", "species": "human", "sex": "male", "build": "normal", "origin": "raider", "skin": 0, "hair": 1 },
-  { "id": "sentinel_normal", "name": "SENTINEL NORMAL", "species": "human", "sex": "female", "build": "normal", "origin": "sentinel", "skin": 3, "hair": 0 },
-  { "id": "deserter_normal", "name": "DESERTER NORMAL", "species": "human", "sex": "male", "build": "normal", "origin": "deserter", "skin": 2, "hair": 3 },
-  { "id": "ironmall_normal", "name": "IRON MALL NORMAL", "species": "human", "sex": "female", "build": "normal", "origin": "ironmall", "skin": 1, "hair": 2 },
-  { "id": "raider_tank", "name": "RAIDER TANK", "species": "human", "sex": "female", "build": "tank", "origin": "raider", "skin": 1, "hair": 0 },
-  { "id": "sentinel_tank", "name": "SENTINEL TANK", "species": "human", "sex": "male", "build": "tank", "origin": "sentinel", "skin": 0, "hair": 3 },
-  { "id": "deserter_tank", "name": "DESERTER TANK", "species": "human", "sex": "female", "build": "tank", "origin": "deserter", "skin": 3, "hair": 1 },
-  { "id": "ironmall_tank", "name": "IRON MALL TANK", "species": "human", "sex": "male", "build": "tank", "origin": "ironmall", "skin": 2, "hair": 0 }
+  {"id": "raider_normal", "name": "RAIDER NORMAL", "species": "human", "sex": "male", "build": "normal", "origin": "raider", "skin": 0, "hair": 1, "gear": ["shoulder_plates"]},
+  {"id": "sentinel_normal", "name": "SENTINEL NORMAL", "species": "human", "sex": "female", "build": "normal", "origin": "sentinel", "skin": 3, "hair": 0, "gear": ["helmet", "shoulder_plates"]},
+  {"id": "deserter_normal", "name": "DESERTER NORMAL", "species": "human", "sex": "male", "build": "normal", "origin": "deserter", "skin": 2, "hair": 3, "gear": ["backpack"]},
+  {"id": "ironmall_normal", "name": "IRON MALL NORMAL", "species": "human", "sex": "female", "build": "normal", "origin": "ironmall", "skin": 1, "hair": 2, "gear": ["backpack"]},
+  {"id": "raider_tank", "name": "RAIDER TANK", "species": "human", "sex": "female", "build": "tank", "origin": "raider", "skin": 1, "hair": 0, "gear": ["shoulder_plates", "backpack"]},
+  {"id": "sentinel_tank", "name": "SENTINEL TANK", "species": "human", "sex": "male", "build": "tank", "origin": "sentinel", "skin": 0, "hair": 3, "gear": ["helmet", "shoulder_plates", "backpack"]},
+  {"id": "deserter_tank", "name": "DESERTER TANK", "species": "human", "sex": "female", "build": "tank", "origin": "deserter", "skin": 3, "hair": 1, "gear": ["helmet"]},
+  {"id": "ironmall_tank", "name": "IRON MALL TANK", "species": "human", "sex": "male", "build": "tank", "origin": "ironmall", "skin": 2, "hair": 0, "gear": ["helmet", "backpack"]}
 ]

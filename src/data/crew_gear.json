@@ -1,0 +1,10 @@
+{
+  "slots": ["head", "chest", "back"],
+  "material": "#6E6C5E",
+  "material_dark": "#4A493F",
+  "items": {
+    "helmet": { "name": "HELMET", "slot": "head" },
+    "shoulder_plates": { "name": "SHOULDER PLATES", "slot": "chest" },
+    "backpack": { "name": "BACKPACK", "slot": "back" }
+  }
+}

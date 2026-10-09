@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import LAB from '../data/crew_lab.json';
-import { facingFor, loopPose, parseCrewLook, turnTowards } from './crew';
+import LOOKS from '../data/crew_looks.json';
+import { equip, facingFor, loopPose, parseCrewLook, turnTowards } from './crew';
 
 describe('crew looks', () => {
   it('lab set covers every origin x build once', () => {
@@ -22,6 +23,24 @@ describe('crew looks', () => {
     const l = parseCrewLook({ id: 'a', name: 'A', species: 'human', sex: 'male', build: 'normal', origin: 'raider', skin: 9, hair: -1 });
     expect(l!.skin).toBe(1);
     expect(l!.hair).toBe(3);
+  });
+});
+
+describe('gear', () => {
+  it('one item per slot: the new one replaces the old', () => {
+    expect(equip(['helmet', 'backpack'], 'helmet')).toEqual(['backpack', 'helmet']);
+    expect(equip(['helmet'], 'shoulder_plates')).toEqual(['helmet', 'shoulder_plates']);
+  });
+
+  it('parse drops unknown items and defaults to no gear', () => {
+    const ok = { id: 'a', name: 'A', species: 'human', sex: 'male', build: 'normal', origin: 'raider', skin: 0, hair: 0 };
+    expect(parseCrewLook(ok)!.gear).toEqual([]);
+    expect(parseCrewLook({ ...ok, gear: ['helmet', 'laser_hat', 'backpack'] })!.gear).toEqual(['helmet', 'backpack']);
+  });
+
+  it('every origin has its own colour', () => {
+    const cols = Object.values(LOOKS.origins).map((o) => o.color);
+    expect(new Set(cols).size).toBe(cols.length);
   });
 });
 

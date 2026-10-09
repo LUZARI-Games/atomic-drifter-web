@@ -1,4 +1,5 @@
 // Crew appearance + facing. Engine-neutral: the look is plain data, renderers turn it into shapes.
+import GEAR from '../data/crew_gear.json';
 import LOOKS from '../data/crew_looks.json';
 import type { Point } from './types';
 
@@ -6,6 +7,8 @@ export type Sex = 'male' | 'female';
 export type Species = 'human';
 export type Build = keyof typeof LOOKS.builds;
 export type Origin = keyof typeof LOOKS.origins;
+export type GearId = keyof typeof GEAR.items;
+export type GearSlot = 'head' | 'chest' | 'back';
 
 export interface CrewLook {
   id: string;
@@ -16,9 +19,18 @@ export interface CrewLook {
   origin: Origin;
   skin: number; // index into skin_tones
   hair: number; // index into hair_colors
+  gear: GearId[]; // worn items, at most one per slot
 }
 
 export const CREW_LOOKS = LOOKS;
+export const CREW_GEAR = GEAR;
+
+export const gearSlot = (id: GearId) => GEAR.items[id].slot as GearSlot;
+
+/** Put on `item`; whatever was worn in the same slot comes off. */
+export function equip(gear: GearId[], item: GearId): GearId[] {
+  return [...gear.filter((g) => gearSlot(g) !== gearSlot(item)), item];
+}
 
 export function parseCrewLook(raw: unknown): CrewLook | null {
   const r = raw as Partial<CrewLook> | null;
@@ -26,7 +38,10 @@ export function parseCrewLook(raw: unknown): CrewLook | null {
   if (r.species !== 'human' || (r.sex !== 'male' && r.sex !== 'female')) return null;
   if (!r.build || !(r.build in LOOKS.builds) || !r.origin || !(r.origin in LOOKS.origins)) return null;
   const idx = (v: unknown, n: number) => (Number.isInteger(v) ? (((v as number) % n) + n) % n : 0);
-  return { ...(r as CrewLook), skin: idx(r.skin, LOOKS.skin_tones.length), hair: idx(r.hair, LOOKS.hair_colors.length) };
+  const gear = (Array.isArray(r.gear) ? r.gear : [])
+    .filter((g): g is GearId => typeof g === 'string' && g in GEAR.items)
+    .reduce<GearId[]>(equip, []);
+  return { ...(r as CrewLook), skin: idx(r.skin, LOOKS.skin_tones.length), hair: idx(r.hair, LOOKS.hair_colors.length), gear };
 }
 
 /** Facing angle (radians, 0 = +x, counter-clockwise towards +y) for a move by (dx, dy); keeps `prev` when standing still. */
