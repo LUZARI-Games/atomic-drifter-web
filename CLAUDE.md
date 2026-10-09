@@ -4,7 +4,7 @@
 Purpose: find out which items, crew, systems and synergies are fun. The final game will be rebuilt in Godot/Unreal,
 so **rules and data must stay engine-neutral**. Visuals = basic shapes.
 
-The owner works from an Android phone and is not a programmer: keep explanations short, test on a phone in portrait AND 16:9 landscape.
+The owner works from an Android phone and is not a programmer: keep explanations short, test on a phone held upright (portrait) – landscape must work too, but is never required.
 Replies: always in English (even when the owner writes German), short and to the point, bullet lists for multiple points,
 never restate the owner's tasks back to them.
 
@@ -38,11 +38,13 @@ never restate the owner's tasks back to them.
 - Colors: background `#030806`, phosphor green `#1AFF80`, amber `#FFB43A` = enemy/warning, red `#FF4A3A` = error/damage.
   Tokens live in `src/ui/styles.css` (`:root`) and `src/render/palette.ts` – keep both in sync.
 - Font: Share Tech Mono. Sizes **24 / 18 / 15 px only** (game units for Phaser, CSS px for HTML).
-- Clickable elements: 3 px frame. CRT overlay = static scanlines + vignette, **no flicker**.
+- Clickable elements: 3 px frame. CRT overlay = vignette, **no flicker**.
 - All in-game text in English, uppercase for labels.
-- Start page (`index.html`): Phaser `Scale.RESIZE` between the HTML bars (1 game unit = 1 CSS px). Portrait: the stage is
-  wider than the screen and scrolls sideways (`src/main.ts`); taps select on pointer-up only, so swiping never selects.
-- Crew Lab: landscape 16:9, logical resolution 1280×720, Phaser `Scale.FIT`. Touch first (tap, long-press), no hover-only features.
+- **Full screen, any orientation, never force landscape.** No top/bottom bars: every page is a full-screen Phaser canvas
+  (`Scale.RESIZE`) with only a floating `[ MENU ]` (top right, `src/ui/menu.ts`) and an info chip that shows only when needed.
+- Navigation in every view: 1 finger drags, 2 fingers pinch-zoom, mouse wheel zooms, a still touch = tap
+  (`src/render/panzoom.ts`). Draw content once at a fixed world size; the camera does fitting and zoom.
+- Touch first (tap, long-press), no hover-only features.
 
 ## Commands
 - `npm run dev` – local dev server

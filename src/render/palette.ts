@@ -46,7 +46,3 @@ const PAINT_STRENGTH = 0.42; // 1 = raw planner neon, 0 = no colour at all
 
 export const FONT_FAMILY = '"Share Tech Mono", monospace';
 export const FONT_SIZES = { large: 24, medium: 18, small: 15 } as const;
-
-/** Logical game resolution (16:9). Phaser scales this to fit the screen. */
-export const GAME_WIDTH = 1280;
-export const GAME_HEIGHT = 720;

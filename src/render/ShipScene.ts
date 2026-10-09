@@ -9,11 +9,11 @@ import { systemColor } from '../core/systems';
 import type { Store } from '../core/store';
 import type { GameState, Point } from '../core/types';
 import { drawSystemIcon } from './icons';
+import { attachPanZoom } from './panzoom';
 import { FONT_FAMILY, FONT_SIZES, WORLD, worldPaint } from './palette';
 
-// Canvas = the free space between the HTML top bar and info line (Scale.RESIZE, 1 game unit = 1 CSS px).
-const MARGIN = 16; // px kept free around the ship
-const MAX_SCALE = 80; // px per meter
+// Full-screen canvas (Scale.RESIZE). The ship is drawn once at a fixed size; the camera pans and zooms (panzoom.ts).
+const PX_PER_M = 60; // world units per meter
 const BLOCK_GAP_M = 0.32; // gap between a system block and the walls
 const BLOCK_RIM_M = 0.09; // dark rim around a system block
 const ICON_RADIUS_M = 0.5; // every system icon has the same size (fits a 1-tile block)
@@ -33,19 +33,12 @@ export function hullBounds(h: HullShape): { minX: number; maxX: number; minZ: nu
   return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) };
 }
 
-/** Ship length / width on screen (bow pointing right), used to size the scrollable stage in portrait. */
-export function hullAspect(h: HullShape): number {
-  const b = hullBounds(h);
-  return (b.maxZ - b.minZ) / (b.maxX - b.minX);
-}
-
 export class ShipScene extends Phaser.Scene {
   private gfx!: Phaser.GameObjects.Graphics;
-  private scaleM = 1;
+  private scaleM = PX_PER_M;
   private origin = { x: 0, y: 0 };
   private hull!: HullShape;
   private blocks: SystemBlock[] = [];
-  private labels: Phaser.GameObjects.Text[] = [];
   private unsubscribe: (() => void) | null = null;
 
   constructor(private readonly store: Store<GameState>) {
@@ -75,38 +68,20 @@ export class ShipScene extends Phaser.Scene {
 
     this.gfx = this.add.graphics();
 
-    // A tap selects; a drag is the page scrolling sideways (portrait) and must not select anything.
-    this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
-      if (p.wasCanceled || p.getDistance() > 12) return;
-      const pt = this.toShip(p.worldX, p.worldY);
-      this.store.update((s) => tapPoint(s, pt));
-    });
+    this.createLabels();
 
-    this.layout();
-    this.scale.on(Phaser.Scale.Events.RESIZE, () => {
-      this.layout();
-      this.draw();
+    const { minX, maxX, minZ, maxZ } = hullBounds(this.hull);
+    const tl = this.toScreen([minX, maxZ]);
+    const br = this.toScreen([maxX, minZ]);
+    const bounds = new Phaser.Geom.Rectangle(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+    attachPanZoom(this, {
+      bounds: () => bounds,
+      onTap: (x, y) => this.store.update((s) => tapPoint(s, this.toShip(x, y))),
     });
 
     this.unsubscribe = this.store.subscribe(() => this.draw());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsubscribe?.());
     this.draw();
-  }
-
-  /** Fit the whole airship into the current canvas size. */
-  private layout(): void {
-    const { width, height } = this.scale.gameSize;
-    const { minX, maxX, minZ, maxZ } = hullBounds(this.hull);
-    const w = Math.max(1, width - 2 * MARGIN);
-    const h = Math.max(1, height - 2 * MARGIN);
-    this.scaleM = Math.min(w / (maxZ - minZ), h / (maxX - minX), MAX_SCALE);
-    this.origin = {
-      x: width / 2 + ((minZ + maxZ) / 2) * this.scaleM,
-      y: height / 2 - ((minX + maxX) / 2) * this.scaleM,
-    };
-    for (const l of this.labels) l.destroy();
-    this.labels = [];
-    this.createLabels();
   }
 
   /** Stencil paint on the free deck of each system room. Hidden when it does not fit. */
@@ -128,6 +103,7 @@ export class ShipScene extends Phaser.Scene {
             fontFamily: FONT_FAMILY,
             fontSize: `${size}px`,
             color: '#' + WORLD.label.toString(16).padStart(6, '0'),
+            resolution: 4, // stays sharp when zoomed in
           })
           .setLetterSpacing(spacing)
           .setAlpha(0.7) // worn paint on the deck
@@ -138,7 +114,6 @@ export class ShipScene extends Phaser.Scene {
         label = make(FONT_SIZES.small, 1);
       }
       if (label.width > roomW * 0.9) label.setVisible(false); // too narrow: the info line names it on tap
-      this.labels.push(label);
     }
   }
 

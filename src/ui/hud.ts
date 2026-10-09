@@ -1,7 +1,8 @@
-// HTML overlay: top bar + info line. Reads core state, never changes it directly.
+// HTML overlay for the start page: floating menu + a small info chip. Reads core state, never changes it directly.
 import { getSelectedRoom } from '../core/selection';
 import type { Store } from '../core/store';
 import type { GameState } from '../core/types';
+import { mountMenu, toggleFullscreen, type MenuItem } from './menu';
 
 export interface HudOptions {
   source: 'planner' | 'demo';
@@ -9,74 +10,28 @@ export interface HudOptions {
   onUseDemo: () => void;
 }
 
-const esc = (t: string) =>
-  t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-
 export function mountHud(root: HTMLElement, store: Store<GameState>, opts: HudOptions): void {
-  const shipName = esc(store.get().ship.name.toUpperCase());
-  root.innerHTML = `
-    <header class="topbar">
-      <span class="title"><span class="brand">ATOMIC DRIFTER // </span>${shipName}</span>
-      <nav class="actions">
-        ${opts.source === 'planner' ? '<button class="btn" type="button" data-action="demo">[ DEMO SHIP ]</button>' : ''}
-        <a class="btn" href="/crew-lab/">[ CREW LAB ]</a>
-        <a class="btn" href="/planner/">[ PLANNER ]</a>
-        <button class="btn" type="button" data-action="fullscreen">[ FULLSCREEN ]</button>
-      </nav>
-    </header>
-    <footer class="infoline"><span class="prompt">&gt;</span> <span data-ref="info"></span><span class="cursor">_</span></footer>
-  `;
+  const items: MenuItem[] = [
+    { label: 'CREW LAB', href: '/crew-lab/' },
+    { label: 'PLANNER', href: '/planner/' },
+  ];
+  if (opts.source === 'planner') items.push({ label: 'DEMO SHIP', onClick: opts.onUseDemo });
+  if (document.fullscreenEnabled) items.push({ label: 'FULLSCREEN', onClick: () => void toggleFullscreen() });
+  mountMenu(root, store.get().ship.name.toUpperCase(), items);
 
-  // The ship view sits between the two bars: publish their heights as CSS variables.
-  const top = root.querySelector<HTMLElement>('.topbar')!;
-  const bottom = root.querySelector<HTMLElement>('.infoline')!;
-  const measure = () => {
-    document.documentElement.style.setProperty('--bar-top', `${top.offsetHeight}px`);
-    document.documentElement.style.setProperty('--bar-bottom', `${bottom.offsetHeight}px`);
-  };
-  const ro = new ResizeObserver(measure);
-  ro.observe(top);
-  ro.observe(bottom);
-  measure();
-
-  const info = root.querySelector<HTMLElement>('[data-ref="info"]')!;
-  const idle = opts.problems.length
-    ? `SHIP NOT LOADED: ${opts.problems.join(' · ')} // SHOWING DEMO SHIP`
-    : opts.source === 'planner'
-      ? 'SHIP FROM PLANNER LOADED // TAP A ROOM'
-      : 'TAP A ROOM TO SELECT IT';
-  info.classList.toggle('warn', opts.problems.length > 0);
+  // Info chip: only visible while there is something to say (selected room or a load problem).
+  const chip = document.createElement('div');
+  chip.className = 'chip';
+  root.appendChild(chip);
+  const problem = opts.problems.length ? `SHIP NOT LOADED: ${opts.problems.join(' · ')} // SHOWING DEMO SHIP` : '';
 
   const render = (s: GameState) => {
     const room = getSelectedRoom(s);
-    if (room) info.classList.remove('warn');
-    info.textContent = room
+    chip.classList.toggle('warn', !room && !!problem);
+    chip.textContent = room
       ? `ROOM: ${(room.label || room.id).toUpperCase()}${room.system ? ` // SYSTEM: ${room.system.toUpperCase()}` : ''}`
-      : idle;
+      : problem;
   };
   store.subscribe(render);
   render(store.get());
-
-  root.querySelector('[data-action="demo"]')?.addEventListener('click', opts.onUseDemo);
-
-  const fsButton = root.querySelector<HTMLButtonElement>('[data-action="fullscreen"]')!;
-  if (!document.fullscreenEnabled) fsButton.hidden = true;
-  fsButton.addEventListener('click', () => void toggleFullscreen());
-}
-
-async function toggleFullscreen(): Promise<void> {
-  try {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-      return;
-    }
-    await document.documentElement.requestFullscreen();
-    // Lock to landscape where supported (Android Chrome); ignored elsewhere.
-    const orientation = screen.orientation as ScreenOrientation & {
-      lock?: (o: string) => Promise<void>;
-    };
-    await orientation.lock?.('landscape').catch(() => undefined);
-  } catch {
-    // Fullscreen not allowed – the game still works in the normal browser view.
-  }
 }

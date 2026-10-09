@@ -4,13 +4,19 @@ import { CREW_LOOKS, loopPose, parseCrewLook, turnTowards, type CrewLook } from 
 import type { Point } from './core/types';
 import LAB from './data/crew_lab.json';
 import { drawCrew } from './render/crew';
-import { COLORS, FONT_FAMILY, FONT_SIZES, GAME_HEIGHT, GAME_WIDTH, WORLD } from './render/palette';
+import { COLORS, FONT_FAMILY, FONT_SIZES, WORLD } from './render/palette';
+import { attachPanZoom } from './render/panzoom';
+import { mountMenu, toggleFullscreen } from './ui/menu';
 import './ui/styles.css';
 
 const PX_PER_M = 36; // roughly the in-game zoom on a phone
 const TILE = 2 * PX_PER_M; // planner tiles are 2 m
 const WALK_SPEED = 1.4; // m/s
 const TURN_SPEED = 9; // rad/s
+const CELL_W = 310;
+const CELL_H = 255;
+const GAP = 15;
+const isPortrait = () => window.innerHeight > window.innerWidth;
 
 class CrewLabScene extends Phaser.Scene {
   private gfx!: Phaser.GameObjects.Graphics;
@@ -23,20 +29,34 @@ class CrewLabScene extends Phaser.Scene {
 
   create(): void {
     this.gfx = this.add.graphics();
-    const cols = 4;
-    const cw = (GAME_WIDTH - 40) / cols;
-    const ch = 255;
-    this.looks().forEach((l, i) => {
-      const x = 20 + (i % cols) * cw;
-      const y = 85 + Math.floor(i / cols) * (ch + 15);
+    this.cells = [];
+    this.facing = [];
+    // phone upright: 2 columns, sideways: 4 – the view starts at full width and scrolls down
+    const cols = isPortrait() ? 2 : 4;
+    const looks = this.looks();
+    looks.forEach((l, i) => {
+      const x = (i % cols) * CELL_W;
+      const y = Math.floor(i / cols) * (CELL_H + GAP);
       this.cells.push({ x, y });
       this.facing.push(0);
-      this.add.text(x + 8, y, l.name, { fontFamily: FONT_FAMILY, fontSize: FONT_SIZES.small, color: '#1aff80' });
+      this.add.text(x + 8, y, l.name, { fontFamily: FONT_FAMILY, fontSize: FONT_SIZES.small, color: '#1aff80', resolution: 4 });
       const o = CREW_LOOKS.origins[l.origin];
       this.add.text(x + 8, y + 20, o.hostile ? 'HOSTILE' : 'FRIENDLY', {
-        fontFamily: FONT_FAMILY, fontSize: FONT_SIZES.small, color: o.hostile ? '#ffb43a' : '#0d6b3a',
+        fontFamily: FONT_FAMILY, fontSize: FONT_SIZES.small, color: o.hostile ? '#ffb43a' : '#0d6b3a', resolution: 4,
       });
     });
+
+    const rows = Math.ceil(looks.length / cols);
+    const bounds = new Phaser.Geom.Rectangle(0, 0, cols * CELL_W, rows * (CELL_H + GAP) - GAP);
+    attachPanZoom(this, { bounds: () => bounds, fit: 'width' });
+
+    // re-flow the columns when the phone is turned
+    const portrait = isPortrait();
+    const onResize = () => {
+      if (isPortrait() !== portrait) this.scene.restart();
+    };
+    this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.scale.off(Phaser.Scale.Events.RESIZE, onResize));
   }
 
   override update(time: number, delta: number): void {
@@ -73,18 +93,11 @@ async function boot(): Promise<void> {
   let swapped = false;
   const looks = () => (swapped ? base.map((l) => ({ ...l, sex: l.sex === 'male' ? 'female' : 'male' }) as CrewLook) : base);
 
-  const hud = document.getElementById('hud')!;
-  hud.innerHTML = `
-    <header class="topbar">
-      <span class="title"><span class="brand">ATOMIC DRIFTER // </span>CREW LAB</span>
-      <nav class="actions">
-        <button class="btn" type="button" data-action="swap">[ SWAP M/F ]</button>
-        <a class="btn" href="/">[ GAME ]</a>
-      </nav>
-    </header>
-    <footer class="infoline"><span class="prompt">&gt;</span> LEFT: CLOSE-UP // RIGHT: IN-GAME SIZE, WALKING<span class="cursor">_</span></footer>
-    <div class="rotate-hint">ROTATE DEVICE TO LANDSCAPE</div>`;
-  hud.querySelector('[data-action="swap"]')!.addEventListener('click', () => (swapped = !swapped));
+  mountMenu(document.getElementById('hud')!, 'CREW LAB', [
+    { label: 'SWAP M/F', onClick: () => (swapped = !swapped) },
+    { label: 'GAME', href: '/' },
+    ...(document.fullscreenEnabled ? [{ label: 'FULLSCREEN', onClick: () => void toggleFullscreen() }] : []),
+  ]);
 
   try {
     await document.fonts.load(`18px ${FONT_FAMILY}`);
@@ -96,9 +109,8 @@ async function boot(): Promise<void> {
     type: Phaser.AUTO,
     parent: 'game',
     backgroundColor: COLORS.bg,
-    width: GAME_WIDTH,
-    height: GAME_HEIGHT,
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    scale: { mode: Phaser.Scale.RESIZE },
+    input: { activePointers: 3 }, // two fingers for pinch-zoom
     scene: [new CrewLabScene(looks)],
   });
 }

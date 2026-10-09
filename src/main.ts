@@ -4,9 +4,8 @@ import { parseShip } from './core/ship';
 import { Store } from './core/store';
 import type { Ship } from './core/types';
 import demoShip from './data/demo_ship.json';
-import { airshipHull } from './core/hull';
 import { COLORS, FONT_FAMILY } from './render/palette';
-import { hullAspect, ShipScene } from './render/ShipScene';
+import { ShipScene } from './render/ShipScene';
 import { mountHud } from './ui/hud';
 import './ui/styles.css';
 
@@ -54,38 +53,14 @@ async function boot(): Promise<void> {
     /* fall back to monospace */
   }
 
-  // Portrait: the stage is wider than the screen so the ship fills the height; swipe sideways to scroll.
-  const view = document.getElementById('game')!;
-  const stage = document.getElementById('stage')!;
-  const aspect = hullAspect(airshipHull(loaded.ship));
-  const sizeStage = () => {
-    const w = view.clientWidth;
-    const h = view.clientHeight;
-    const wanted = Math.round((h - 32) * aspect + 32);
-    stage.style.width = h > w ? `${Math.min(Math.max(w, wanted), w * 2)}px` : '100%';
-  };
-  sizeStage();
-
-  const game = new Phaser.Game({
+  new Phaser.Game({
     type: Phaser.AUTO,
-    parent: stage,
+    parent: 'game',
     backgroundColor: COLORS.bg,
     scale: { mode: Phaser.Scale.RESIZE },
-    // touch.capture off: the browser may scroll the stage; ShipScene only reacts to taps
-    input: { activePointers: 2, touch: { capture: false } },
+    input: { activePointers: 3 }, // two fingers for pinch-zoom
     scene: [new ShipScene(store)],
   });
-
-  let lastPortrait: boolean | null = null;
-  const relayout = () => {
-    sizeStage();
-    game.scale.refresh();
-    const portrait = view.clientHeight > view.clientWidth;
-    if (portrait !== lastPortrait) view.scrollLeft = (stage.clientWidth - view.clientWidth) / 2; // start mid-ship
-    lastPortrait = portrait;
-  };
-  new ResizeObserver(relayout).observe(view);
-  game.events.once(Phaser.Core.Events.READY, relayout);
 }
 
 void boot();
