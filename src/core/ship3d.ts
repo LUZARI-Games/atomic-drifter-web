@@ -14,6 +14,8 @@ export interface Solid {
   z0: number;
   z1: number;
   door?: ShipDoor['kind'];
+  /** Walls only: centre line + half thickness, so a renderer can cut long walls into short pieces. */
+  segment?: { a: Point; b: Point; half: number };
 }
 
 /** Rectangle around segment a-b: `half` to each side, extended by `ext` past both ends. */
@@ -33,7 +35,27 @@ export function wallSolid(w: ShipWall): Solid {
     footprint: segmentBox(w.a, w.b, t / 2, t / 2),
     z0: 0,
     z1: w.kind === 'railing' ? VIEW.railing_height_m : VIEW.wall_height_m,
+    segment: { a: w.a, b: w.b, half: t / 2 },
   };
+}
+
+/**
+ * Cut a wall into pieces of at most `maxLen` meters (for back-to-front drawing in diagonal views).
+ * Only the first and last piece are extended past the wall ends, so the pieces butt together without overlap.
+ */
+export function wallPieces(s: Solid, maxLen = 1): { footprint: Point[]; first: boolean; last: boolean }[] {
+  if (!s.segment) return [{ footprint: s.footprint, first: true, last: true }];
+  const { a, b, half } = s.segment;
+  const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / maxLen - 1e-9));
+  const lerp = (t: number): Point => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  return Array.from({ length: n }, (_, i) => {
+    const box = segmentBox(lerp(i / n), lerp((i + 1) / n), half);
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const d: Point = [((b[0] - a[0]) / len) * half, ((b[1] - a[1]) / len) * half];
+    if (i === 0) for (const k of [0, 3]) box[k] = [box[k]![0] - d[0], box[k]![1] - d[1]];
+    if (i === n - 1) for (const k of [1, 2]) box[k] = [box[k]![0] + d[0], box[k]![1] + d[1]];
+    return { footprint: box, first: i === 0, last: i === n - 1 };
+  });
 }
 
 /** End points of the door opening. axis = the ship axis the opening runs along. */

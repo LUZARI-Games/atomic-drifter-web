@@ -4,9 +4,9 @@
 import Phaser from 'phaser';
 import type { CrewLook } from '../core/crew';
 import { airshipHull, blockPolygons, systemBlocks } from '../core/hull';
-import { project, type Vec2, type Vec3, type View } from '../core/projection';
+import { depth, drawOrder, project, turn, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
 import { roomFloorCenter } from '../core/ship';
-import { doorThreshold, SHIP_HEIGHTS, shipSolids, type Solid } from '../core/ship3d';
+import { doorThreshold, SHIP_HEIGHTS, shipSolids, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
 import type { Point, Ship } from '../core/types';
 import { drawCrewIso } from './crew_iso';
@@ -14,6 +14,9 @@ import { drawSystemIcon } from './icons';
 import { FONT_FAMILY, FONT_SIZES, WORLD, worldPaint } from './palette';
 
 type G = Phaser.GameObjects.Graphics;
+
+const edgeKey = (a: Point, b: Point) =>
+  [a, b].map((p) => `${Math.round(p[0] * 1000)},${Math.round(p[1] * 1000)}`).sort().join('|');
 type V2 = Phaser.Math.Vector2;
 
 const BLOCK_GAP_M = 0.32; // gap between a system block and the walls
@@ -69,29 +72,48 @@ export class ShipView {
     this.drawLabels(scene);
 
     // standing things, back to front
-    const items: { key: number; draw: () => void }[] = [];
-    for (const s of shipSolids(this.ship)) items.push({ key: this.sortKey(s.footprint, s.z0), draw: () => this.drawSolid(objects, s) });
+    const items: { key: number; box: FloorBox; draw: () => void }[] = [];
+    const box = (footprint: Point[]): FloorBox => {
+      const w = footprint.map((p) => W(p));
+      const xs = w.map((p) => p[0]);
+      const ys = w.map((p) => p[1]);
+      return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+    };
+    // long walls and big blocks are drawn in short pieces, so crew in front of one end is never painted over
+    for (const s of shipSolids(this.ship)) {
+      if (s.segment) {
+        for (const p of wallPieces(s)) items.push({ key: this.sortKey(p.footprint, 0), box: box(p.footprint), draw: () => this.drawWallPiece(objects, s, p) });
+      } else {
+        items.push({ key: this.sortKey(s.footprint, s.z0), box: box(s.footprint), draw: () => this.drawSolid(objects, s) });
+      }
+    }
     for (const b of systemBlocks(this.ship)) {
       const polys = blockPolygons(b, BLOCK_GAP_M);
-      items.push({ key: this.sortKey(polys.flat(), 0), draw: () => this.drawBlock(objects, b.system, b.anchor, polys, b.room) });
+      const outer = this.outerEdges(polys);
+      for (const poly of polys) {
+        items.push({ key: this.sortKey(poly, 0), box: box(poly), draw: () => this.drawBlockPiece(objects, poly, outer, b.room) });
+      }
+      // the symbol is painted after the whole block (same floor area, drawn last among its pieces)
+      items.push({ key: this.sortKey(polys.flat(), 0) + 0.0005, box: box(polys.flat()), draw: () => this.drawBlockIcon(objects, b.system, b.anchor, b.room) });
     }
     for (const c of crew) {
       const feet = W(c.at, 0);
       items.push({
-        key: feet[1] + 0.001,
+        key: depth(this.view, feet) + 0.001,
+        box: { minX: feet[0] - 0.3, maxX: feet[0] + 0.3, minY: feet[1] - 0.3, maxY: feet[1] + 0.3 },
         draw: () => {
           const p = this.S(feet);
           drawCrewIso(objects, this.view, c.look, p.x, p.y, this.pxPerM, c.facing, 0, false);
         },
       });
     }
-    items.sort((a, b) => a.key - b.key);
-    for (const it of items) it.draw();
+    const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key));
+    for (const i of order) items[i]!.draw();
   }
 
   /** Nearest point to the viewer decides the order (low objects on a grid). */
   private sortKey(footprint: Point[], z0: number): number {
-    return Math.max(...footprint.map((p) => W(p)[1])) + z0 * 0.001;
+    return Math.max(...footprint.map((p) => depth(this.view, W(p)))) + z0 * 0.001;
   }
 
   private drawHull(g: G): void {
@@ -203,13 +225,15 @@ export class ShipView {
         })
         .setLetterSpacing(1)
         .setAlpha(0.7)
-        .setOrigin(0.5)
-        .setScale(1, this.view.sin);
+        .setOrigin(0.5);
+      // lie on the deck: run along the ship's length, squashed like the floor (text cannot shear – close enough)
+      const ex = project(this.view, [1, 0, 0]);
+      label.setRotation(Math.atan2(ex[1], ex[0])).setScale(1, this.view.sin);
       if (label.width > roomW * 0.9) label.setVisible(false);
     }
   }
 
-  /** World-y component of the outward normal of edge a-b (positive = faces the viewer). */
+  /** How much the outward normal of edge a-b points at the viewer (after the view's yaw; positive = visible). */
   private outwardY(a: Vec3 | Vec2, b: Vec3 | Vec2, cx: number, cy: number): number {
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
@@ -222,7 +246,7 @@ export class ShipView {
       nx = -nx;
       ny = -ny;
     }
-    return ny;
+    return turn(this.view, nx, ny)[1];
   }
 
   /** Convex footprint extruded from z0 to z1: front faces darker, top in the base paint. */
@@ -267,59 +291,72 @@ export class ShipView {
     }
   }
 
-  /** System block: one continuous 1 m block (tile pieces share their inner edges), symbol on top. */
-  private drawBlock(g: G, system: string | null, anchor: Point, polys: Point[][], room: string): void {
-    const fill = worldPaint(systemColor(this.ship.rooms.find((r) => r.id === room)));
-    const side = shade(fill, 30);
-    const h = SHIP_HEIGHTS.system_height_m;
-    const key = (p: Point) => `${Math.round(p[0] * 1000)},${Math.round(p[1] * 1000)}`;
+  private blockFill(room: string): number {
+    return worldPaint(systemColor(this.ship.rooms.find((r) => r.id === room)));
+  }
 
-    // outer edges = edges used by only one tile piece
-    const edges: { a: Point; b: Point; poly: Point[] }[] = [];
+  /** Outer edges of a system block = tile-piece edges used only once (inner seams are shared). */
+  private outerEdges(polys: Point[][]): Set<string> {
     const count = new Map<string, number>();
-    for (const poly of polys) {
-      for (let i = 0; i < poly.length; i++) {
-        const a = poly[i]!;
-        const b = poly[(i + 1) % poly.length]!;
-        const k = [key(a), key(b)].sort().join('|');
-        count.set(k, (count.get(k) ?? 0) + 1);
-        edges.push({ a, b, poly });
-      }
+    for (const poly of polys) for (let i = 0; i < poly.length; i++) {
+      const k = edgeKey(poly[i]!, poly[(i + 1) % poly.length]!);
+      count.set(k, (count.get(k) ?? 0) + 1);
     }
-    const outer = edges.filter((e) => count.get([key(e.a), key(e.b)].sort().join('|')) === 1);
+    return new Set([...count].filter(([, n]) => n === 1).map(([k]) => k));
+  }
 
+  /** One tile piece of a system block: its outer side faces + its top (pieces share inner edges, so it reads as one block). */
+  private drawBlockPiece(g: G, poly: Point[], outer: Set<string>, room: string): void {
+    const fill = this.blockFill(room);
+    const h = SHIP_HEIGHTS.system_height_m;
+    const pts = poly.map((p) => W(p));
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+    const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    const edges = poly.map((p, i) => [p, poly[(i + 1) % poly.length]!] as const).filter(([p, q]) => outer.has(edgeKey(p, q)));
     if (this.view.cos > 0.01) {
-      const faces = outer
-        .map(({ a, b, poly }) => {
-          const wa = W(a);
-          const wb = W(b);
-          const c = poly.map((p) => W(p));
-          const cx = c.reduce((s, p) => s + p[0], 0) / c.length;
-          const cy = c.reduce((s, p) => s + p[1], 0) / c.length;
-          return { wa, wb, ny: this.outwardY(wa, wb, cx, cy), d: Math.max(wa[1], wb[1]) };
-        })
-        .filter((f) => f.ny > 0.01)
-        .sort((p, q) => p.d - q.d);
-      for (const f of faces) {
-        g.fillStyle(shade(side, 10 * (1 - f.ny)), 1);
-        g.fillPoints([[f.wa[0], f.wa[1], 0], [f.wb[0], f.wb[1], 0], [f.wb[0], f.wb[1], h], [f.wa[0], f.wa[1], h]].map((p) => this.S(p as Vec3)), true);
+      for (const [p, q] of edges) {
+        const wa = W(p);
+        const wb = W(q);
+        const ny = this.outwardY(wa, wb, cx, cy);
+        if (ny <= 0.01) continue;
+        g.fillStyle(shade(shade(fill, 30), 10 * (1 - ny)), 1);
+        g.fillPoints([[wa[0], wa[1], 0], [wb[0], wb[1], 0], [wb[0], wb[1], h], [wa[0], wa[1], h]].map((v) => this.S(v as Vec3)), true);
       }
     }
     g.fillStyle(fill, 1);
-    for (const poly of polys) g.fillPoints(poly.map((p) => this.S(W(p, h))), true);
+    g.fillPoints(poly.map((p) => this.S(W(p, h))), true);
     g.lineStyle(Math.max(1, this.pxPerM * 0.06), shade(fill, 18), 1);
-    for (const e of outer) {
-      const a = this.S(W(e.a, h));
-      const b = this.S(W(e.b, h));
+    for (const [p, q] of edges) {
+      const a = this.S(W(p, h));
+      const b = this.S(W(q, h));
       g.lineBetween(a.x, a.y, b.x, b.y);
     }
+  }
 
-    // symbol painted on the top, squashed like the top face
-    const c = this.S(W(anchor, h));
+  /** System symbol painted on the block top, lying on it like the floor (turned + squashed). */
+  private drawBlockIcon(g: G, system: string | null, anchor: Point, room: string): void {
+    const c = this.S(W(anchor, SHIP_HEIGHTS.system_height_m));
     g.save();
     g.translateCanvas(c.x, c.y);
     g.scaleCanvas(1, this.view.sin);
-    drawSystemIcon(g, system, 0, 0, ICON_RADIUS_M * this.pxPerM, fill);
+    g.rotateCanvas(this.view.yaw);
+    drawSystemIcon(g, system, 0, 0, ICON_RADIUS_M * this.pxPerM, this.blockFill(room));
     g.restore();
+  }
+
+  /** Wall piece: visible side faces, top, and the light top edge only along the wall (no seams between pieces). */
+  private drawWallPiece(g: G, s: Solid, p: { footprint: Point[]; first: boolean; last: boolean }): void {
+    const railing = s.kind === 'railing';
+    const top = railing ? WORLD.hullEdge : shade(WORLD.wall, -22);
+    const side = railing ? shade(WORLD.hullEdge, 30) : shade(WORLD.wall, -12);
+    this.prism(g, p.footprint, s.z0, s.z1, top, side);
+    if (railing) return;
+    const t = p.footprint.map((q) => this.S(W(q, s.z1)));
+    g.lineStyle(Math.max(1, this.pxPerM * 0.04), WORLD.wallTop, 0.7);
+    // segmentBox order: 0-1 and 2-3 run along the wall, 1-2 / 3-0 are the ends
+    g.lineBetween(t[0]!.x, t[0]!.y, t[1]!.x, t[1]!.y);
+    g.lineBetween(t[2]!.x, t[2]!.y, t[3]!.x, t[3]!.y);
+    if (p.last) g.lineBetween(t[1]!.x, t[1]!.y, t[2]!.x, t[2]!.y);
+    if (p.first) g.lineBetween(t[3]!.x, t[3]!.y, t[0]!.x, t[0]!.y);
   }
 }

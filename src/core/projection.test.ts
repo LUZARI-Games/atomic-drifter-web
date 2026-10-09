@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { convexHull, depth, makeView, project } from './projection';
+import { convexHull, depth, drawOrder, makeView, project } from './projection';
 
 describe('look-down projection', () => {
   it('90° is plain top-down: height disappears', () => {
@@ -20,6 +20,31 @@ describe('look-down projection', () => {
     const v = makeView(45);
     expect(depth(v, [0, 1, 0])).toBeGreaterThan(depth(v, [0, 0, 0]));
     expect(depth(v, [0, 0, 1])).toBeGreaterThan(depth(v, [0, 0, 0]));
+  });
+
+  it('isometric: turned 45° sideways, a floor square becomes a diamond', () => {
+    const v = makeView(30, 45);
+    const right = project(v, [1, 0, 0]);
+    const down = project(v, [0, 1, 0]);
+    expect(right[0]).toBeCloseTo(Math.SQRT1_2);
+    expect(down[0]).toBeCloseTo(-Math.SQRT1_2);
+    expect(right[1]).toBeCloseTo(down[1]); // both edges go down by the same amount
+    expect(Math.abs(right[0] / right[1])).toBeCloseTo(2); // classic 2:1 pixel iso at 30°
+  });
+
+  it('isometric depth: the corner nearest the viewer is drawn last', () => {
+    const v = makeView(30, 45);
+    expect(depth(v, [1, 1, 0])).toBeGreaterThan(depth(v, [1, 0, 0]));
+    expect(depth(v, [1, 0, 0])).toBeGreaterThan(depth(v, [0, 0, 0]));
+  });
+
+  it('draw order: a long wall behind a block comes first even if its far end is "nearer"', () => {
+    const v = makeView(30, 45);
+    const wall = { minX: 0, maxX: 4, minY: -0.1, maxY: 0.1 }; // long wall along x, behind
+    const block = { minX: 0.3, maxX: 1.7, minY: 0.3, maxY: 1.7 }; // in front of the wall
+    const nearest = (b: typeof wall) => depth(v, [b.maxX, b.maxY, 0]);
+    expect(nearest(wall)).toBeGreaterThan(nearest(block)); // the naive key would draw the wall over the block
+    expect(drawOrder(v, [block, wall], [nearest(block), nearest(wall)])).toEqual([1, 0]);
   });
 
   it('hull keeps only the outline', () => {

@@ -43,8 +43,9 @@ never restate the owner's tasks back to them.
   The Crew Lab shows OLD | NEW | NEW + GEAR | ISO 45° | ISO 60° side by side until the owner decides.
 
 ## Ship Lab (in evaluation)
-- `/ship-lab/` (`src/shiplab.ts`, `src/render/ship_view.ts`): the same ship at 90° (top-down), 60° and 45°, orthographic,
-  flat 2D. Heights in `src/data/ship_view.json` (half walls 1 m, systems 1 m, door frames 1.5 m) → `src/core/ship3d.ts`.
+- `/ship-lab/` (`src/shiplab.ts`, `src/render/ship_view.ts`): the same ship at 90° (top-down), look-down 60° / 45°, and
+  isometric (turned 45°: ISO 2:1 = down 30°, ISO 45/45), orthographic, flat 2D. Views = `makeView(pitch, yaw)`;
+  draw order via `drawOrder` (core/projection.ts) – long walls / blocks are drawn in 1 m / per-tile pieces. Heights in `src/data/ship_view.json` (half walls 1 m, systems 1 m, door frames 1.5 m) → `src/core/ship3d.ts`.
   Doors = brass frame (2 posts + lintel) + floor plate; airlocks rust-orange with hazard stripes.
   The main game view (`ShipScene`) is unchanged until the owner picks an angle.
 
