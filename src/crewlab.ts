@@ -9,7 +9,7 @@ import { drawCrewIso, ISO_VIEWS, isoFloor } from './render/crew_iso';
 import { drawCrewV2 } from './render/crew_v2';
 import { COLORS, FONT_FAMILY, FONT_SIZES, WORLD } from './render/palette';
 import { attachPanZoom } from './render/panzoom';
-import { mountMenu, toggleFullscreen } from './ui/menu';
+import { applyGreyscale, greyscaleItem, mountMenu, toggleFullscreen } from './ui/menu';
 import './ui/styles.css';
 
 const PX_PER_M = 36; // roughly the in-game zoom on a phone
@@ -138,8 +138,10 @@ async function boot(): Promise<void> {
     { label: 'SWAP M/F', onClick: () => (swapped = !swapped) },
     { label: 'GAME', href: '/' },
     { label: 'SHIP LAB', href: '/ship-lab/' },
+    greyscaleItem(),
     ...(document.fullscreenEnabled ? [{ label: 'FULLSCREEN', onClick: () => void toggleFullscreen() }] : []),
   ]);
+  applyGreyscale();
 
   try {
     await document.fonts.load(`18px ${FONT_FAMILY}`);

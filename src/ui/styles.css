@@ -89,3 +89,6 @@ html, body {
   z-index: 3;
   background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
 }
+
+/* Contrast check (menu: GREYSCALE ON/OFF): game world without colour; the menu stays readable in green. */
+#game.greyscale { filter: grayscale(1); }

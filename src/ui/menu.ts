@@ -37,3 +37,33 @@ export async function toggleFullscreen(): Promise<void> {
     // Fullscreen not allowed – the page still works in the normal browser view.
   }
 }
+
+const GREY_KEY = 'adw.greyscale';
+
+/**
+ * Contrast check: shows the game world in greyscale (the menu stays in colour). If crew and other game-relevant things
+ * still stand out without colour, the contrast is good. Remembered per browser; applied on every page.
+ */
+export function applyGreyscale(on?: boolean): boolean {
+  let state = on;
+  if (state === undefined) {
+    try {
+      state = localStorage.getItem(GREY_KEY) === '1';
+    } catch {
+      state = false;
+    }
+  } else {
+    try {
+      localStorage.setItem(GREY_KEY, state ? '1' : '0');
+    } catch {
+      /* not remembered – still works for this page */
+    }
+  }
+  document.getElementById('game')?.classList.toggle('greyscale', state);
+  return state;
+}
+
+/** Menu entry that switches greyscale on/off. */
+export function greyscaleItem(): MenuItem {
+  return { label: 'GREYSCALE ON/OFF', onClick: () => applyGreyscale(!document.getElementById('game')?.classList.contains('greyscale')) };
+}

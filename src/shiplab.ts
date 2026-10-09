@@ -8,7 +8,7 @@ import LAB from './data/crew_lab.json';
 import { COLORS, FONT_FAMILY, FONT_SIZES } from './render/palette';
 import { attachPanZoom } from './render/panzoom';
 import { ShipView, type CrewOnDeck } from './render/ship_view';
-import { mountMenu, toggleFullscreen } from './ui/menu';
+import { applyGreyscale, greyscaleItem, mountMenu, toggleFullscreen } from './ui/menu';
 import { loadShip } from './ui/shipSource';
 import './ui/styles.css';
 
@@ -65,8 +65,10 @@ async function boot(): Promise<void> {
     { label: 'GAME', href: '/' },
     { label: 'CREW LAB', href: '/crew-lab/' },
     { label: 'PLANNER', href: '/planner/' },
+    greyscaleItem(),
     ...(document.fullscreenEnabled ? [{ label: 'FULLSCREEN', onClick: () => void toggleFullscreen() }] : []),
   ]);
+  applyGreyscale();
   try {
     await document.fonts.load(`18px ${FONT_FAMILY}`);
   } catch {

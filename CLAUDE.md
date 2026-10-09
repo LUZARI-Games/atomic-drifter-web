@@ -93,6 +93,8 @@ never restate the owner's tasks back to them.
 - Navigation in every view: 1 finger drags, 2 fingers pinch-zoom, mouse wheel zooms, a still touch = tap
   (`src/render/panzoom.ts`). Draw content once at a fixed world size; the camera does fitting and zoom.
 - Touch first (tap, long-press), no hover-only features.
+- Menu `GREYSCALE ON/OFF` (all pages, remembered per browser): contrast check – crew and other game-relevant things
+  must still stand out without colour (`applyGreyscale` in src/ui/menu.ts).
 
 ## Commands
 - `npm run dev` – local dev server
