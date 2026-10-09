@@ -4,7 +4,7 @@
 import Phaser from 'phaser';
 import type { CrewLook } from '../core/crew';
 import { airshipHull, blockPolygons, systemBlocks } from '../core/hull';
-import { depth, drawOrder, project, turn, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
+import { depth, drawOrder, project, turn, unprojectFloor, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
 import { roomFloorCenter } from '../core/ship';
 import { consoleDesk, doorThreshold, SHIP_HEIGHTS, shipSolids, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
@@ -50,6 +50,17 @@ export class ShipView {
   private S(p: Vec3): V2 {
     const [sx, sy] = project(this.view, p);
     return new Phaser.Math.Vector2(this.ox + sx * this.pxPerM, this.oy + sy * this.pxPerM);
+  }
+
+  /** Screen point of a ship-space point at `height` meters (0 = deck) – valid after draw() set the origin. */
+  deckPoint(p: Point, height = 0): V2 {
+    return this.S(W(p, height));
+  }
+
+  /** Ship-space floor point under a screen point (for taps). */
+  toShip(x: number, y: number): Point {
+    const [wx, wy] = unprojectFloor(this.view, [(x - this.ox) / this.pxPerM, (y - this.oy) / this.pxPerM]);
+    return [wy, -wx]; // inverse of W: view x = -ship z, view y = ship x
   }
 
   /** Screen-space bounds of the whole ship (relative to the origin) – for laying out panels. */

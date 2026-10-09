@@ -31,6 +31,13 @@ export function project(v: View, [x, y, z]: Vec3): Vec2 {
   return [tx, ty * v.sin - z * v.cos];
 }
 
+/** Screen offset (meters) -> the floor point (height 0) that shows there. Inverse of `project` at z = 0. */
+export function unprojectFloor(v: View, [sx, sy]: Vec2): Vec2 {
+  const ty = v.sin > 1e-9 ? sy / v.sin : 0;
+  // undo the yaw turn
+  return [sx * v.yawCos + ty * v.yawSin, -sx * v.yawSin + ty * v.yawCos];
+}
+
 /** Distance towards the camera: draw smaller values first (painter's order). */
 export function depth(v: View, [x, y, z]: Vec3): number {
   return turn(v, x, y)[1] * v.cos + z * v.sin;

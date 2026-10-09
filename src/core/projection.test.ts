@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { convexHull, depth, drawOrder, makeView, project } from './projection';
+import { convexHull, depth, drawOrder, makeView, project, unprojectFloor } from './projection';
 
 describe('look-down projection', () => {
   it('90° is plain top-down: height disappears', () => {
@@ -54,6 +54,14 @@ describe('look-down projection', () => {
     const symbol = { minX: 0, maxX: 1, minY: 0, maxY: 1 };
     // keys would put the symbol before the block; the block waits for the wall behind it
     expect(drawOrder(v, [wall, block, symbol], [0, 0.5, 0.1], [[1, 2]])).toEqual([0, 1, 2]);
+  });
+
+  it('a tap on the screen finds the floor point under it (60/45 and top-down)', () => {
+    for (const v of [makeView(60, 45), makeView(90)]) {
+      const [x, y] = unprojectFloor(v, project(v, [3.2, -1.5, 0]));
+      expect(x).toBeCloseTo(3.2);
+      expect(y).toBeCloseTo(-1.5);
+    }
   });
 
   it('hull keeps only the outline', () => {

@@ -22,11 +22,13 @@ never restate the owner's tasks back to them.
 - Renderer/UI subscribe to the store; they never hold their own copy of game state.
 - Every rule in `src/core` gets a Vitest test next to it (`*.test.ts`).
 - Ships use the planner's Godot export (`atomic-drifter-ship-godot` v1: meters, bow = -Z, starboard = +X) unchanged –
-  the same file feeds the web prototype and Godot. The game draws it top-down with the bow pointing right.
+  the same file feeds the web prototype and Godot. The game draws it in the ISO 60/45 view (see Two looks).
 
 ## Two looks
 - **Terminal UI** (HTML overlay: bars, menus, HUD) – green phosphor rules below.
-- **Game world** (the ship in Phaser) – flat 2D top-down like FTL / Void War, no 3D / 2.5D / perspective.
+- **Game world** (the ship in Phaser) – **ISO 60/45**: orthographic view looking down 60°, turned 45° (`GAME_VIEW` in
+  `src/render/ShipScene.ts`, drawn by `src/render/ship_view.ts`). Still flat 2D shapes, no perspective, no 3D engine.
+  Half walls (1 m) so you can see into the rooms; selection outline is drawn on top of the walls.
   Setting: post-nuclear Earth (Fallout-like); ships are patched-up pre-war **airships** flying low over the wasteland –
   hull with a rounded-pointed nose at the bow (right), propellers + tail fins at the stern (left). Never space/rockets.
   Each system's machine tiles form ONE continuous block (gap to the walls, darker rim, dark system symbol),
@@ -52,7 +54,7 @@ never restate the owner's tasks back to them.
 - Consoles: a system's console tile is where crew stands to use it (never a door there). The keyboard desk sits ON the
   machinery edge facing that tile and overhangs it ~0.28 m (`consoleDesk` in core/ship3d.ts; drawn in ShipScene + Ship Lab).
   Planner export: `rooms[].console = { tile, facing } | null` – older exports without it still load.
-  The main game view (`ShipScene`) is unchanged until the owner picks an angle.
+  The main game view (`ShipScene`) uses the same renderer at ISO 60/45 (owner's choice).
 
 ## Design rules (terminal UI)
 - Colors: background `#030806`, phosphor green `#1AFF80`, amber `#FFB43A` = enemy/warning, red `#FF4A3A` = error/damage.
