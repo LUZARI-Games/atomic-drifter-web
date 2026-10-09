@@ -102,8 +102,10 @@ never restate the owner's tasks back to them.
 - Run state `src/core/run.ts` (RunState: names, difficulty, modifiers, scrap, ammo, hull, evasion, system levels,
   reactor bars, turrets), saved per browser by `src/ui/runStore.ts` (`adw.run`). The game HUD reads it (`statusFromRun`).
 - Top-left HUD `src/ui/statusHud.ts`: hull segments, shield pips + recharge, evasion | ammo, scrap; crew portraits
-  (captain first + bigger, health bar, station badge = system colour), tap = select. Portraits are placeholders until
-  the owner's webp images arrive.
+  (captain first + bigger, health bar, station badge = system colour), tap = select. Portraits = the owner's 300×300
+  face webps in `public/portraits/` (`src/data/portraits.json`: side crew/enemy, sex). Captain = power_armor, named
+  from New Run; other own crew = random named characters from the crew roster (their name + sex). Enemy faces are for
+  hostile crew later. Full-res / in-game-res versions of the art are not in the repo yet.
 - Pages (plain DOM, no Phaser), each with rules in core + data JSON + tests:
   `/new-run/` (newrun.ts: names, difficulty, modifiers → buildRun), `/upgrades/` (upgrades.ts: system levels, reactor
   bars, undo/confirm), `/salvage/` (salvage.ts: seeded offer of 3 turrets by rarity, pick / scrap all; `?seed=`).

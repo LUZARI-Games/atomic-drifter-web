@@ -118,11 +118,11 @@ html, body {
   position: absolute;
   top: max(8px, env(safe-area-inset-top));
   left: max(8px, env(safe-area-inset-left));
-  max-width: calc(100% - 150px); /* keep clear of [ MENU ] */
+  right: max(8px, env(safe-area-inset-right));
   display: flex; flex-direction: column; gap: 6px;
   pointer-events: none;
 }
-.status-hud .sh-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.status-hud .sh-row { display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 140px); /* keep clear of [ MENU ] */ }
 .status-hud .pn { padding: 4px 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .sh-stat { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-s); }
 .sh-stat b { font-weight: normal; letter-spacing: 1px; }
@@ -140,13 +140,13 @@ html, body {
 .sh-shield .charge i { display: block; height: 100%; background: #3fa7e0; }
 .sh-crew { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; pointer-events: auto; }
 .sh-face {
-  padding: 0 !important; display: flex !important; flex-direction: column; align-items: stretch !important; gap: 0 !important; width: 52px;
+  padding: 0 !important; display: flex !important; flex-direction: column; align-items: stretch !important; gap: 0 !important; width: 58px; overflow: hidden;
   color: var(--green); font-family: var(--font); cursor: pointer; border-width: 1px;
 }
 .sh-face.captain { width: 72px; }
 .sh-face.sel { border: 3px solid var(--green); box-shadow: 0 0 10px color-mix(in srgb, var(--green) 50%, transparent); }
-.sh-face .face { width: 100%; aspect-ratio: 1; display: block; }
-.sh-face .nm { font-size: 11px; letter-spacing: 1px; text-align: center; padding: 1px 0; overflow: hidden; white-space: nowrap; }
+.sh-face .face { width: 100%; aspect-ratio: 1; display: block; object-fit: cover; background: radial-gradient(circle at 50% 40%, #12301f, #040b07); }
+.sh-face .nm { font-size: 11px; letter-spacing: 0.5px; text-align: center; padding: 1px 2px; min-width: 0; display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .sh-face .hp { height: 4px; background: rgba(26, 255, 128, 0.15); }
 .sh-face .hp i { display: block; height: 100%; background: var(--green); }
 .sh-face .hp.warn i { background: var(--amber); }

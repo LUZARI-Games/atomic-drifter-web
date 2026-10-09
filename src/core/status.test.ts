@@ -27,4 +27,12 @@ describe('ship status', () => {
     expect(s.crew.filter((c) => c.captain)).toHaveLength(1);
     expect(s.crew.every((c) => crewHealth(s, c.id) === 1)).toBe(true);
   });
+
+  it('crew get named portraits from the roster (captain: power armour), no one twice', () => {
+    const s = start();
+    expect(s.crew[0]!.portrait).toBe('power_armor');
+    const ids = s.crew.map((c) => c.portrait);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(s.crew.slice(1).every((c) => c.portrait && c.name !== 'CAPTAIN')).toBe(true);
+  });
 });

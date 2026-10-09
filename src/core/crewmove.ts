@@ -3,6 +3,7 @@
 import LAB from '../data/crew_lab.json';
 import MOVE from '../data/crew_move.json';
 import START from '../data/run_start.json';
+import PORTRAITS from '../data/portraits.json';
 import { CREW_GEAR, CREW_LOOKS, equip, parseCrewLook, type CrewLook, type GearId } from './crew';
 import { seatPose } from './exterior';
 import { buildNav, findPath, nodeAt, type NavGraph } from './nav';
@@ -63,16 +64,19 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
   const deck = [...nav.nodes.values()].filter((n) => n.vehicle === null && ship.rooms.find((rm) => rm.id === n.room)?.kind !== 'balcony').map((n) => n.id);
   const starts = [...consoleNodes, ...deck.filter((d) => !consoleNodes.includes(d)).sort(() => r() - 0.5)];
   const names = [...NAMES].sort(() => r() - 0.5);
+  // own crew = named characters from the portrait roster (captain: the power-armour portrait); name + sex follow it
+  const roster = PORTRAITS.portraits.filter((p) => p.side === 'crew' && p.variant === 1 && p.id !== PORTRAITS.captain_portrait).sort(() => r() - 0.5);
   const crew: CrewMember[] = [];
   for (let i = 0; i < Math.min(count, starts.length); i++) {
     const base = pick(bases);
     let gear: GearId[] = [];
     for (const g of gearIds) if (r() < 0.4) gear = equip(gear, g);
+    const face = i === 0 ? PORTRAITS.portraits.find((p) => p.id === PORTRAITS.captain_portrait) : roster[(i - 1) % Math.max(1, roster.length)];
     const look: CrewLook = {
       ...base,
       id: `crew_${i}`,
-      name: names[i % names.length]!,
-      sex: r() < 0.5 ? 'male' : 'female',
+      name: i === 0 ? 'CAPTAIN' : face?.name ?? names[i % names.length]!,
+      sex: face ? (face.sex as CrewLook['sex']) : r() < 0.5 ? 'male' : 'female',
       skin: Math.floor(r() * CREW_LOOKS.skin_tones.length),
       hair: Math.floor(r() * CREW_LOOKS.hair_colors.length),
       gear,
@@ -83,6 +87,7 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
       id: look.id, name: look.name, look, node, dest: node, pos: spot(ship, crew, node, look.id), path: [],
       heading: desk ? headingOf(desk) : r() * Math.PI * 2, walked: 0,
       hp: START.crew_hp, hpMax: START.crew_hp, captain: i === 0, // the first one is the player's captain
+      portrait: face?.id,
     });
   }
   return crew;

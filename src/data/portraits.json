@@ -1,0 +1,294 @@
+{
+ "_info": "Face portraits (300x300 webp, transparent background) from the owner. side crew = own crew roster, enemy = hostile crew (later). Captain uses captain_portrait.",
+ "captain_portrait": "power_armor",
+ "portraits": [
+  {
+   "id": "chuck",
+   "name": "CHUCK",
+   "file": "/portraits/chuck.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "chuck_2",
+   "name": "CHUCK",
+   "file": "/portraits/chuck_2.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 2
+  },
+  {
+   "id": "cole_ransom",
+   "name": "COLE RANSOM",
+   "file": "/portraits/cole_ransom.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "cole_ransom_2",
+   "name": "COLE RANSOM",
+   "file": "/portraits/cole_ransom_2.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 2
+  },
+  {
+   "id": "crazy_pete",
+   "name": "CRAZY PETE",
+   "file": "/portraits/crazy_pete.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "dr_mitchell",
+   "name": "DR MITCHELL",
+   "file": "/portraits/dr_mitchell.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "enemy_captain",
+   "name": "ENEMY CAPTAIN",
+   "file": "/portraits/enemy_captain.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "enemy_grunt",
+   "name": "ENEMY GRUNT",
+   "file": "/portraits/enemy_grunt.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "enemy_grunt_2",
+   "name": "ENEMY GRUNT",
+   "file": "/portraits/enemy_grunt_2.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 2
+  },
+  {
+   "id": "enemy_mechanic",
+   "name": "ENEMY MECHANIC",
+   "file": "/portraits/enemy_mechanic.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "enemy_mechanic_2",
+   "name": "ENEMY MECHANIC",
+   "file": "/portraits/enemy_mechanic_2.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 2
+  },
+  {
+   "id": "enemy_scientist",
+   "name": "ENEMY SCIENTIST",
+   "file": "/portraits/enemy_scientist.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "enemy_tank",
+   "name": "ENEMY TANK",
+   "file": "/portraits/enemy_tank.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "enemy_tank_2",
+   "name": "ENEMY TANK",
+   "file": "/portraits/enemy_tank_2.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 2
+  },
+  {
+   "id": "evelyn",
+   "name": "EVELYN",
+   "file": "/portraits/evelyn.webp",
+   "side": "crew",
+   "sex": "female",
+   "variant": 1
+  },
+  {
+   "id": "evelyn_2",
+   "name": "EVELYN",
+   "file": "/portraits/evelyn_2.webp",
+   "side": "crew",
+   "sex": "female",
+   "variant": 2
+  },
+  {
+   "id": "female_fighter",
+   "name": "FEMALE FIGHTER",
+   "file": "/portraits/female_fighter.webp",
+   "side": "crew",
+   "sex": "female",
+   "variant": 1
+  },
+  {
+   "id": "hunter",
+   "name": "HUNTER",
+   "file": "/portraits/hunter.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "kaan",
+   "name": "KAAN",
+   "file": "/portraits/kaan.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "madam_betty",
+   "name": "MADAM BETTY",
+   "file": "/portraits/madam_betty.webp",
+   "side": "crew",
+   "sex": "female",
+   "variant": 1
+  },
+  {
+   "id": "neh",
+   "name": "NEH",
+   "file": "/portraits/neh.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "neh_2",
+   "name": "NEH",
+   "file": "/portraits/neh_2.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 2
+  },
+  {
+   "id": "power_armor",
+   "name": "POWER ARMOR",
+   "file": "/portraits/power_armor.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "raider_girl",
+   "name": "RAIDER GIRL",
+   "file": "/portraits/raider_girl.webp",
+   "side": "enemy",
+   "sex": "female",
+   "variant": 1
+  },
+  {
+   "id": "raider_girl_2",
+   "name": "RAIDER GIRL",
+   "file": "/portraits/raider_girl_2.webp",
+   "side": "enemy",
+   "sex": "female",
+   "variant": 2
+  },
+  {
+   "id": "raider_pyromancer",
+   "name": "RAIDER PYROMANCER",
+   "file": "/portraits/raider_pyromancer.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "raider_soldier",
+   "name": "RAIDER SOLDIER",
+   "file": "/portraits/raider_soldier.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "raider_soldier_2",
+   "name": "RAIDER SOLDIER",
+   "file": "/portraits/raider_soldier_2.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 2
+  },
+  {
+   "id": "raider_tank",
+   "name": "RAIDER TANK",
+   "file": "/portraits/raider_tank.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "reginald",
+   "name": "REGINALD",
+   "file": "/portraits/reginald.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "samantha",
+   "name": "SAMANTHA",
+   "file": "/portraits/samantha.webp",
+   "side": "crew",
+   "sex": "female",
+   "variant": 1
+  },
+  {
+   "id": "super_mutant_leader",
+   "name": "SUPER MUTANT LEADER",
+   "file": "/portraits/super_mutant_leader.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "tesla_trader_captain_2",
+   "name": "TESLA TRADER CAPTAIN 2",
+   "file": "/portraits/tesla_trader_captain_2.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "tesla_trader_captain",
+   "name": "TESLA TRADER CAPTAIN",
+   "file": "/portraits/tesla_trader_captain.webp",
+   "side": "enemy",
+   "sex": "male",
+   "variant": 1
+  },
+  {
+   "id": "daisy",
+   "name": "DAISY",
+   "file": "/portraits/daisy.webp",
+   "side": "crew",
+   "sex": "female",
+   "variant": 1
+  },
+  {
+   "id": "bolt",
+   "name": "BOLT",
+   "file": "/portraits/bolt.webp",
+   "side": "crew",
+   "sex": "male",
+   "variant": 1
+  }
+ ]
+}

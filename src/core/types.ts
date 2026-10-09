@@ -86,6 +86,7 @@ export interface CrewMember {
   hp: number;
   hpMax: number;
   captain?: boolean; // the player's own character (first, big portrait)
+  portrait?: string; // portrait id (src/data/portraits.json)
 }
 
 export interface GameState {

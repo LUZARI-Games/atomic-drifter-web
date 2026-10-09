@@ -22,7 +22,10 @@ async function boot(): Promise<void> {
   const loaded = sceneShip ? { ship: sceneShip, source: 'demo' as const, problems: [] } : loadShip(!scene); // scenes use the demo ship
   // the planner export carries no crew yet -> random crew from the Crew Lab types
   // ship status (hull, shields, scrap …) comes from the saved run (New Run / Ship Upgrades / Salvage)
-  let start = { ...createGameState(loaded.ship), crew: generateCrew(loaded.ship), status: statusFromRun(loadRun()) };
+  const run = loadRun();
+  // the captain carries the name entered in New Run
+  const crew = generateCrew(loaded.ship).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
+  let start = { ...createGameState(loaded.ship), crew, status: statusFromRun(run) };
   if (scene) start = applyTestScene(start, scene);
   const store = new Store(start);
   const sound = new Sound();
