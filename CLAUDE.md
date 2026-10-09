@@ -111,6 +111,11 @@ never restate the owner's tasks back to them.
   bars, undo/confirm), `/salvage/` (salvage.ts: seeded offer of 3 turrets by rarity, pick / scrap all; `?seed=`).
   Look follows the mockups (corner-bracket panels, glow, CRT-on/off, glitch, ACCESS DENIED shake) at 24/18/15 px,
   reflowed for a phone held upright.
+- Every terminal page opens on the mockups' boot screen (`src/ui/terminal.ts`, `mountBootScreen`): POWER ON / REBOOT +
+  OPTIONS (SOUND = game sound switch, GLASS layer, BLOOM 0–200 % → `--bloom` + SVG bloom filter, FULLSCREEN), remembered
+  per browser. Salvage adds line-ups, SENTINELS → TURRETS / RAIDERS → EQUIPMENT (`src/data/equipment.json`) and slot
+  pickers. After a confirm the CRT switches off → REBOOT + BACK TO GAME. Never drop parts of the owner's mockups
+  without asking. Equipment picks are stored as `equip:<id>` in `run.turrets` until the run gets an equipment list.
 
 ## Sound
 - `src/ui/sound.ts`: all sounds made in code with Web Audio (no files): terminal blips (select / deselect / send),

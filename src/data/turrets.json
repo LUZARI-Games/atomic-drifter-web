@@ -8,6 +8,17 @@
     { "id": "legendary", "name": "LEGENDARY", "color": "#FFE45C", "sell": 60, "weight": 2 }
   ],
   "loot": { "scrap_min": 50, "scrap_max": 90, "scrap_step": 5, "ammo_min": 1, "ammo_max": 3 },
+  "_lineups": "Test line-ups (boot screen OPTIONS): three items at fixed rarities. Turret presets here, equipment presets in equipment.json. The Storm Cannon shows up in each turret line-up at a different rarity (same name, stronger stats).",
+  "lineups": [
+    { "id": "cur", "name": "COMMON · UNCOMMON · RARE" },
+    { "id": "ure", "name": "UNCOMMON · RARE · EPIC" },
+    { "id": "rel", "name": "RARE · EPIC · LEGENDARY" }
+  ],
+  "presets": {
+    "cur": [["storm", 1], ["pulse", 2], ["sabre", 3]],
+    "ure": [["storm", 2], ["beam", 3], ["lance", 4]],
+    "rel": [["storm", 3], ["lance", 4], ["mortar", 5]]
+  },
   "turrets": {
     "storm": { "name": "STORM CANNON", "cls": "CANNON", "img": "gun", "dmg": 1, "proj": 2, "charge": 12, "energy": 2, "fx": [],
       "perks": { "2": { "proj": 3 }, "3": { "fx": [["fire", 20]] }, "4": { "proj": 4 }, "5": { "fx": [["breach", 20]] } } },
