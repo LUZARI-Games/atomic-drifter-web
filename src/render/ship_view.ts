@@ -9,7 +9,7 @@ import { roomFloorCenter } from '../core/ship';
 import { consoleDesk, doorLeaves, doorThreshold, SHIP_HEIGHTS, shipSolids, wallHeight, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
 import type { Point, Ship, ShipVehicle } from '../core/types';
-import { drawCrewIso, type IdlePose } from './crew_iso';
+import { drawCrewIso, type IdlePose, type SitPose } from './crew_iso';
 import { drawSystemIcon } from './icons';
 import { FONT_FAMILY, FONT_SIZES, VEHICLE, WORLD, worldPaint } from './palette';
 import { balconyRoomIds, dockArms, railingParts, vehicleFrame } from '../core/exterior';
@@ -45,6 +45,7 @@ export interface CrewOnDeck {
   vehicle?: number; // index into ship.vehicles when sitting in one – drawn after it
   ring?: number; // ring colour override (selection)
   idle?: IdlePose; // standing still: breathing, looking around, typing
+  sit?: SitPose; // seated in a vehicle (`at` = under the hips, lift 0)
 }
 
 /** Ship space [x, z] + height -> view world (x = towards the bow/right, y = starboard/towards the viewer, z = up). */
@@ -110,7 +111,7 @@ export class ShipView {
    * Everything standing (walls, door frames + leaves, system blocks, consoles, crew), back to front.
    * Call again (after objects.clear()) whenever doors move. `doorOpen(i)` = 0 closed … 1 open for ship.doors[i].
    */
-  private collectItems(doorOpen: (i: number) => number): { items: Item[]; mustFollow: [number, number][]; vehicleItem: number[]; doorItem: number[] } {
+  private collectItems(doorOpen: (i: number) => number): { items: Item[]; mustFollow: [number, number][]; vehicleItem: number[]; vehicleRim: (number | undefined)[]; doorItem: number[] } {
     const items: Item[] = [];
     const mustFollow: [number, number][] = []; // [first, then] – e.g. a system symbol after its own block
     const box = (footprint: Point[]): FloorBox => {
@@ -130,11 +131,17 @@ export class ShipView {
       }
     }
     const vehicleItem: number[] = [];
+    const vehicleRim: (number | undefined)[] = []; // car: the near side walls, drawn over the people sitting inside
     for (const v of this.ship.vehicles ?? []) {
       vehicleItem.push(items.length + dockArms(this.ship, v).length);
       for (const arm of dockArms(this.ship, v)) items.push({ key: this.sortKey(arm.footprint, 0), box: box(arm.footprint), draw: (g) => this.drawSolid(g, arm) });
       const fp = v.tiles.flatMap((t) => t.polygon);
-      items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: (g) => this.drawVehicle(g, v) });
+      items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: (g) => this.drawVehicle(g, v, v.type === 'car' ? 'body' : 'all') });
+      if (v.type === 'car') {
+        mustFollow.push([items.length - 1, items.length]);
+        vehicleRim.push(items.length);
+        items.push({ key: this.sortKey(fp, 0) + 0.0001, box: box(fp), draw: (g) => this.drawVehicle(g, v, 'rim') });
+      } else vehicleRim.push(undefined);
     }
     for (const s of shipSolids(this.ship)) {
       if (s.kind === 'console') continue; // drawn below with its keyboard, after its system block
@@ -179,15 +186,17 @@ export class ShipView {
         items.push({ key: this.sortKey(desk.footprint, 0) + 0.0006, box: box(desk.footprint), draw: (g) => this.drawConsole(g, desk, this.blockFill(b.room)) });
       }
     }
-    return { items, mustFollow, vehicleItem, doorItem };
+    return { items, mustFollow, vehicleItem, vehicleRim, doorItem };
   }
 
   /** Everything standing, drawn into one graphics (Ship Lab / still pictures). */
   drawObjects(objects: G, crew: CrewOnDeck[], doorOpen: (i: number) => number = () => 0): void {
-    const { items, mustFollow, vehicleItem } = this.collectItems(doorOpen);
+    const { items, mustFollow, vehicleItem, vehicleRim } = this.collectItems(doorOpen);
     for (const c of crew) {
       const it = this.crewItem(c);
       if (c.vehicle !== undefined && vehicleItem[c.vehicle] !== undefined) mustFollow.push([vehicleItem[c.vehicle]!, items.length]);
+      const rim = c.vehicle !== undefined ? vehicleRim[c.vehicle] : undefined;
+      if (rim !== undefined) mustFollow.push([items.length, rim]);
       items.push(it);
     }
     const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key), mustFollow);
@@ -201,7 +210,7 @@ export class ShipView {
       box: { minX: feet[0] - 0.3, maxX: feet[0] + 0.3, minY: feet[1] - 0.3, maxY: feet[1] + 0.3 },
       draw: (g) => {
         const p = this.S(feet);
-        drawCrewIso(g, this.view, c.look, p.x, p.y, this.pxPerM, c.facing, c.step ?? 0, false, c.ring, c.idle);
+        drawCrewIso(g, this.view, c.look, p.x, p.y, this.pxPerM, c.facing, c.step ?? 0, false, c.ring, c.idle, c.sit);
       },
     };
   }
@@ -212,7 +221,7 @@ export class ShipView {
    * walking crew stay cheap on a phone. Call after drawStatic().
    */
   mountObjects(scene: Phaser.Scene, depthFrom: number, depthTo: number, doorOpen: (i: number) => number): ObjectLayer {
-    const { items, mustFollow, vehicleItem, doorItem } = this.collectItems(doorOpen);
+    const { items, mustFollow, vehicleItem, vehicleRim, doorItem } = this.collectItems(doorOpen);
     const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key), mustFollow);
     const posOf = new Map(order.map((idx, pos) => [idx, pos]));
     const n = order.length;
@@ -239,8 +248,11 @@ export class ShipView {
           const it = this.crewItem(c);
           // after everything that is behind the figure (and after its vehicle), before the rest
           let after = -1;
-          items.forEach((other, oi) => { if (isBehind(this.view, other.box, it.box)) after = Math.max(after, posOf.get(oi)!); });
+          const rim = c.vehicle !== undefined ? vehicleRim[c.vehicle] : undefined;
+          items.forEach((other, oi) => { if (oi !== rim && isBehind(this.view, other.box, it.box)) after = Math.max(after, posOf.get(oi)!); });
           if (c.vehicle !== undefined && vehicleItem[c.vehicle] !== undefined) after = Math.max(after, posOf.get(vehicleItem[c.vehicle]!)!);
+          // sitting in a car: under its near side walls (they hide the legs)
+          if (rim !== undefined) after = Math.min(after, posOf.get(rim)! - 1);
           g.setDepth(depthAt(after + 0.5) + it.key * 1e-6);
           it.draw(g);
         });
@@ -402,13 +414,14 @@ export class ShipView {
    * A docked vehicle, built from simple shapes: bike / bike with an egg-shaped sidecar pod / open car you can look into.
    * It lies along the railing it is docked to, on the outer side of it.
    */
-  private drawVehicle(g: G, v: ShipVehicle): void {
+  private drawVehicle(g: G, v: ShipVehicle, part: 'all' | 'body' | 'rim' = 'all'): void {
     const { center: c, u, w } = vehicleFrame(this.ship, v);
     const at = (o: Point, du: number, dw: number): Point => [o[0] + u[0] * du + w[0] * dw, o[1] + u[1] * du + w[1] * dw];
     // layer: 0 = wheels (under the body), 1 = floor pan, 2 = everything else (back to front)
-    const parts: { fp: Point[]; z0: number; z1: number; top: number; side: number; layer: number }[] = [];
-    const box = (o: Point, du0: number, du1: number, dw0: number, dw1: number, z0: number, z1: number, col: number, layer = 2) =>
-      parts.push({ fp: [at(o, du0, dw0), at(o, du1, dw0), at(o, du1, dw1), at(o, du0, dw1)], z0, z1, top: col, side: shade(col, 30), layer });
+    // shell = car walls / hood / trunk / windscreen: the ones nearer the viewer than the car's middle form the "rim"
+    const parts: { fp: Point[]; z0: number; z1: number; top: number; side: number; layer: number; shell?: boolean }[] = [];
+    const box = (o: Point, du0: number, du1: number, dw0: number, dw1: number, z0: number, z1: number, col: number, layer = 2, shell = false) =>
+      parts.push({ fp: [at(o, du0, dw0), at(o, du1, dw0), at(o, du1, dw1), at(o, du0, dw1)], z0, z1, top: col, side: shade(col, 30), layer, shell });
     /** Egg shape (convex): length 2·ru along u, width 2·rw, narrower towards the front (+u). */
     const egg = (o: Point, ru: number, rw: number, z0: number, z1: number, col: number) => {
       const fp = Array.from({ length: 18 }, (_, i): Point => {
@@ -431,17 +444,18 @@ export class ShipView {
       // open-top while docked (a roof could close when it flies off): floor, low sides, hood, trunk, two rows of seats
       for (const [du0, du1] of [[-1.7, -1.1], [1.1, 1.7]]) for (const [dw0, dw1] of [[-0.95, -0.7], [0.7, 0.95]]) box(c, du0!, du1!, dw0!, dw1!, 0, 0.6, VEHICLE.tyre, 0);
       box(c, -1.9, 1.9, -0.85, 0.85, 0.3, 0.42, shade(VEHICLE.olive, 35), 1); // floor pan
-      box(c, 1.05, 1.9, -0.85, 0.85, 0.3, 0.9, VEHICLE.olive); // hood
-      box(c, -1.9, -1.35, -0.85, 0.85, 0.3, 0.85, VEHICLE.olive); // trunk
+      box(c, 1.05, 1.9, -0.85, 0.85, 0.3, 0.9, VEHICLE.olive, 2, true); // hood
+      box(c, -1.9, -1.35, -0.85, 0.85, 0.3, 0.85, VEHICLE.olive, 2, true); // trunk
       for (const [du0, du1] of [[-1.25, -0.2], [-0.05, 0.95]]) {
         box(c, du0!, du1!, -0.8, -0.1, 0.42, 0.62, VEHICLE.seat); // seat cushions (left / right)
         box(c, du0!, du1!, 0.1, 0.8, 0.42, 0.62, VEHICLE.seat);
         box(c, du0!, du0! + 0.14, -0.8, 0.8, 0.42, 1.0, shade(VEHICLE.seat, -10)); // backrest of the row
       }
       box(c, 0.82, 0.92, 0.25, 0.65, 0.75, 1.0, VEHICLE.chrome); // steering wheel (driver side)
-      box(c, 0.95, 1.05, -0.8, 0.8, 0.9, 1.15, VEHICLE.glass); // windscreen
-      box(c, -1.35, 1.05, -0.85, -0.75, 0.42, 0.88, VEHICLE.olive); // side walls
-      box(c, -1.35, 1.05, 0.75, 0.85, 0.42, 0.88, VEHICLE.oliveLight);
+      box(c, 0.95, 1.05, -0.8, 0.8, 0.9, 1.15, VEHICLE.glass, 2, true); // windscreen
+      box(c, -1.35, 1.05, -0.85, -0.75, 0.42, 0.88, VEHICLE.olive, 2, true); // side walls
+      box(c, -1.35, 1.05, 0.75, 0.85, 0.42, 0.88, VEHICLE.oliveLight, 2, true);
+      box(c, -0.19, -0.06, -0.85, 0.85, 0.42, 1.1, VEHICLE.rust); // partition: no way between back row and front row
     } else if (v.type === 'sidecar' && v.tiles.length >= 2) {
       // bike on the tile nearer the ship, the egg-shaped pod right beside it
       const along = (p: Point) => (p[0] - c[0]) * w[0] + (p[1] - c[1]) * w[1];
@@ -466,7 +480,9 @@ export class ShipView {
       return depth(this.view, W([cx, cz], p.z1));
     };
     parts.sort((p, q) => p.layer - q.layer || mid(p) - mid(q));
-    for (const p of parts) this.prism(g, p.fp, p.z0, p.z1, p.top, p.side);
+    const centre = depth(this.view, W(c, 0.6));
+    const isRim = (p: (typeof parts)[number]) => !!p.shell && mid(p) > centre + 0.05;
+    for (const p of parts) if (part === 'all' || (part === 'rim') === isRim(p)) this.prism(g, p.fp, p.z0, p.z1, p.top, p.side);
   }
 
   /** Stencil paint on the free deck of each system room, squashed like the floor. */

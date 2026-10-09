@@ -50,6 +50,8 @@ export interface ShipVehicle {
   tiles: { center: Point; polygon: Point[] }[];
   /** Edges crew can leave through; an exit lying on a railing is the dock. */
   exits: { a: Point; b: Point }[];
+  /** Edges crew cannot pass inside the vehicle (car: front and back row are walled apart). */
+  walls?: { a: Point; b: Point }[];
 }
 
 export interface Ship {

@@ -82,12 +82,18 @@ never restate the owner's tasks back to them.
   start/stop easing and stride in `src/data/crew_move.json`, 3.2 m/s), `doorsInUse` (doors open by themselves while
   someone walks through). Up to 4 crew share a deck tile, 1 per seat. On a console tile the first spot is at the desk
   (crew face it and type); the other spots stay clear of the desk (`consoleOf`).
-- Idle animation (`IdlePose` in crew_iso.ts): breathing, weight shift, looking around now and then, typing at a desk –
-  each person on their own rhythm. Redrawn at ~20 fps while nobody walks.
+- Idle animation (`IdlePose` in crew_iso.ts): breathing, weight from foot to foot, looking around, hands on hips now
+  and then, typing at a desk – each person on their own rhythm. Redrawn at ~20 fps while nobody walks.
+- Vehicles: 1 tile = 1 seat. `seatPose` (core/exterior.ts, layout `SEATS`): astride the bike (hands on the bar), car
+  seats (driver at the wheel, legs hidden), low in the sidecar pod. Seated crew face the driving direction (`SitPose`
+  in crew_iso.ts). Car: front and back row are walled apart (`vehicles[].walls` from the export) – you get in at your
+  row's door only and can switch seats only within the row; a rust partition shows it. The car's near walls are a
+  separate "rim" item drawn over the people inside.
 - Taps: a figure on screen selects / deselects it; with crew selected a tap sends them; tapping the void lets go.
 - Rendering: `ShipView.mountObjects` draws every standing object ONCE into its own graphics (stacked by depth);
   per frame only crew (and moving doors) are redrawn and slotted in by `isBehind`. Never redraw the whole ship per frame.
-- Demo ship: 4 rooms in a row (machinery port side, floors connected by doors) + balcony with a docked bike.
+- Demo ship: 4 rooms in a row (machinery port side, floors connected by doors) + a 2-tile balcony with a docked car
+  (both rows at the railing) and a bike.
 
 ## Sound
 - `src/ui/sound.ts`: all sounds made in code with Web Audio (no files): terminal blips (select / deselect / send),

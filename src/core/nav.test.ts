@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import demo from '../data/demo_ship.json';
 import { consoleOf, doorsInUse, generateCrew, navOf, selectCrew, tickCrew, walkFactor } from './crewmove';
 import { consoleDesk } from './ship3d';
+import { seatPose } from './exterior';
 import { findPath, nodeAt } from './nav';
 import { createGameState, tapPoint } from './selection';
 import { parseShip } from './ship';
@@ -80,6 +81,46 @@ describe('crew', () => {
     let s = selectCrew(start(ship), generateCrew(ship)[0]!.id);
     s = tapPoint(s, [40, 40]);
     expect(s.selectedCrewId).toBeNull();
+  });
+});
+
+// balcony of two tiles, a car docked along its railing: rows z<0 and z>0 walled apart, each row's door on the railing
+const carShip = parseShip({
+  format: 'atomic-drifter-ship-godot', version: 1, name: 'C', tile_size: 2,
+  rooms: [{ id: 'deck', kind: 'balcony', system: null, label: '', color: null }],
+  tiles: [tile(2, -1, 'deck'), tile(2, 1, 'deck')],
+  walls: [{ kind: 'railing', a: [3, -2], b: [3, 0] }, { kind: 'railing', a: [3, 0], b: [3, 2] }],
+  doors: [],
+  vehicles: [{
+    type: 'car', seats: 4,
+    tiles: [tile(4, -1, ''), tile(6, -1, ''), tile(4, 1, ''), tile(6, 1, '')],
+    exits: [{ a: [3, -2], b: [3, 0] }, { a: [3, 0], b: [3, 2] }],
+    walls: [{ a: [3, 0], b: [5, 0] }, { a: [5, 0], b: [7, 0] }],
+  }],
+}).ship as Ship;
+
+describe('car: front and back row', () => {
+  it('rows are walled apart; seats in one row connect', () => {
+    const nav = navOf(carShip);
+    const linked = (a: string, b: string) => nav.links.get(a)!.some((l) => l.to === b);
+    expect(linked('v0:0', 'v0:1')).toBe(true); // same row
+    expect(linked('v0:0', 'v0:2')).toBe(false); // other row
+    expect(linked('v0:1', 'v0:3')).toBe(false);
+  });
+
+  it('you get in at your own row: the far seat of the other row is reached over that row\'s dock', () => {
+    const nav = navOf(carShip);
+    const way = findPath(nav, nodeAt(carShip, nav, [2, -1])!, 'v0:3')!;
+    expect(way.points).toContainEqual([3, 1]); // the dock of row z>0
+    expect(way.points).not.toContainEqual([3, -1]);
+    expect(way.nodes).toContain('v0:2');
+  });
+
+  it('seated crew face the driving direction; one driver at the wheel', () => {
+    const poses = carShip.vehicles![0]!.tiles.map((_, t) => seatPose(carShip, 0, t));
+    expect(poses.filter((p) => p.hands === 'wheel')).toHaveLength(1);
+    expect(new Set(poses.map((p) => p.heading.toFixed(3))).size).toBe(1);
+    expect(poses.every((p) => p.legsHidden)).toBe(true);
   });
 });
 

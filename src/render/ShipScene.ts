@@ -2,7 +2,7 @@
 // Same renderer as the Ship Lab (ship_view.ts). Owns NO game state: taps are turned into ship meters and sent to core.
 import Phaser from 'phaser';
 import { makeView } from '../core/projection';
-import { consoleOf, doorsInUse, navOf, selectCrew, STRIDE_M, tickCrew } from '../core/crewmove';
+import { consoleOf, doorsInUse, navOf, seatOf, selectCrew, STRIDE_M, tickCrew } from '../core/crewmove';
 import { nodeAt } from '../core/nav';
 import { tapPoint } from '../core/selection';
 import { roomOutline } from '../core/ship';
@@ -159,8 +159,13 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       const vehicle = node?.startsWith('v') ? Number(node.slice(1).split(':')[0]) : undefined;
       // ship heading (atan2(dz, dx)) -> view angle: ship x -> view y, ship z -> view -x
       const facing = Math.atan2(Math.cos(c.heading), -Math.sin(c.heading));
-      // standing still: idle animation; at the desk spot of a console: typing
+      // standing still: idle animation; at the desk spot of a console: typing; in a vehicle: seated
       let idle: CrewOnDeck['idle'];
+      const seat = c.path.length ? null : seatOf(ship, c.node);
+      if (seat) {
+        idle = { t, seed: i * 0.618 + 0.3, typing: false };
+        return { look: c.look, at: seat.pos, facing, step: 0, lift: 0, vehicle, ring: c.id === selectedCrewId ? WORLD.select : undefined, idle, sit: seat };
+      }
       if (!c.path.length) {
         const desk = consoleOf(ship, c.node);
         const base = nav.nodes.get(c.node)?.pos;

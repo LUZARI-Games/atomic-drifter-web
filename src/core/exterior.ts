@@ -89,3 +89,59 @@ export function dockArms(ship: Ship, v: ShipVehicle): Solid[] {
     return { kind: 'dock_arm', footprint: segmentBox(s, e, 0.05), z0: 0.5, z1: 0.62 };
   });
 }
+
+/** How crew sits on a seat: astride a bike, in a car seat, low in the sidecar pod (legs hidden inside). */
+export type SeatKind = 'astride' | 'seat' | 'pod';
+export interface SeatPose {
+  pos: Point; // where the hips are (ship meters)
+  hip: number; // hip height above the deck (m)
+  foot: number; // foot height (m) – pegs / floor pan
+  kind: SeatKind;
+  hands: 'bar' | 'wheel' | 'lap'; // handlebar, steering wheel or resting
+  heading: number; // facing = the vehicle's driving direction (atan2(dz, dx))
+  legsHidden: boolean; // inside a car / pod the legs are out of sight
+}
+
+/** Seat layout in the vehicle's own frame (du = along the driving direction, dw = away from the ship) – shared with the renderer. */
+export const SEATS = {
+  bike: { du: -0.25, hip: 0.74, foot: 0.3 },
+  car: { rowDu: { back: -0.62, front: 0.48 }, sideDw: 0.45, hip: 0.62, foot: 0.42, wheelSide: 1 },
+  pod: { du: -0.15, hip: 0.7 },
+  podOffset: 0.85, // pod centre beside the bike (m, towards the pod tile)
+} as const;
+
+/** Where and how a crew member sits on seat `t` (= tile) of vehicle `vi`. */
+export function seatPose(ship: Ship, vi: number, t: number): SeatPose {
+  const v = ship.vehicles![vi]!;
+  const { center: c, u, w } = vehicleFrame(ship, v);
+  const tile = v.tiles[t]!.center;
+  const heading = Math.atan2(u[1], u[0]);
+  const at = (o: Point, du: number, dw: number): Point => [o[0] + u[0] * du + w[0] * dw, o[1] + u[1] * du + w[1] * dw];
+  const rel = (p: Point) => [(p[0] - c[0]) * u[0] + (p[1] - c[1]) * u[1], (p[0] - c[0]) * w[0] + (p[1] - c[1]) * w[1]] as const;
+  if (v.type === 'car') {
+    const [ru, rw] = rel(tile);
+    const front = ru > 0;
+    const side = rw > 0 ? 1 : -1;
+    return {
+      pos: at(c, front ? SEATS.car.rowDu.front : SEATS.car.rowDu.back, side * SEATS.car.sideDw),
+      hip: SEATS.car.hip,
+      foot: SEATS.car.foot,
+      kind: 'seat',
+      hands: front && side === SEATS.car.wheelSide ? 'wheel' : 'lap',
+      heading,
+      legsHidden: true,
+    };
+  }
+  if (v.type === 'sidecar' && v.tiles.length >= 2) {
+    const sorted = [...v.tiles].sort((p, q) => rel(p.center)[1] - rel(q.center)[1]);
+    const bc = sorted[0]!.center;
+    if (tile !== bc) {
+      const o = sorted[sorted.length - 1]!.center;
+      const l = Math.hypot(o[0] - bc[0], o[1] - bc[1]) || 1;
+      const pod: Point = [bc[0] + ((o[0] - bc[0]) / l) * SEATS.podOffset, bc[1] + ((o[1] - bc[1]) / l) * SEATS.podOffset];
+      return { pos: at(pod, SEATS.pod.du, 0), hip: SEATS.pod.hip, foot: SEATS.pod.hip, kind: 'pod', hands: 'lap', heading, legsHidden: true };
+    }
+    return { pos: at(bc, SEATS.bike.du, 0), hip: SEATS.bike.hip, foot: SEATS.bike.foot, kind: 'astride', hands: 'bar', heading, legsHidden: false };
+  }
+  return { pos: at(c, SEATS.bike.du, 0), hip: SEATS.bike.hip, foot: SEATS.bike.foot, kind: 'astride', hands: 'bar', heading, legsHidden: false };
+}

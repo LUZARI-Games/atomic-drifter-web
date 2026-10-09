@@ -1,7 +1,7 @@
 // Walking on the ship: a graph of "spots" crew can stand on (deck tiles, vehicle seats) and the ways between them.
 // Tiles of the same room connect directly; different rooms only through a door; a balcony tile connects to a docked
 // vehicle over the railing (crew climb over). Machinery tiles are not walkable. Pure data – engine-neutral.
-import { dockEdges } from './exterior';
+import { dockEdges, seatPose } from './exterior';
 import type { Point, Ship } from './types';
 
 export interface NavNode {
@@ -28,13 +28,9 @@ const dist = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const mid = (a: Point, b: Point): Point => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 const edges = (poly: Point[]) => poly.map((p, i) => [p, poly[(i + 1) % poly.length]!] as [Point, Point]);
 
-/** Where crew sits in a vehicle: pulled from the tile centre towards the vehicle centre. */
+/** Where crew sits in a vehicle (see seatPose in exterior.ts). */
 export function seatPos(ship: Ship, v: number, t: number): Point {
-  const veh = ship.vehicles![v]!;
-  const n = veh.tiles.length;
-  const c: Point = [veh.tiles.reduce((s, x) => s + x.center[0], 0) / n, veh.tiles.reduce((s, x) => s + x.center[1], 0) / n];
-  const p = veh.tiles[t]!.center;
-  return [c[0] + (p[0] - c[0]) * 0.5, c[1] + (p[1] - c[1]) * 0.5];
+  return seatPose(ship, v, t).pos;
 }
 
 export function buildNav(ship: Ship): NavGraph {
@@ -76,7 +72,8 @@ export function buildNav(ship: Ship): NavGraph {
     }
   }
 
-  // vehicles: seats, linked to each other and – over the railing – to the balcony tile at the dock
+  // vehicles: seats next to each other connect unless a wall is between them (car: front / back row walled apart);
+  // over the railing only the seat whose own tile edge is the dock exit (car: you get in at your row's door)
   const docks = dockEdges(ship);
   (ship.vehicles ?? []).forEach((v, vi) => {
     const seatIds = v.tiles.map((_, ti) => {
@@ -85,15 +82,23 @@ export function buildNav(ship: Ship): NavGraph {
       links.set(id, []);
       return id;
     });
-    for (let i = 0; i < seatIds.length; i++) for (let j = i + 1; j < seatIds.length; j++) link(seatIds[i]!, seatIds[j]!, null);
+    const tileEdges = v.tiles.map((t) => new Set(edges(t.polygon).map(([a, b]) => edgeKey(a, b))));
+    const walled = new Set((v.walls ?? []).map((e) => edgeKey(e.a, e.b)));
+    for (let i = 0; i < seatIds.length; i++) {
+      for (let j = i + 1; j < seatIds.length; j++) {
+        const shared = [...tileEdges[i]!].filter((e) => tileEdges[j]!.has(e));
+        if (shared.length && shared.some((e) => !walled.has(e))) link(seatIds[i]!, seatIds[j]!, null);
+      }
+    }
     for (const e of v.exits) {
       const key = edgeKey(e.a, e.b);
       if (!docks.has(key)) continue;
       const deck = byEdge.get(key)?.[0];
       if (!deck) continue;
-      // the seat nearest to this dock
+      const own = tileEdges.findIndex((te) => te.has(key));
       const m = mid(e.a, e.b);
-      const seat = seatIds.reduce((best, id) => (dist(nodes.get(id)!.pos, m) < dist(nodes.get(best)!.pos, m) ? id : best), seatIds[0]!);
+      // the seat on this exit's tile (older exports: the seat nearest to the dock)
+      const seat = own >= 0 ? seatIds[own]! : seatIds.reduce((best, id) => (dist(nodes.get(id)!.pos, m) < dist(nodes.get(best)!.pos, m) ? id : best), seatIds[0]!);
       link(deck, seat, m);
     }
   });

@@ -53,7 +53,8 @@ export function parseVehicles(raw: unknown): ShipVehicle[] {
     const tiles = o.tiles.filter((t) => t && isPoint(t.center) && Array.isArray(t.polygon) && t.polygon.length >= 3 && t.polygon.every(isPoint));
     if (!tiles.length) return [];
     const exits = (Array.isArray(o.exits) ? o.exits : []).filter(seg);
-    return [{ type: o.type, seats: typeof o.seats === 'number' ? o.seats : tiles.length, tiles, exits }];
+    const walls = (Array.isArray(o.walls) ? o.walls : []).filter(seg);
+    return [{ type: o.type, seats: typeof o.seats === 'number' ? o.seats : tiles.length, tiles, exits, walls }];
   });
 }
 

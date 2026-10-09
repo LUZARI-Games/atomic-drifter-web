@@ -3,6 +3,7 @@
 import LAB from '../data/crew_lab.json';
 import MOVE from '../data/crew_move.json';
 import { CREW_GEAR, CREW_LOOKS, equip, parseCrewLook, type CrewLook, type GearId } from './crew';
+import { seatPose } from './exterior';
 import { buildNav, findPath, nodeAt, type NavGraph } from './nav';
 import type { CrewMember, GameState, Point, Ship } from './types';
 
@@ -27,6 +28,12 @@ export function consoleOf(ship: Ship, node: string): Point | null {
   return null;
 }
 const headingOf = (f: Point) => Math.atan2(f[1], f[0]);
+
+/** The seat pose for a vehicle node ("v<vehicle>:<tile>"), or null for deck tiles. */
+export function seatOf(ship: Ship, node: string) {
+  const m = /^v(\d+):(\d+)$/.exec(node);
+  return m ? seatPose(ship, Number(m[1]), Number(m[2])) : null;
+}
 const NAMES = ['HANK', 'MAE', 'GUS', 'IRIS', 'VERN', 'DOT', 'ABE', 'LULA', 'SILAS', 'RUTH', 'JED', 'NELL', 'OTIS', 'PEARL', 'WADE', 'FAY'];
 
 const navCache = new WeakMap<Ship, NavGraph>();
@@ -146,9 +153,11 @@ export function tickCrew(state: GameState, dt: number): GameState {
     const walked = c.walked + go - left;
     const moved = (c.moved ?? 0) + go - left;
     if (path.length) return { ...c, pos, path, heading, walked, moved };
-    // arrived: at a console, turn to the desk
+    // arrived: at a console turn to the desk, in a vehicle face the driving direction
     const desk = consoleOf(state.ship, c.dest);
-    return { ...c, pos, path, heading: desk ? headingOf(desk) : heading, walked, moved: 0, node: c.dest, pathEnd: undefined };
+    const seat = seatOf(state.ship, c.dest);
+    const face = seat ? seat.heading : desk ? headingOf(desk) : heading;
+    return { ...c, pos, path, heading: face, walked, moved: 0, node: c.dest, pathEnd: undefined };
   });
   return { ...state, crew };
 }

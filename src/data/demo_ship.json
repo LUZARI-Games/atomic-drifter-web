@@ -1,744 +1,989 @@
 {
-  "format": "atomic-drifter-ship-godot",
-  "version": 1,
-  "revision": "demo",
-  "name": "DEMO SHIP",
-  "design_id": null,
-  "tile_size": 2,
-  "wall_height": 1.0,
-  "door_width": 1.2,
-  "size": {
-    "x": 6.0,
-    "z": 8.0
+ "format": "atomic-drifter-ship-godot",
+ "version": 1,
+ "revision": "demo",
+ "name": "DEMO SHIP",
+ "design_id": null,
+ "tile_size": 2,
+ "wall_height": 1.0,
+ "door_width": 1.2,
+ "size": {
+  "x": 6.0,
+  "z": 8.0
+ },
+ "rooms": [
+  {
+   "id": "engines",
+   "kind": "system",
+   "system": "engines",
+   "label": "ENGINES",
+   "color": null,
+   "console": {
+    "tile": [
+     1,
+     3
+    ],
+    "facing": [
+     -1,
+     0
+    ]
+   }
   },
-  "rooms": [
+  {
+   "id": "weapons",
+   "kind": "system",
+   "system": "weapons",
+   "label": "WEAPONS",
+   "color": null,
+   "console": {
+    "tile": [
+     1,
+     1
+    ],
+    "facing": [
+     -1,
+     0
+    ]
+   }
+  },
+  {
+   "id": "shields",
+   "kind": "system",
+   "system": "shields",
+   "label": "SHIELDS",
+   "color": null,
+   "console": {
+    "tile": [
+     1,
+     -1
+    ],
+    "facing": [
+     -1,
+     0
+    ]
+   }
+  },
+  {
+   "id": "piloting",
+   "kind": "system",
+   "system": "piloting",
+   "label": "COCKPIT",
+   "color": null,
+   "console": {
+    "tile": [
+     1,
+     -3
+    ],
+    "facing": [
+     -1,
+     0
+    ]
+   }
+  },
+  {
+   "id": "deck",
+   "kind": "balcony",
+   "system": null,
+   "label": "",
+   "color": null,
+   "console": null
+  }
+ ],
+ "tiles": [
+  {
+   "room": "engines",
+   "shape": "full",
+   "machinery": true,
+   "center": [
+    -1,
+    3
+   ],
+   "polygon": [
+    [
+     -2,
+     4
+    ],
+    [
+     -2,
+     2
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     4
+    ]
+   ]
+  },
+  {
+   "room": "engines",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    1,
+    3
+   ],
+   "polygon": [
+    [
+     0,
+     4
+    ],
+    [
+     0,
+     2
+    ],
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     4
+    ]
+   ]
+  },
+  {
+   "room": "weapons",
+   "shape": "full",
+   "machinery": true,
+   "center": [
+    -1,
+    1
+   ],
+   "polygon": [
+    [
+     -2,
+     2
+    ],
+    [
+     -2,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     2
+    ]
+   ]
+  },
+  {
+   "room": "weapons",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    1,
+    1
+   ],
+   "polygon": [
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     2,
+     2
+    ]
+   ]
+  },
+  {
+   "room": "shields",
+   "shape": "full",
+   "machinery": true,
+   "center": [
+    -1,
+    -1
+   ],
+   "polygon": [
+    [
+     -2,
+     0
+    ],
+    [
+     -2,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "room": "shields",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    1,
+    -1
+   ],
+   "polygon": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     2,
+     -2
+    ],
+    [
+     2,
+     0
+    ]
+   ]
+  },
+  {
+   "room": "piloting",
+   "shape": "full",
+   "machinery": true,
+   "center": [
+    -1,
+    -3
+   ],
+   "polygon": [
+    [
+     -2,
+     -2
+    ],
+    [
+     -2,
+     -4
+    ],
+    [
+     0,
+     -4
+    ],
+    [
+     0,
+     -2
+    ]
+   ]
+  },
+  {
+   "room": "piloting",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    1,
+    -3
+   ],
+   "polygon": [
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     -4
+    ],
+    [
+     2,
+     -4
+    ],
+    [
+     2,
+     -2
+    ]
+   ]
+  },
+  {
+   "room": "deck",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    3,
+    1
+   ],
+   "polygon": [
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     4,
+     2
+    ]
+   ]
+  },
+  {
+   "room": "deck",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    3,
+    -1
+   ],
+   "polygon": [
+    [
+     2,
+     0
+    ],
+    [
+     2,
+     -2
+    ],
+    [
+     4,
+     -2
+    ],
+    [
+     4,
+     0
+    ]
+   ]
+  }
+ ],
+ "walls": [
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    -4
+   ],
+   "b": [
+    -2,
+    -2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    -4
+   ],
+   "b": [
+    0,
+    -4
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    -2
+   ],
+   "b": [
+    -2,
+    0
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    -2,
+    -2
+   ],
+   "b": [
+    0,
+    -2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    0
+   ],
+   "b": [
+    -2,
+    2
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    -2,
+    0
+   ],
+   "b": [
+    0,
+    0
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    2
+   ],
+   "b": [
+    -2,
+    4
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    -2,
+    2
+   ],
+   "b": [
+    0,
+    2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    4
+   ],
+   "b": [
+    0,
+    4
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    0,
+    -4
+   ],
+   "b": [
+    2,
+    -4
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    0,
+    -2
+   ],
+   "b": [
+    0.4,
+    -2.0
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    1.6,
+    -2.0
+   ],
+   "b": [
+    2,
+    -2
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    0,
+    0
+   ],
+   "b": [
+    0.4,
+    0.0
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    1.6,
+    0.0
+   ],
+   "b": [
+    2,
+    0
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    0,
+    2
+   ],
+   "b": [
+    0.4,
+    2.0
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    1.6,
+    2.0
+   ],
+   "b": [
+    2,
+    2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    0,
+    4
+   ],
+   "b": [
+    2,
+    4
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    2,
+    -4
+   ],
+   "b": [
+    2,
+    -2
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    2,
+    -2
+   ],
+   "b": [
+    2,
+    0
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    2,
+    0
+   ],
+   "b": [
+    2.0,
+    0.4
+   ]
+  },
+  {
+   "kind": "interior",
+   "a": [
+    2.0,
+    1.6
+   ],
+   "b": [
+    2,
+    2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    2,
+    2
+   ],
+   "b": [
+    2,
+    4
+   ]
+  },
+  {
+   "kind": "railing",
+   "a": [
+    2,
+    2
+   ],
+   "b": [
+    4,
+    2
+   ]
+  },
+  {
+   "kind": "railing",
+   "a": [
+    4,
+    0
+   ],
+   "b": [
+    4,
+    2
+   ]
+  },
+  {
+   "kind": "railing",
+   "a": [
+    2,
+    -2
+   ],
+   "b": [
+    4,
+    -2
+   ]
+  },
+  {
+   "kind": "railing",
+   "a": [
+    4,
+    -2
+   ],
+   "b": [
+    4,
+    0
+   ]
+  }
+ ],
+ "doors": [
+  {
+   "kind": "door",
+   "center": [
+    1.0,
+    -2.0
+   ],
+   "axis": "x",
+   "width": 1.2,
+   "rooms": [
+    "shields",
+    "piloting"
+   ]
+  },
+  {
+   "kind": "door",
+   "center": [
+    1.0,
+    0.0
+   ],
+   "axis": "x",
+   "width": 1.2,
+   "rooms": [
+    "weapons",
+    "shields"
+   ]
+  },
+  {
+   "kind": "door",
+   "center": [
+    1.0,
+    2.0
+   ],
+   "axis": "x",
+   "width": 1.2,
+   "rooms": [
+    "engines",
+    "weapons"
+   ]
+  },
+  {
+   "kind": "door",
+   "center": [
+    2.0,
+    1.0
+   ],
+   "axis": "z",
+   "width": 1.2,
+   "rooms": [
+    "weapons",
+    "deck"
+   ]
+  }
+ ],
+ "vehicles": [
+  {
+   "type": "car",
+   "seats": 4,
+   "docked": true,
+   "tiles": [
     {
-      "id": "engines",
-      "kind": "system",
-      "system": "engines",
-      "label": "ENGINES",
-      "color": null,
-      "console": {
-        "tile": [
-          1,
-          3
-        ],
-        "facing": [
-          -1,
-          0
-        ]
-      }
+     "center": [
+      5,
+      -1
+     ],
+     "polygon": [
+      [
+       4,
+       0
+      ],
+      [
+       4,
+       -2
+      ],
+      [
+       6,
+       -2
+      ],
+      [
+       6,
+       0
+      ]
+     ]
     },
     {
-      "id": "weapons",
-      "kind": "system",
-      "system": "weapons",
-      "label": "WEAPONS",
-      "color": null,
-      "console": {
-        "tile": [
-          1,
-          1
-        ],
-        "facing": [
-          -1,
-          0
-        ]
-      }
+     "center": [
+      7,
+      -1
+     ],
+     "polygon": [
+      [
+       6,
+       0
+      ],
+      [
+       6,
+       -2
+      ],
+      [
+       8,
+       -2
+      ],
+      [
+       8,
+       0
+      ]
+     ]
     },
     {
-      "id": "shields",
-      "kind": "system",
-      "system": "shields",
-      "label": "SHIELDS",
-      "color": null,
-      "console": {
-        "tile": [
-          1,
-          -1
-        ],
-        "facing": [
-          -1,
-          0
-        ]
-      }
+     "center": [
+      5,
+      1
+     ],
+     "polygon": [
+      [
+       4,
+       2
+      ],
+      [
+       4,
+       0
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       6,
+       2
+      ]
+     ]
     },
     {
-      "id": "piloting",
-      "kind": "system",
-      "system": "piloting",
-      "label": "COCKPIT",
-      "color": null,
-      "console": {
-        "tile": [
-          1,
-          -3
-        ],
-        "facing": [
-          -1,
-          0
-        ]
-      }
-    },
-    {
-      "id": "deck",
-      "kind": "balcony",
-      "system": null,
-      "label": "",
-      "color": null,
-      "console": null
+     "center": [
+      7,
+      1
+     ],
+     "polygon": [
+      [
+       6,
+       2
+      ],
+      [
+       6,
+       0
+      ],
+      [
+       8,
+       0
+      ],
+      [
+       8,
+       2
+      ]
+     ]
     }
-  ],
-  "tiles": [
+   ],
+   "exits": [
     {
-      "room": "engines",
-      "shape": "full",
-      "machinery": true,
-      "center": [
-        -1,
-        3
-      ],
-      "polygon": [
-        [
-          -2,
-          4
-        ],
-        [
-          -2,
-          2
-        ],
-        [
-          0,
-          2
-        ],
-        [
-          0,
-          4
-        ]
-      ]
+     "a": [
+      4,
+      0
+     ],
+     "b": [
+      4,
+      -2
+     ]
     },
     {
-      "room": "engines",
-      "shape": "full",
-      "machinery": false,
-      "center": [
-        1,
-        3
-      ],
-      "polygon": [
-        [
-          0,
-          4
-        ],
-        [
-          0,
-          2
-        ],
-        [
-          2,
-          2
-        ],
-        [
-          2,
-          4
-        ]
-      ]
+     "a": [
+      4,
+      2
+     ],
+     "b": [
+      4,
+      0
+     ]
     },
     {
-      "room": "weapons",
-      "shape": "full",
-      "machinery": true,
-      "center": [
-        -1,
-        1
-      ],
-      "polygon": [
-        [
-          -2,
-          2
-        ],
-        [
-          -2,
-          0
-        ],
-        [
-          0,
-          0
-        ],
-        [
-          0,
-          2
-        ]
-      ]
+     "a": [
+      8,
+      0
+     ],
+     "b": [
+      8,
+      -2
+     ]
     },
     {
-      "room": "weapons",
-      "shape": "full",
-      "machinery": false,
-      "center": [
-        1,
-        1
-      ],
-      "polygon": [
-        [
-          0,
-          2
-        ],
-        [
-          0,
-          0
-        ],
-        [
-          2,
-          0
-        ],
-        [
-          2,
-          2
-        ]
-      ]
-    },
-    {
-      "room": "shields",
-      "shape": "full",
-      "machinery": true,
-      "center": [
-        -1,
-        -1
-      ],
-      "polygon": [
-        [
-          -2,
-          0
-        ],
-        [
-          -2,
-          -2
-        ],
-        [
-          0,
-          -2
-        ],
-        [
-          0,
-          0
-        ]
-      ]
-    },
-    {
-      "room": "shields",
-      "shape": "full",
-      "machinery": false,
-      "center": [
-        1,
-        -1
-      ],
-      "polygon": [
-        [
-          0,
-          0
-        ],
-        [
-          0,
-          -2
-        ],
-        [
-          2,
-          -2
-        ],
-        [
-          2,
-          0
-        ]
-      ]
-    },
-    {
-      "room": "piloting",
-      "shape": "full",
-      "machinery": true,
-      "center": [
-        -1,
-        -3
-      ],
-      "polygon": [
-        [
-          -2,
-          -2
-        ],
-        [
-          -2,
-          -4
-        ],
-        [
-          0,
-          -4
-        ],
-        [
-          0,
-          -2
-        ]
-      ]
-    },
-    {
-      "room": "piloting",
-      "shape": "full",
-      "machinery": false,
-      "center": [
-        1,
-        -3
-      ],
-      "polygon": [
-        [
-          0,
-          -2
-        ],
-        [
-          0,
-          -4
-        ],
-        [
-          2,
-          -4
-        ],
-        [
-          2,
-          -2
-        ]
-      ]
-    },
-    {
-      "room": "deck",
-      "shape": "full",
-      "machinery": false,
-      "center": [
-        3,
-        1
-      ],
-      "polygon": [
-        [
-          2,
-          2
-        ],
-        [
-          2,
-          0
-        ],
-        [
-          4,
-          0
-        ],
-        [
-          4,
-          2
-        ]
-      ]
+     "a": [
+      8,
+      2
+     ],
+     "b": [
+      8,
+      0
+     ]
     }
-  ],
-  "walls": [
+   ],
+   "walls": [
     {
-      "kind": "hull",
-      "a": [
-        -2,
-        -4
-      ],
-      "b": [
-        -2,
-        -2
-      ]
+     "a": [
+      4,
+      0
+     ],
+     "b": [
+      6,
+      0
+     ]
     },
     {
-      "kind": "hull",
-      "a": [
-        -2,
-        -4
-      ],
-      "b": [
-        0,
-        -4
-      ]
+     "a": [
+      6,
+      0
+     ],
+     "b": [
+      8,
+      0
+     ]
     },
     {
-      "kind": "hull",
-      "a": [
-        -2,
-        -2
-      ],
-      "b": [
-        -2,
-        0
-      ]
+     "a": [
+      4,
+      -2
+     ],
+     "b": [
+      6,
+      -2
+     ]
     },
     {
-      "kind": "interior",
-      "a": [
-        -2,
-        -2
-      ],
-      "b": [
-        0,
-        -2
-      ]
+     "a": [
+      6,
+      -2
+     ],
+     "b": [
+      8,
+      -2
+     ]
     },
     {
-      "kind": "hull",
-      "a": [
-        -2,
-        0
-      ],
-      "b": [
-        -2,
-        2
-      ]
+     "a": [
+      4,
+      2
+     ],
+     "b": [
+      6,
+      2
+     ]
     },
     {
-      "kind": "interior",
-      "a": [
-        -2,
-        0
-      ],
-      "b": [
-        0,
-        0
-      ]
-    },
-    {
-      "kind": "hull",
-      "a": [
-        -2,
-        2
-      ],
-      "b": [
-        -2,
-        4
-      ]
-    },
-    {
-      "kind": "interior",
-      "a": [
-        -2,
-        2
-      ],
-      "b": [
-        0,
-        2
-      ]
-    },
-    {
-      "kind": "hull",
-      "a": [
-        -2,
-        4
-      ],
-      "b": [
-        0,
-        4
-      ]
-    },
-    {
-      "kind": "hull",
-      "a": [
-        0,
-        -4
-      ],
-      "b": [
-        2,
-        -4
-      ]
-    },
-    {
-      "kind": "interior",
-      "a": [
-        0,
-        -2
-      ],
-      "b": [
-        0.4,
-        -2.0
-      ]
-    },
-    {
-      "kind": "interior",
-      "a": [
-        1.6,
-        -2.0
-      ],
-      "b": [
-        2,
-        -2
-      ]
-    },
-    {
-      "kind": "interior",
-      "a": [
-        0,
-        0
-      ],
-      "b": [
-        0.4,
-        0.0
-      ]
-    },
-    {
-      "kind": "interior",
-      "a": [
-        1.6,
-        0.0
-      ],
-      "b": [
-        2,
-        0
-      ]
-    },
-    {
-      "kind": "interior",
-      "a": [
-        0,
-        2
-      ],
-      "b": [
-        0.4,
-        2.0
-      ]
-    },
-    {
-      "kind": "interior",
-      "a": [
-        1.6,
-        2.0
-      ],
-      "b": [
-        2,
-        2
-      ]
-    },
-    {
-      "kind": "hull",
-      "a": [
-        0,
-        4
-      ],
-      "b": [
-        2,
-        4
-      ]
-    },
-    {
-      "kind": "hull",
-      "a": [
-        2,
-        -4
-      ],
-      "b": [
-        2,
-        -2
-      ]
-    },
-    {
-      "kind": "hull",
-      "a": [
-        2,
-        -2
-      ],
-      "b": [
-        2,
-        0
-      ]
-    },
-    {
-      "kind": "interior",
-      "a": [
-        2,
-        0
-      ],
-      "b": [
-        2.0,
-        0.4
-      ]
-    },
-    {
-      "kind": "interior",
-      "a": [
-        2.0,
-        1.6
-      ],
-      "b": [
-        2,
-        2
-      ]
-    },
-    {
-      "kind": "railing",
-      "a": [
-        2,
-        0
-      ],
-      "b": [
-        4,
-        0
-      ]
-    },
-    {
-      "kind": "hull",
-      "a": [
-        2,
-        2
-      ],
-      "b": [
-        2,
-        4
-      ]
-    },
-    {
-      "kind": "railing",
-      "a": [
-        2,
-        2
-      ],
-      "b": [
-        4,
-        2
-      ]
-    },
-    {
-      "kind": "railing",
-      "a": [
-        4,
-        0
-      ],
-      "b": [
-        4,
-        2
-      ]
+     "a": [
+      6,
+      2
+     ],
+     "b": [
+      8,
+      2
+     ]
     }
-  ],
-  "doors": [
+   ]
+  },
+  {
+   "type": "bike",
+   "seats": 1,
+   "docked": true,
+   "tiles": [
     {
-      "kind": "door",
-      "center": [
-        1.0,
-        -2.0
+     "center": [
+      3,
+      3
+     ],
+     "polygon": [
+      [
+       2,
+       4
       ],
-      "axis": "x",
-      "width": 1.2,
-      "rooms": [
-        "shields",
-        "piloting"
-      ]
-    },
-    {
-      "kind": "door",
-      "center": [
-        1.0,
-        0.0
+      [
+       2,
+       2
       ],
-      "axis": "x",
-      "width": 1.2,
-      "rooms": [
-        "weapons",
-        "shields"
-      ]
-    },
-    {
-      "kind": "door",
-      "center": [
-        1.0,
-        2.0
+      [
+       4,
+       2
       ],
-      "axis": "x",
-      "width": 1.2,
-      "rooms": [
-        "engines",
-        "weapons"
+      [
+       4,
+       4
       ]
-    },
-    {
-      "kind": "door",
-      "center": [
-        2.0,
-        1.0
-      ],
-      "axis": "z",
-      "width": 1.2,
-      "rooms": [
-        "weapons",
-        "deck"
-      ]
+     ]
     }
-  ],
-  "vehicles": [
+   ],
+   "exits": [
     {
-      "type": "bike",
-      "seats": 1,
-      "docked": true,
-      "tiles": [
-        {
-          "center": [
-            5,
-            1
-          ],
-          "polygon": [
-            [
-              4,
-              2
-            ],
-            [
-              4,
-              0
-            ],
-            [
-              6,
-              0
-            ],
-            [
-              6,
-              2
-            ]
-          ]
-        }
-      ],
-      "exits": [
-        {
-          "a": [
-            4,
-            2
-          ],
-          "b": [
-            4,
-            0
-          ]
-        },
-        {
-          "a": [
-            6,
-            2
-          ],
-          "b": [
-            6,
-            0
-          ]
-        },
-        {
-          "a": [
-            4,
-            2
-          ],
-          "b": [
-            6,
-            2
-          ]
-        },
-        {
-          "a": [
-            4,
-            0
-          ],
-          "b": [
-            6,
-            0
-          ]
-        }
-      ],
-      "walls": []
+     "a": [
+      2,
+      2
+     ],
+     "b": [
+      4,
+      2
+     ]
+    },
+    {
+     "a": [
+      2,
+      4
+     ],
+     "b": [
+      4,
+      4
+     ]
+    },
+    {
+     "a": [
+      2,
+      2
+     ],
+     "b": [
+      2,
+      4
+     ]
+    },
+    {
+     "a": [
+      4,
+      2
+     ],
+     "b": [
+      4,
+      4
+     ]
     }
-  ]
+   ],
+   "walls": []
+  }
+ ]
 }
