@@ -7,6 +7,7 @@ import { tapPoint } from '../core/selection';
 import { roomFloorCenter, roomOutline } from '../core/ship';
 import type { Store } from '../core/store';
 import type { GameState, Point } from '../core/types';
+import { drawSystemIcon } from './icons';
 import { FONT_FAMILY, FONT_SIZES, GAME_HEIGHT, GAME_WIDTH, WORLD } from './palette';
 
 // Free play area between the HTML top bar and info line (game units).
@@ -14,7 +15,7 @@ const AREA = { x: 50, y: 110, w: GAME_WIDTH - 100, h: GAME_HEIGHT - 220 };
 const MAX_SCALE = 80; // px per meter
 const BLOCK_GAP_M = 0.32; // gap between a system block and the walls
 const BLOCK_RIM_M = 0.09; // dark rim around a system block
-const ICON_RADIUS_M = 0.42; // every system symbol has the same size (fits a 1-tile block)
+const ICON_RADIUS_M = 0.5; // every system icon has the same size (fits a 1-tile block)
 
 type V = Phaser.Math.Vector2;
 
@@ -143,7 +144,7 @@ export class ShipScene extends Phaser.Scene {
         }
       }
       const c = this.toScreen(b.anchor);
-      this.drawSymbol(g, b.system, c.x, c.y, ICON_RADIUS_M * px);
+      drawSystemIcon(g, b.system, c.x, c.y, ICON_RADIUS_M * px);
     }
 
     // Walls: dark body + light top edge; square caps fill the joints
@@ -259,94 +260,5 @@ export class ShipScene extends Phaser.Scene {
     const b = this.toScreen([xc, Math.min(...zs)]);
     g.lineStyle(Math.max(1, px * 0.05), WORLD.hullEdge, 0.5);
     g.lineBetween(a.x + 4, a.y, b.x - 4, b.y);
-  }
-
-  /** Simple top-down symbol per system, painted in worn stencil colour. */
-  private drawSymbol(g: Phaser.GameObjects.Graphics, system: string | null, x: number, y: number, s: number): void {
-    const id = String(system ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-    const lw = Math.max(2, s * 0.14);
-    g.lineStyle(lw, WORLD.label, 0.75);
-    g.fillStyle(WORLD.label, 0.75);
-    switch (id) {
-      case 'reactor': // core with radiation trefoil
-        g.strokeCircle(x, y, s);
-        for (let i = 0; i < 3; i++) {
-          const a0 = -Math.PI / 2 + (i * 2 * Math.PI) / 3 - 0.45;
-          g.slice(x, y, s * 0.8, a0, a0 + 0.9, false);
-          g.fillPath();
-        }
-        g.fillStyle(WORLD.machinery, 1);
-        g.fillCircle(x, y, s * 0.25);
-        g.fillStyle(WORLD.label, 0.75);
-        g.fillCircle(x, y, s * 0.15);
-        break;
-      case 'engine':
-      case 'engines': // two chevrons pointing to the bow
-        for (const dx of [-0.45, 0.35]) {
-          g.lineBetween(x + (dx - 0.35) * s, y - s * 0.7, x + (dx + 0.35) * s, y);
-          g.lineBetween(x + (dx + 0.35) * s, y, x + (dx - 0.35) * s, y + s * 0.7);
-        }
-        break;
-      case 'cockpit':
-      case 'piloting': // ship's wheel
-        g.strokeCircle(x, y, s * 0.75);
-        for (let i = 0; i < 8; i++) {
-          const a = (i * Math.PI) / 4;
-          g.lineBetween(x + Math.cos(a) * s * 0.2, y + Math.sin(a) * s * 0.2, x + Math.cos(a) * s, y + Math.sin(a) * s);
-        }
-        g.fillCircle(x, y, s * 0.2);
-        break;
-      case 'weapon':
-      case 'weapons': // crosshair
-        g.strokeCircle(x, y, s * 0.7);
-        g.lineBetween(x - s, y, x - s * 0.3, y);
-        g.lineBetween(x + s * 0.3, y, x + s, y);
-        g.lineBetween(x, y - s, x, y - s * 0.3);
-        g.lineBetween(x, y + s * 0.3, x, y + s);
-        break;
-      case 'shield':
-      case 'shields': // shield
-        g.strokePoints(
-          [
-            new Phaser.Math.Vector2(x, y - s),
-            new Phaser.Math.Vector2(x + s * 0.8, y - s * 0.65),
-            new Phaser.Math.Vector2(x + s * 0.7, y + s * 0.2),
-            new Phaser.Math.Vector2(x, y + s),
-            new Phaser.Math.Vector2(x - s * 0.7, y + s * 0.2),
-            new Phaser.Math.Vector2(x - s * 0.8, y - s * 0.65),
-          ],
-          true,
-        );
-        break;
-      case 'sensor':
-      case 'sensors': // radar dish
-        g.beginPath();
-        g.arc(x, y + s * 0.2, s * 0.8, Math.PI * 1.1, Math.PI * 1.9, false);
-        g.strokePath();
-        g.lineBetween(x, y + s * 0.2, x, y + s);
-        g.lineBetween(x - s * 0.5, y + s, x + s * 0.5, y + s);
-        g.fillCircle(x, y - s * 0.25, s * 0.15);
-        break;
-      case 'medbay': // cross
-        g.fillRect(x - s * 0.22, y - s * 0.75, s * 0.44, s * 1.5);
-        g.fillRect(x - s * 0.75, y - s * 0.22, s * 1.5, s * 0.44);
-        break;
-      case 'doors': // door frame with split
-        g.strokeRect(x - s * 0.55, y - s * 0.85, s * 1.1, s * 1.7);
-        g.lineBetween(x, y - s * 0.85, x, y + s * 0.85);
-        break;
-      case 'crewteleporter': // two pads
-        g.strokeEllipse(x, y - s * 0.55, s * 1.6, s * 0.5);
-        g.strokeEllipse(x, y + s * 0.55, s * 1.6, s * 0.5);
-        g.lineBetween(x, y - s * 0.3, x, y + s * 0.3);
-        break;
-      case 'drones': // body + 4 rotors
-        g.strokeRect(x - s * 0.3, y - s * 0.3, s * 0.6, s * 0.6);
-        for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const)
-          g.strokeCircle(x + dx * s * 0.7, y + dy * s * 0.7, s * 0.25);
-        break;
-      default: // unknown system: plain square plate
-        g.strokeRect(x - s * 0.6, y - s * 0.6, s * 1.2, s * 1.2);
-    }
   }
 }
