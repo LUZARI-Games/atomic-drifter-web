@@ -65,8 +65,10 @@ never restate the owner's tasks back to them.
   Planner export: `rooms[].console = { tile, facing } | null` – older exports without it still load.
 - Balconies + vehicles (`src/core/exterior.ts`): the hull is built around the enclosed deck only, so balconies hang out
   of it (steel grating floor, visible platform edge + brackets underneath). Railings = posts + top/middle rail, see-through.
-  A railing edge that carries a vehicle exit is a dock: the railing opens into a gate (2 posts). Vehicles (bike / sidecar /
-  car) come from the planner export `vehicles[]` and are drawn from boxes, lying along the dock edge, outside.
+  A railing edge that carries a vehicle exit is a dock: the railing STAYS CLOSED (crew climb over it); two brass docking
+  arms (`dockArms`) hold the vehicle. Vehicles (bike / bike + egg-shaped sidecar pod / open-top car you can look into)
+  come from the planner export `vehicles[]`, lie along the dock edge outside (`vehicleFrame`), drawn from simple shapes.
+  Deck floor is light (`WORLD.floor`) so crew stand out.
   The main game view (`ShipScene`) uses the same renderer at ISO 60/45 (owner's choice).
 
 ## Design rules (terminal UI)

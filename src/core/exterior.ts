@@ -2,7 +2,7 @@
 // moor. Pure geometry in ship space ([x, z] meters) – engine-neutral.
 import VIEW from '../data/ship_view.json';
 import { segmentBox, type Solid } from './ship3d';
-import type { Point, Ship, ShipWall } from './types';
+import type { Point, Ship, ShipVehicle, ShipWall } from './types';
 
 const key = ([x, z]: Point) => `${Math.round(x * 1000)},${Math.round(z * 1000)}`;
 const edgeKey = (a: Point, b: Point) => [key(a), key(b)].sort().join('|');
@@ -45,9 +45,47 @@ export function railingParts(w: ShipWall, height: number = VIEW.railing_height_m
   return parts;
 }
 
-/** Dock gate: two sturdy brass posts at the ends of the railing gap (the vehicle moors between them). */
-export function dockGate(w: ShipWall): Solid[] {
-  const p = 0.16;
-  const gate = (c: Point): Solid => ({ kind: 'door_post', footprint: segmentBox([c[0] - p / 2, c[1]], [c[0] + p / 2, c[1]], p / 2), z0: 0, z1: VIEW.door_frame_height_m, door: 'airlock' });
-  return [gate(w.a), gate(w.b)];
+/**
+ * How a vehicle lies at its dock: `u` = along the dock edge (its driving direction), `w` = away from the ship,
+ * `dock` = the railing edge it is moored to (null = not docked; then it simply faces the ship's length).
+ */
+export function vehicleFrame(ship: Ship, v: ShipVehicle): { center: Point; u: Point; w: Point; dock: { a: Point; b: Point } | null } {
+  const n = v.tiles.length;
+  const center: Point = [v.tiles.reduce((s, t) => s + t.center[0], 0) / n, v.tiles.reduce((s, t) => s + t.center[1], 0) / n];
+  const docks = dockEdges(ship);
+  const dock = v.exits.find((e) => docks.has(edgeKey(e.a, e.b))) ?? null;
+  let u: Point = [0, 1];
+  if (dock) {
+    const l = Math.hypot(dock.b[0] - dock.a[0], dock.b[1] - dock.a[1]) || 1;
+    u = [(dock.b[0] - dock.a[0]) / l, (dock.b[1] - dock.a[1]) / l];
+  }
+  let w: Point = [-u[1], u[0]];
+  if (dock) {
+    const m: Point = [(dock.a[0] + dock.b[0]) / 2, (dock.a[1] + dock.b[1]) / 2];
+    if ((center[0] - m[0]) * w[0] + (center[1] - m[1]) * w[1] < 0) w = [-w[0], -w[1]];
+  }
+  return { center, u, w, dock };
+}
+
+/** Half depth of a vehicle body seen from its dock (car body is wide, a bike is slim). */
+const BODY_HALF: Record<string, number> = { car: 0.95, sidecar: 0.2, bike: 0.2 };
+
+/**
+ * Docking arms: two short brass arms from the (closed) railing out to the vehicle body, so the vehicle visibly hangs
+ * on the balcony. Crew climb over the railing to get in.
+ */
+export function dockArms(ship: Ship, v: ShipVehicle): Solid[] {
+  const { u, w, dock, center } = vehicleFrame(ship, v);
+  if (!dock) return [];
+  const m: Point = [(dock.a[0] + dock.b[0]) / 2, (dock.a[1] + dock.b[1]) / 2];
+  const along = (p: Point) => (p[0] - m[0]) * w[0] + (p[1] - m[1]) * w[1];
+  // the body nearest to the railing: the car's own centre, for bikes the tile closest to the dock
+  const near = v.type === 'car' ? along(center) : Math.min(...v.tiles.map((t) => along(t.center)));
+  const reach = Math.max(0.15, near - (BODY_HALF[v.type] ?? 0.3));
+  const len = Math.hypot(dock.b[0] - dock.a[0], dock.b[1] - dock.a[1]);
+  return [-0.25, 0.25].map((f): Solid => {
+    const s: Point = [m[0] + u[0] * f * len, m[1] + u[1] * f * len];
+    const e: Point = [s[0] + w[0] * reach, s[1] + w[1] * reach];
+    return { kind: 'dock_arm', footprint: segmentBox(s, e, 0.05), z0: 0.5, z1: 0.62 };
+  });
 }

@@ -5,7 +5,7 @@ import type { Point, Ship, ShipConsole, ShipDoor, ShipWall } from './types';
 
 export const SHIP_HEIGHTS = VIEW;
 
-export type SolidKind = 'wall' | 'railing' | 'door_post' | 'door_panel' | 'console';
+export type SolidKind = 'wall' | 'railing' | 'door_post' | 'door_panel' | 'console' | 'dock_arm';
 
 export interface Solid {
   kind: SolidKind;

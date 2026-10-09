@@ -15,8 +15,8 @@ export const COLORS = {
 export const WORLD = {
   hull: 0x2e2f29, // outer hull plating
   hullEdge: 0x55533f, // rim light on the hull silhouette
-  floor: 0x4b4a3f, // deck plates
-  floorSeam: 0x3a3a31, // plate seams
+  floor: 0x666453, // deck plates (light enough that crew stand out)
+  floorSeam: 0x52503f, // plate seams
   machinery: 0x5b4532, // rusty machine blocks
   machineryDark: 0x3d2e22,
   wall: 0x1b1c17, // wall body

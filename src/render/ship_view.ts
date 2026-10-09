@@ -12,7 +12,7 @@ import type { Point, Ship, ShipVehicle } from '../core/types';
 import { drawCrewIso } from './crew_iso';
 import { drawSystemIcon } from './icons';
 import { FONT_FAMILY, FONT_SIZES, VEHICLE, WORLD, worldPaint } from './palette';
-import { balconyRoomIds, dockGate, isDock, railingParts } from '../core/exterior';
+import { balconyRoomIds, dockArms, railingParts, vehicleFrame } from '../core/exterior';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -111,13 +111,14 @@ export class ShipView {
     // balcony railings: see-through posts + rails; where a vehicle docks the railing opens into a gate
     for (const w of this.ship.walls) {
       if (w.kind !== 'railing') continue;
-      const parts = isDock(this.ship, w) ? dockGate(w) : railingParts(w);
+      const parts = railingParts(w); // stays closed at docks too: crew climb over it into the vehicle
       for (const s of parts) {
         if (s.segment) for (const p of wallPieces(s)) items.push({ key: this.sortKey(p.footprint, 0), box: box(p.footprint), draw: () => this.drawWallPiece(objects, s, p) });
         else items.push({ key: this.sortKey(s.footprint, 0), box: box(s.footprint), draw: () => this.drawSolid(objects, s) });
       }
     }
     for (const v of this.ship.vehicles ?? []) {
+      for (const arm of dockArms(this.ship, v)) items.push({ key: this.sortKey(arm.footprint, 0), box: box(arm.footprint), draw: () => this.drawSolid(objects, arm) });
       const fp = v.tiles.flatMap((t) => t.polygon);
       items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: () => this.drawVehicle(objects, v) });
     }
@@ -327,28 +328,25 @@ export class ShipView {
   }
 
   /**
-   * A docked vehicle, built from simple boxes: bike / sidecar / car. It lies along the railing it is docked to,
-   * on the outer side of it.
+   * A docked vehicle, built from simple shapes: bike / bike with an egg-shaped sidecar pod / open car you can look into.
+   * It lies along the railing it is docked to, on the outer side of it.
    */
   private drawVehicle(g: G, v: ShipVehicle): void {
-    const n = v.tiles.length;
-    const c: Point = [v.tiles.reduce((s, t) => s + t.center[0], 0) / n, v.tiles.reduce((s, t) => s + t.center[1], 0) / n];
-    // u = along the dock edge (driving direction), w = away from the ship
-    const dock = v.exits.find((e) => isDock(this.ship, { kind: 'railing', a: e.a, b: e.b }));
-    let u: Point = [0, 1];
-    if (dock) {
-      const l = Math.hypot(dock.b[0] - dock.a[0], dock.b[1] - dock.a[1]) || 1;
-      u = [(dock.b[0] - dock.a[0]) / l, (dock.b[1] - dock.a[1]) / l];
-    }
-    let w: Point = [-u[1], u[0]];
-    if (dock) {
-      const m: Point = [(dock.a[0] + dock.b[0]) / 2, (dock.a[1] + dock.b[1]) / 2];
-      if ((c[0] - m[0]) * w[0] + (c[1] - m[1]) * w[1] < 0) w = [-w[0], -w[1]];
-    }
+    const { center: c, u, w } = vehicleFrame(this.ship, v);
     const at = (o: Point, du: number, dw: number): Point => [o[0] + u[0] * du + w[0] * dw, o[1] + u[1] * du + w[1] * dw];
-    const parts: { fp: Point[]; z0: number; z1: number; top: number; side: number }[] = [];
-    const box = (o: Point, du0: number, du1: number, dw0: number, dw1: number, z0: number, z1: number, col: number) =>
-      parts.push({ fp: [at(o, du0, dw0), at(o, du1, dw0), at(o, du1, dw1), at(o, du0, dw1)], z0, z1, top: col, side: shade(col, 30) });
+    // layer: 0 = wheels (under the body), 1 = floor pan, 2 = everything else (back to front)
+    const parts: { fp: Point[]; z0: number; z1: number; top: number; side: number; layer: number }[] = [];
+    const box = (o: Point, du0: number, du1: number, dw0: number, dw1: number, z0: number, z1: number, col: number, layer = 2) =>
+      parts.push({ fp: [at(o, du0, dw0), at(o, du1, dw0), at(o, du1, dw1), at(o, du0, dw1)], z0, z1, top: col, side: shade(col, 30), layer });
+    /** Egg shape (convex): length 2·ru along u, width 2·rw, narrower towards the front (+u). */
+    const egg = (o: Point, ru: number, rw: number, z0: number, z1: number, col: number) => {
+      const fp = Array.from({ length: 18 }, (_, i): Point => {
+        const a = (i / 18) * Math.PI * 2;
+        const cu = Math.cos(a);
+        return at(o, cu * ru, Math.sin(a) * rw * (cu > 0 ? 1 - 0.3 * cu : 1));
+      });
+      parts.push({ fp, z0, z1, top: col, side: shade(col, 30), layer: 2 });
+    };
     const bike = (o: Point) => {
       box(o, -0.85, -0.45, -0.06, 0.06, 0, 0.55, VEHICLE.tyre); // rear wheel
       box(o, 0.45, 0.85, -0.06, 0.06, 0, 0.55, VEHICLE.tyre); // front wheel
@@ -359,31 +357,44 @@ export class ShipView {
       box(o, 0.62, 0.72, -0.08, 0.08, 0.6, 0.75, VEHICLE.chrome); // headlight
     };
     if (v.type === 'car') {
-      box(c, -1.7, -1.1, -0.95, -0.7, 0, 0.6, VEHICLE.tyre);
-      box(c, 1.1, 1.7, -0.95, -0.7, 0, 0.6, VEHICLE.tyre);
-      box(c, -1.7, -1.1, 0.7, 0.95, 0, 0.6, VEHICLE.tyre);
-      box(c, 1.1, 1.7, 0.7, 0.95, 0, 0.6, VEHICLE.tyre);
-      box(c, -1.9, 1.9, -0.85, 0.85, 0.3, 0.95, VEHICLE.olive); // body
-      box(c, -0.9, 0.7, -0.7, 0.7, 0.95, 1.45, VEHICLE.oliveLight); // cabin
-      box(c, -0.75, 0.55, -0.6, 0.6, 1.45, 1.47, VEHICLE.glass); // roof hatch
-    } else if (v.type === 'sidecar' && n >= 2) {
-      // bike on the tile nearer the ship, the tub beside it on the outer tile
-      const sorted = [...v.tiles].sort((p, q) => (p.center[0] - c[0]) * w[0] + (p.center[1] - c[1]) * w[1] - ((q.center[0] - c[0]) * w[0] + (q.center[1] - c[1]) * w[1]));
+      // open-top while docked (a roof could close when it flies off): floor, low sides, hood, trunk, two rows of seats
+      for (const [du0, du1] of [[-1.7, -1.1], [1.1, 1.7]]) for (const [dw0, dw1] of [[-0.95, -0.7], [0.7, 0.95]]) box(c, du0!, du1!, dw0!, dw1!, 0, 0.6, VEHICLE.tyre, 0);
+      box(c, -1.9, 1.9, -0.85, 0.85, 0.3, 0.42, shade(VEHICLE.olive, 35), 1); // floor pan
+      box(c, 1.05, 1.9, -0.85, 0.85, 0.3, 0.9, VEHICLE.olive); // hood
+      box(c, -1.9, -1.35, -0.85, 0.85, 0.3, 0.85, VEHICLE.olive); // trunk
+      for (const [du0, du1] of [[-1.25, -0.2], [-0.05, 0.95]]) {
+        box(c, du0!, du1!, -0.8, -0.1, 0.42, 0.62, VEHICLE.seat); // seat cushions (left / right)
+        box(c, du0!, du1!, 0.1, 0.8, 0.42, 0.62, VEHICLE.seat);
+        box(c, du0!, du0! + 0.14, -0.8, 0.8, 0.42, 1.0, shade(VEHICLE.seat, -10)); // backrest of the row
+      }
+      box(c, 0.82, 0.92, 0.25, 0.65, 0.75, 1.0, VEHICLE.chrome); // steering wheel (driver side)
+      box(c, 0.95, 1.05, -0.8, 0.8, 0.9, 1.15, VEHICLE.glass); // windscreen
+      box(c, -1.35, 1.05, -0.85, -0.75, 0.42, 0.88, VEHICLE.olive); // side walls
+      box(c, -1.35, 1.05, 0.75, 0.85, 0.42, 0.88, VEHICLE.oliveLight);
+    } else if (v.type === 'sidecar' && v.tiles.length >= 2) {
+      // bike on the tile nearer the ship, the egg-shaped pod right beside it
+      const along = (p: Point) => (p[0] - c[0]) * w[0] + (p[1] - c[1]) * w[1];
+      const sorted = [...v.tiles].sort((p, q) => along(p.center) - along(q.center));
       const bc = sorted[0]!.center;
       bike(bc);
-      // the tub rides right beside the bike, on the side of the second tile
       const o = sorted[sorted.length - 1]!.center;
       const l = Math.hypot(o[0] - bc[0], o[1] - bc[1]) || 1;
       const t: Point = [bc[0] + ((o[0] - bc[0]) / l) * 0.85, bc[1] + ((o[1] - bc[1]) / l) * 0.85];
-      box(t, -0.3, 0.1, 0.25, 0.45, 0, 0.45, VEHICLE.tyre); // tub wheel
-      box(t, -0.7, 0.6, -0.4, 0.4, 0.22, 0.72, VEHICLE.olive); // tub
-      box(t, -0.45, 0.2, -0.25, 0.25, 0.72, 0.74, VEHICLE.seat); // seat opening
-      box(t, -0.9, 0.3, -0.9, -0.82, 0.4, 0.48, VEHICLE.chrome); // strut to the bike
+      box(t, -0.9, -0.2, -0.02, 0.02, 0.38, 0.46, VEHICLE.chrome); // strut to the bike
+      box(t, -0.35, 0.15, 0.3, 0.44, 0, 0.45, VEHICLE.tyre); // pod wheel
+      egg(t, 0.75, 0.45, 0.2, 0.72, VEHICLE.olive); // egg-shaped pod
+      egg(at(t, -0.12, 0), 0.4, 0.27, 0.72, 0.73, VEHICLE.seat); // open cockpit of the pod
+      box(t, -0.45, -0.32, -0.2, 0.2, 0.55, 0.9, shade(VEHICLE.seat, -10)); // backrest
     } else {
       bike(c);
     }
-    // back to front within the vehicle
-    parts.sort((p, q) => Math.max(...p.fp.map((x) => depth(this.view, W(x, p.z1)))) - Math.max(...q.fp.map((x) => depth(this.view, W(x, q.z1)))));
+    // wheels, then the floor, then the rest back to front (by the centre of each part, at its top)
+    const mid = (p: (typeof parts)[number]) => {
+      const cx = p.fp.reduce((s2, x) => s2 + x[0], 0) / p.fp.length;
+      const cz = p.fp.reduce((s2, x) => s2 + x[1], 0) / p.fp.length;
+      return depth(this.view, W([cx, cz], p.z1));
+    };
+    parts.sort((p, q) => p.layer - q.layer || mid(p) - mid(q));
     for (const p of parts) this.prism(g, p.fp, p.z0, p.z1, p.top, p.side);
   }
 
@@ -469,6 +480,9 @@ export class ShipView {
         this.prism(g, s.footprint, s.z0, s.z1, shade(col, -8), shade(col, 28), shade(col, 45));
         break;
       }
+      case 'dock_arm':
+        this.prism(g, s.footprint, s.z0, s.z1, shade(FRAME, -8), shade(FRAME, 28), shade(FRAME, 45));
+        break;
       case 'door_panel': {
         // sliding leaf: darker than the frame so the frame posts stay readable; airlocks rust-orange
         const col = s.door === 'airlock' ? shade(WORLD.airlock, 15) : WORLD.door;

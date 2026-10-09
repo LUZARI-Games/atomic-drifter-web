@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dockEdges, dockGate, isDock, railingParts } from './exterior';
+import { dockArms, dockEdges, isDock, railingParts, vehicleFrame } from './exterior';
 import { airshipHull } from './hull';
 import { parseShip, parseVehicles } from './ship';
 import type { Ship } from './types';
@@ -41,7 +41,17 @@ describe('balconies + vehicles', () => {
     expect(parts.filter((p) => p.segment).map((p) => p.z1)).toEqual([1, 0.535]);
   });
 
-  it('dock gate = two posts at the ends of the gap', () => {
-    expect(dockGate({ kind: 'railing', a: [3, -1], b: [3, 1] })).toHaveLength(2);
+  it('a docked vehicle lies along the railing, on the outside', () => {
+    const f = vehicleFrame(ship, ship.vehicles![0]!);
+    expect(Math.abs(f.u[1])).toBeCloseTo(1); // dock edge runs along z
+    expect(f.w[0]).toBeCloseTo(1); // away from the ship = +x
+  });
+
+  it('two docking arms reach from the railing to the bike body (railing stays closed)', () => {
+    const arms = dockArms(ship, ship.vehicles![0]!);
+    expect(arms).toHaveLength(2);
+    const xs = arms[0]!.footprint.map((p) => p[0]);
+    expect(Math.min(...xs)).toBeCloseTo(3); // starts at the railing (x = 3)
+    expect(Math.max(...xs)).toBeCloseTo(3.8); // ends at the bike body (centre x = 4, half width 0.2)
   });
 });
