@@ -3065,7 +3065,7 @@ const setupLoad = async (kind, f) => { const x = SETUP.find(y => y.k === kind); 
 $('setupFile').addEventListener('change', e => setupLoad(setupKind, e.target.files && e.target.files[0]));
 $('setupRows').addEventListener('dragover', e => e.preventDefault());
 $('setupRows').addEventListener('drop', e => { e.preventDefault(); const r = e.target.closest('[data-setup]'); if (r) setupLoad(r.dataset.setup, e.dataTransfer.files[0]); });
-setTimeout(() => { if (setupMissing() || (gameTables.systems.rows.length && !gameTables.systems.raw)) openSetup(); }, cloudState === 'wait' ? 1500 : 0);
+// [website] the game-tables window no longer opens by itself on start – open it with [T] or the tables button.
 // ------------------------------------------------------------------ random ship generator
 // Builds a connected layout from the planner's own blocks: reactor first, then every chosen system and empty room is
 // attached floor-to-floor with a door (so every room is reachable), then airlocks, crew and captain.

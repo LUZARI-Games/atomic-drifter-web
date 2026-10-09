@@ -6,8 +6,6 @@
 // 2. Adds a "TEST IN GAME" button: it presses the planner's own DOWNLOAD GODOT JSON button (#gdBtn),
 //    catches that file instead of downloading it, stores it and opens the game.
 //    "SHIP LAB" does the same but opens the Ship Lab (same ship from all view angles).
-// 3. Keeps the planner's "BEFORE YOU START · LOAD YOUR GAME TABLES" window (#setup) from popping up by itself on load.
-//    Only the Unreal team needs those tables; they can still open it any time ([T] key or the tables button).
 (function () {
   'use strict';
   var TEST_KEY = 'adw.testShip';
@@ -115,27 +113,6 @@
     window.addEventListener('scroll', place, true);
     setInterval(place, 1000); // planner panels can change size without a resize event
   }
-
-  // The planner opens #setup automatically shortly after start when tables are missing.
-  // Any opening before the first tap/key of the user is that automatic one -> close it again.
-  function suppressAutoSetup() {
-    var userActed = false;
-    var mark = function () { userActed = true; };
-    window.addEventListener('pointerdown', mark, true);
-    window.addEventListener('keydown', mark, true);
-    var watch = function () {
-      var el = document.getElementById('setup');
-      if (!el) return;
-      var close = function () { if (!userActed && !el.hidden) el.hidden = true; };
-      close();
-      var obs = new MutationObserver(close);
-      obs.observe(el, { attributes: true, attributeFilter: ['hidden'] });
-      setTimeout(function () { obs.disconnect(); }, 8000); // the planner opens it within 1.5 s
-    };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch);
-    else watch();
-  }
-  suppressAutoSetup();
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addButtons);
   else addButtons();

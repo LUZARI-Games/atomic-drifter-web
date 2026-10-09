@@ -15,8 +15,8 @@ never restate the owner's tasks back to them.
 | `src/data/` | All game content as JSON (rooms, systems, items, crew…). snake_case ids. | – |
 | `src/render/` | Phaser scenes. Only *draws* core state and forwards input to core. | core, data, Phaser |
 | `src/ui/` | HTML/CSS overlay for all UI (menus, HUD, panels). | core |
-| `planner/source.html` | Ship Interior Planner artifact, **copied unchanged**. Never edit it – replace it with a new revision. | – |
-| `public/planner/bridge.js` | Website add-on for the planner (downloads, TEST IN GAME / SHIP LAB, hides the automatic "LOAD YOUR GAME TABLES" pop-up – owner doesn't need it; [T] still opens it). See `docs/updating-planner.md`. | – |
+| `planner/source.html` | The owner's **website planner** (started as a copy of the Ship Interior Planner artifact). May be edited; mark edits with `// [website]` and list them in `docs/updating-planner.md` (re-apply after importing a new artifact revision). The original artifacts on claude.ai are never touched. | – |
+| `public/planner/bridge.js` | Website add-on for the planner (downloads, TEST IN GAME / SHIP LAB). See `docs/updating-planner.md`. | – |
 
 - State lives in a `Store` (`src/core/store.ts`); updates are pure functions `(state) => newState`.
 - Renderer/UI subscribe to the store; they never hold their own copy of game state.
