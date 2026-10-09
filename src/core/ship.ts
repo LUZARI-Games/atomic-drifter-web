@@ -82,11 +82,17 @@ export function roomOutline(ship: Ship, id: string): [Point, Point][] {
   return tilesOutline(ship.tiles.filter((t) => t.room === id));
 }
 
-/** Average of a room's free-floor tile centres (falls back to all tiles) – where the floor label goes. */
+/** Where the floor label goes: average of the free-floor tiles if it lies on them, else the nearest free tile (falls back to all tiles). */
 export function roomFloorCenter(ship: Ship, id: string): Point | null {
   const free = ship.tiles.filter((t) => t.room === id && !t.machinery);
   if (!free.length) return roomCenter(ship, id);
-  return [free.reduce((s, t) => s + t.center[0], 0) / free.length, free.reduce((s, t) => s + t.center[1], 0) / free.length];
+  const avg: Point = [free.reduce((s, t) => s + t.center[0], 0) / free.length, free.reduce((s, t) => s + t.center[1], 0) / free.length];
+  if (free.some((t) => pointInPolygon(avg, t.polygon))) return avg;
+  // L-shaped floor: the average lies outside -> use the free tile nearest to it
+  let best = free[0]!;
+  for (const t of free)
+    if (Math.hypot(t.center[0] - avg[0], t.center[1] - avg[1]) < Math.hypot(best.center[0] - avg[0], best.center[1] - avg[1])) best = t;
+  return best.center;
 }
 
 /** Stable map key for a point (1 mm precision). */

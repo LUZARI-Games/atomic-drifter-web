@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import demo from '../data/demo_ship.json';
-import { airshipHull, blockPolygons, convexHull, systemBlocks, tilesOutline } from './hull';
+import { airshipHull, blockNotches, blockPolygons, convexHull, systemBlocks, tilesOutline } from './hull';
 import { parseShip, pointInPolygon, shipBounds } from './ship';
 import type { Point, Ship, ShipTile } from './types';
 
@@ -61,6 +61,37 @@ describe('block polygons', () => {
     expect(Math.max(...xs(b!))).toBe(3.75);
     expect(Math.min(...zs(a!))).toBe(0.25);
     expect(Math.max(...zs(a!))).toBe(1.75);
+  });
+});
+
+describe('symbol anchor', () => {
+  const block = (tiles: ShipTile[]) =>
+    systemBlocks({ ...ship, rooms: [{ id: 'r', kind: 'system', system: 'medbay', label: 'M', color: null }], tiles })[0]!;
+
+  it('rectangle -> exact centre', () => {
+    expect(block([sq(0, 0), sq(2, 0)]).anchor).toEqual([2, 1]);
+  });
+
+  it('L-shapes in every orientation -> the corner tile where the arms meet', () => {
+    // corner tile at (0,0) with arms of 2 tiles each way
+    expect(block([sq(0, 0), sq(2, 0), sq(4, 0), sq(0, 2), sq(0, 4)]).anchor).toEqual([1, 1]);
+    // mirrored: corner at (4,0)
+    expect(block([sq(0, 0), sq(2, 0), sq(4, 0), sq(4, 2), sq(4, 4)]).anchor).toEqual([5, 1]);
+    // corner at (4,4)
+    expect(block([sq(4, 0), sq(4, 2), sq(4, 4), sq(2, 4), sq(0, 4)]).anchor).toEqual([5, 5]);
+    // small 3-tile L, corner at (0,2)
+    expect(block([sq(0, 0), sq(0, 2), sq(2, 2)]).anchor).toEqual([1, 3]);
+  });
+});
+
+describe('block notches', () => {
+  it('finds the inside corner of an L and points into the corner tile', () => {
+    const b = systemBlocks({ ...ship, rooms: [{ id: 'r', kind: 'system', system: 'doors', label: 'D', color: null }], tiles: [sq(0, 0), sq(2, 0), sq(0, 2)] })[0]!;
+    expect(blockNotches(b)).toEqual([{ point: [2, 2], dir: [-1, -1] }]);
+  });
+  it('rectangles have none', () => {
+    const b = systemBlocks({ ...ship, rooms: [{ id: 'r', kind: 'system', system: 'doors', label: 'D', color: null }], tiles: [sq(0, 0), sq(2, 0)] })[0]!;
+    expect(blockNotches(b).length).toBe(0);
   });
 });
 

@@ -2,7 +2,7 @@
 // World look = grimdark Fallout 3 tones (see WORLD in palette.ts), NOT the green terminal UI look.
 // Owns NO game state: taps are converted to ship meters and forwarded to core via the store.
 import Phaser from 'phaser';
-import { airshipHull, blockPolygons, systemBlocks, type HullShape, type SystemBlock } from '../core/hull';
+import { airshipHull, blockNotches, blockPolygons, systemBlocks, type HullShape, type SystemBlock } from '../core/hull';
 import { tapPoint } from '../core/selection';
 import { roomFloorCenter, roomOutline } from '../core/ship';
 import type { Store } from '../core/store';
@@ -14,6 +14,7 @@ const AREA = { x: 50, y: 110, w: GAME_WIDTH - 100, h: GAME_HEIGHT - 220 };
 const MAX_SCALE = 80; // px per meter
 const BLOCK_GAP_M = 0.32; // gap between a system block and the walls
 const BLOCK_RIM_M = 0.09; // dark rim around a system block
+const ICON_RADIUS_M = 0.42; // every system symbol has the same size (fits a 1-tile block)
 
 type V = Phaser.Math.Vector2;
 
@@ -133,9 +134,16 @@ export class ShipScene extends Phaser.Scene {
       for (const p of blockPolygons(b, BLOCK_GAP_M)) g.fillPoints(this.poly(p), true);
       g.fillStyle(WORLD.machinery, 1);
       for (const p of blockPolygons(b, BLOCK_GAP_M + BLOCK_RIM_M)) g.fillPoints(this.poly(p), true);
-      const c = this.toScreen(b.center);
-      const size = Math.max(10, Math.min((b.minSide - BLOCK_GAP_M * 2) * px * 0.32, 34));
-      this.drawSymbol(g, b.system, c.x, c.y, size);
+      // inside corners (L-shapes): rim, then gap, cut as squares into the corner tile
+      for (const { point, dir } of blockNotches(b)) {
+        for (const [m, col] of [[BLOCK_GAP_M + BLOCK_RIM_M, WORLD.machineryDark], [BLOCK_GAP_M, WORLD.floor]] as const) {
+          const q: Point = [point[0] + dir[0] * m, point[1] + dir[1] * m];
+          g.fillStyle(col, 1);
+          g.fillPoints(this.poly([point, [q[0], point[1]], q, [point[0], q[1]]]), true);
+        }
+      }
+      const c = this.toScreen(b.anchor);
+      this.drawSymbol(g, b.system, c.x, c.y, ICON_RADIUS_M * px);
     }
 
     // Walls: dark body + light top edge; square caps fill the joints

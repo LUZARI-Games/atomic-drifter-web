@@ -1,6 +1,6 @@
 // Airship hull + system blocks, derived from the ship layout. Pure geometry in ship space (meters, [x, z]):
 // x = starboard, bow = -z. No Phaser, no DOM – the same numbers can drive the Godot version.
-import { pointKey as key, shipBounds, tilesOutline } from './ship';
+import { pointInPolygon, pointKey as key, shipBounds, tilesOutline } from './ship';
 
 export { tilesOutline };
 import type { Point, Ship, ShipTile } from './types';
@@ -22,8 +22,10 @@ export interface SystemBlock {
   tiles: ShipTile[];
   /** Outer edges of the merged block (shared tile edges removed). */
   outline: [Point, Point][];
-  /** Centre of the block (average of its tile centres). */
+  /** Centre of the block (average of its tile centres) – may lie outside an L-shaped block. */
   center: Point;
+  /** Where the system symbol goes: the exact centre of a rectangular block, otherwise the corner tile where the arms meet. */
+  anchor: Point;
   /** Smallest side of the block's bounding box (meters) – for sizing the symbol. */
   minSide: number;
 }
@@ -103,15 +105,17 @@ export function systemBlocks(ship: Ship): SystemBlock[] {
   return [...byRoom.entries()].map(([room, tiles]) => {
     const xs = tiles.flatMap((t) => t.polygon.map((p) => p[0]));
     const zs = tiles.flatMap((t) => t.polygon.map((p) => p[1]));
+    const center: Point = [
+      tiles.reduce((s, t) => s + t.center[0], 0) / tiles.length,
+      tiles.reduce((s, t) => s + t.center[1], 0) / tiles.length,
+    ];
     return {
       room,
       system: ship.rooms.find((r) => r.id === room)?.system ?? null,
       tiles,
       outline: tilesOutline(tiles),
-      center: [
-        tiles.reduce((s, t) => s + t.center[0], 0) / tiles.length,
-        tiles.reduce((s, t) => s + t.center[1], 0) / tiles.length,
-      ] as Point,
+      center,
+      anchor: blockAnchor(tiles, center),
       minSide: Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs)),
     };
   });
@@ -158,3 +162,72 @@ export function blockPolygons(block: SystemBlock, inset: number): Point[][] {
     });
   });
 }
+
+/**
+ * Symbol position for a block. A full rectangle (every cell of its bounding box filled with full tiles) uses its exact
+ * centre. Any other shape (L, T, …) uses the tile that joins the arms: the tile with neighbours in both directions
+ * (horizontal + vertical) and the most neighbours; ties go to the tile nearest the average centre.
+ */
+export function blockAnchor(tiles: ShipTile[], center: Point): Point {
+  if (!tiles.length) return center;
+  const xs = tiles.flatMap((t) => t.polygon.map((p) => p[0]));
+  const zs = tiles.flatMap((t) => t.polygon.map((p) => p[1]));
+  const w = Math.max(...xs) - Math.min(...xs);
+  const h = Math.max(...zs) - Math.min(...zs);
+  const cell = Math.sqrt(polygonArea(tiles[0]!.polygon)) || 1;
+  const filled = tiles.every((t) => t.shape === 'full') && Math.round((w * h) / (cell * cell)) === tiles.length;
+  if (filled) return [(Math.max(...xs) + Math.min(...xs)) / 2, (Math.max(...zs) + Math.min(...zs)) / 2];
+
+  const edgesOf = (t: ShipTile) =>
+    t.polygon.map((a, i) => {
+      const b = t.polygon[(i + 1) % t.polygon.length]!;
+      return { k: [key(a), key(b)].sort().join('|'), alongX: Math.abs(b[0] - a[0]) > Math.abs(b[1] - a[1]) };
+    });
+  const owners = new Map<string, number>();
+  for (const t of tiles) for (const e of edgesOf(t)) owners.set(e.k, (owners.get(e.k) ?? 0) + 1);
+
+  let best: ShipTile = tiles[0]!;
+  let bestScore = -Infinity;
+  for (const t of tiles) {
+    const shared = edgesOf(t).filter((e) => owners.get(e.k)! > 1);
+    const bothAxes = shared.some((e) => e.alongX) && shared.some((e) => !e.alongX);
+    const dist = Math.hypot(t.center[0] - center[0], t.center[1] - center[1]);
+    const score = (bothAxes ? 100 : 0) + shared.length * 10 - dist * 0.01;
+    if (score > bestScore) { bestScore = score; best = t; }
+  }
+  return best.center;
+}
+
+export function polygonArea(poly: Point[]): number {
+  let a = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const [x1, z1] = poly[i]!;
+    const [x2, z2] = poly[(i + 1) % poly.length]!;
+    a += x1 * z2 - x2 * z1;
+  }
+  return Math.abs(a) / 2;
+}
+
+/**
+ * Inner (concave) corners of a block, e.g. the inside corner of an L. Shrinking each tile on its outer sides leaves
+ * the corner tile too full there, so the renderer cuts a square notch: from `point` towards `dir` (both axes ±1).
+ */
+export function blockNotches(block: SystemBlock): { point: Point; dir: Point }[] {
+  const eps = 0.01;
+  const inside = (p: Point) => block.tiles.some((t) => pointInPolygon(p, t.polygon));
+  const seen = new Set<string>();
+  const out: { point: Point; dir: Point }[] = [];
+  for (const t of block.tiles)
+    for (const c of t.polygon) {
+      const k = key(c);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const quads = ([[1, 1], [1, -1], [-1, 1], [-1, -1]] as Point[]).filter(([sx, sz]) => !inside([c[0] + sx * eps, c[1] + sz * eps]));
+      if (quads.length === 1) {
+        const [sx, sz] = quads[0]!;
+        out.push({ point: c, dir: [-sx, -sz] });
+      }
+    }
+  return out;
+}
+
