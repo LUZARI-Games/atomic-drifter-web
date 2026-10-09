@@ -1,4 +1,5 @@
 // HTML overlay for the start page: floating menu + a small info chip. Reads core state, never changes it directly.
+import { selectedCrew } from '../core/crewmove';
 import { getSelectedRoom } from '../core/selection';
 import type { Store } from '../core/store';
 import type { GameState } from '../core/types';
@@ -27,6 +28,13 @@ export function mountHud(root: HTMLElement, store: Store<GameState>, opts: HudOp
   const problem = opts.problems.length ? `SHIP NOT LOADED: ${opts.problems.join(' · ')} // SHOWING DEMO SHIP` : '';
 
   const render = (s: GameState) => {
+    const member = selectedCrew(s);
+    if (member) {
+      chip.classList.remove('warn');
+      const l = member.look;
+      chip.textContent = `CREW: ${member.name} // ${l.origin.toUpperCase()} ${l.build.toUpperCase()} // ${member.path.length ? 'ON THE WAY' : 'TAP WHERE TO GO'}`;
+      return;
+    }
     const room = getSelectedRoom(s);
     chip.classList.toggle('warn', !room && !!problem);
     chip.textContent = room

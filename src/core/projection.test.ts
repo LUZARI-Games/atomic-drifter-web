@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { convexHull, depth, drawOrder, makeView, project, unprojectFloor } from './projection';
+import { convexHull, depth, drawOrder, isBehind, makeView, project, unprojectFloor } from './projection';
 
 describe('look-down projection', () => {
   it('90° is plain top-down: height disappears', () => {
@@ -62,6 +62,13 @@ describe('look-down projection', () => {
       expect(x).toBeCloseTo(3.2);
       expect(y).toBeCloseTo(-1.5);
     }
+  });
+
+  it('isBehind: side by side is neither behind nor in front', () => {
+    const v = makeView(60, 45);
+    const a = { minX: 0, maxX: 1, minY: 0, maxY: 1 };
+    expect(isBehind(v, a, { minX: 2, maxX: 3, minY: 0, maxY: 1 })).toBe(true);
+    expect(isBehind(v, { minX: 2, maxX: 3, minY: 0, maxY: 1 }, a)).toBe(false);
   });
 
   it('hull keeps only the outline', () => {

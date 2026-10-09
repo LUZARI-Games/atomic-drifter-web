@@ -21,9 +21,10 @@ describe('hull geometry', () => {
     expect(tilesOutline([sq(0, 0), sq(2, 0)]).length).toBe(6);
   });
 
-  it('hull covers the whole deck, nose at the bow (-z), propellers at the stern (+z)', () => {
+  it('hull covers the whole enclosed deck (balconies hang out), nose at the bow (-z), propellers at the stern (+z)', () => {
     const hull = airshipHull(ship);
-    for (const t of ship.tiles) for (const p of t.polygon) expect(pointInPolygon(p, hull.outline)).toBe(true);
+    for (const t of ship.tiles.filter((x) => x.room !== 'deck')) for (const p of t.polygon) expect(pointInPolygon(p, hull.outline)).toBe(true);
+    expect(pointInPolygon([4, 1], hull.outline)).toBe(false); // the balcony's outer edge is outside the hull
     const b = shipBounds(ship);
     const zs = hull.outline.map((p) => p[1]);
     expect(Math.min(...zs) < b.minZ - 2).toBe(true); // nose sticks out in front

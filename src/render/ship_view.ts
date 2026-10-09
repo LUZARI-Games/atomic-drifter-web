@@ -4,7 +4,7 @@
 import Phaser from 'phaser';
 import type { CrewLook } from '../core/crew';
 import { airshipHull, blockPolygons, systemBlocks } from '../core/hull';
-import { depth, drawOrder, project, turn, unprojectFloor, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
+import { depth, drawOrder, isBehind, project, turn, unprojectFloor, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
 import { roomFloorCenter } from '../core/ship';
 import { consoleDesk, doorLeaves, doorThreshold, SHIP_HEIGHTS, shipSolids, wallHeight, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
@@ -15,6 +15,13 @@ import { FONT_FAMILY, FONT_SIZES, VEHICLE, WORLD, worldPaint } from './palette';
 import { balconyRoomIds, dockArms, railingParts, vehicleFrame } from '../core/exterior';
 
 type G = Phaser.GameObjects.Graphics;
+type Item = { key: number; box: FloorBox; draw: (g: G) => void };
+
+/** The game's standing objects, drawn once; only crew and doors are redrawn. */
+export interface ObjectLayer {
+  redrawDoors(): void;
+  setCrew(crew: CrewOnDeck[]): void;
+}
 
 const edgeKey = (a: Point, b: Point) =>
   [a, b].map((p) => `${Math.round(p[0] * 1000)},${Math.round(p[1] * 1000)}`).sort().join('|');
@@ -33,6 +40,10 @@ export interface CrewOnDeck {
   look: CrewLook;
   at: Point; // ship space
   facing: number; // screen angle, 0 = towards the bow (right)
+  step?: number; // meters walked (walk cycle)
+  lift?: number; // meters above the deck (sitting in a vehicle)
+  vehicle?: number; // index into ship.vehicles when sitting in one – drawn after it
+  ring?: number; // ring colour override (selection)
 }
 
 /** Ship space [x, z] + height -> view world (x = towards the bow/right, y = starboard/towards the viewer, z = up). */
@@ -98,8 +109,8 @@ export class ShipView {
    * Everything standing (walls, door frames + leaves, system blocks, consoles, crew), back to front.
    * Call again (after objects.clear()) whenever doors move. `doorOpen(i)` = 0 closed … 1 open for ship.doors[i].
    */
-  drawObjects(objects: G, crew: CrewOnDeck[], doorOpen: (i: number) => number = () => 0): void {
-    const items: { key: number; box: FloorBox; draw: () => void }[] = [];
+  private collectItems(doorOpen: (i: number) => number): { items: Item[]; mustFollow: [number, number][]; vehicleItem: number[]; doorItem: number[] } {
+    const items: Item[] = [];
     const mustFollow: [number, number][] = []; // [first, then] – e.g. a system symbol after its own block
     const box = (footprint: Point[]): FloorBox => {
       const w = footprint.map((p) => W(p));
@@ -113,28 +124,33 @@ export class ShipView {
       if (w.kind !== 'railing') continue;
       const parts = railingParts(w); // stays closed at docks too: crew climb over it into the vehicle
       for (const s of parts) {
-        if (s.segment) for (const p of wallPieces(s)) items.push({ key: this.sortKey(p.footprint, 0), box: box(p.footprint), draw: () => this.drawWallPiece(objects, s, p) });
-        else items.push({ key: this.sortKey(s.footprint, 0), box: box(s.footprint), draw: () => this.drawSolid(objects, s) });
+        if (s.segment) for (const p of wallPieces(s)) items.push({ key: this.sortKey(p.footprint, 0), box: box(p.footprint), draw: (g) => this.drawWallPiece(g, s, p) });
+        else items.push({ key: this.sortKey(s.footprint, 0), box: box(s.footprint), draw: (g) => this.drawSolid(g, s) });
       }
     }
+    const vehicleItem: number[] = [];
     for (const v of this.ship.vehicles ?? []) {
-      for (const arm of dockArms(this.ship, v)) items.push({ key: this.sortKey(arm.footprint, 0), box: box(arm.footprint), draw: () => this.drawSolid(objects, arm) });
+      vehicleItem.push(items.length + dockArms(this.ship, v).length);
+      for (const arm of dockArms(this.ship, v)) items.push({ key: this.sortKey(arm.footprint, 0), box: box(arm.footprint), draw: (g) => this.drawSolid(g, arm) });
       const fp = v.tiles.flatMap((t) => t.polygon);
-      items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: () => this.drawVehicle(objects, v) });
+      items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: (g) => this.drawVehicle(g, v) });
     }
     for (const s of shipSolids(this.ship)) {
       if (s.kind === 'console') continue; // drawn below with its keyboard, after its system block
       if (s.kind === 'railing') continue; // drawn above as posts + rails
       if (s.segment) {
-        for (const p of wallPieces(s)) items.push({ key: this.sortKey(p.footprint, 0), box: box(p.footprint), draw: () => this.drawWallPiece(objects, s, p) });
+        for (const p of wallPieces(s)) items.push({ key: this.sortKey(p.footprint, 0), box: box(p.footprint), draw: (g) => this.drawWallPiece(g, s, p) });
       } else {
-        items.push({ key: this.sortKey(s.footprint, s.z0), box: box(s.footprint), draw: () => this.drawSolid(objects, s) });
+        items.push({ key: this.sortKey(s.footprint, s.z0), box: box(s.footprint), draw: (g) => this.drawSolid(g, s) });
       }
     }
-    // door leaves: slide sideways into the walls as the door opens
+    // door leaves: slide sideways into the walls as the door opens (one item per door; its box = the closed door)
     const wh = wallHeight(this.ship);
+    const doorItem: number[] = [];
     this.ship.doors.forEach((d, i) => {
-      for (const leaf of doorLeaves(d, doorOpen(i), wh)) items.push({ key: this.sortKey(leaf.footprint, 0), box: box(leaf.footprint), draw: () => this.drawSolid(objects, leaf) });
+      const closed = doorLeaves(d, 0, wh).flatMap((l) => l.footprint);
+      doorItem.push(items.length);
+      items.push({ key: this.sortKey(closed, 0), box: box(closed), draw: (g) => { for (const leaf of doorLeaves(d, doorOpen(i), wh)) this.drawSolid(g, leaf); } });
     });
     for (const b of systemBlocks(this.ship)) {
       const polys = blockPolygons(b, BLOCK_GAP_M);
@@ -142,7 +158,7 @@ export class ShipView {
       const pieces: number[] = [];
       for (const poly of polys) {
         pieces.push(items.length);
-        items.push({ key: this.sortKey(poly, 0), box: box(poly), draw: () => this.drawBlockPiece(objects, poly, outer, b.room) });
+        items.push({ key: this.sortKey(poly, 0), box: box(poly), draw: (g) => this.drawBlockPiece(g, poly, outer, b.room) });
       }
       // the symbol is painted after the whole block (same floor area, drawn last among its pieces)
       // symbol on a full tile (a diagonal half tile is too small and would push it off the block)
@@ -152,29 +168,83 @@ export class ShipView {
         ? full.reduce((best, t) => (Math.hypot(t.center[0] - b.anchor[0], t.center[1] - b.anchor[1]) < Math.hypot(best[0] - b.anchor[0], best[1] - b.anchor[1]) ? t.center : best), full[0]!.center)
         : b.anchor;
       for (const p of pieces) mustFollow.push([p, items.length]);
-      items.push({ key: this.sortKey(polys.flat(), 0) + 0.0005, box: box(polys.flat()), draw: () => this.drawBlockIcon(objects, b.system, anchor, b.room) });
+      items.push({ key: this.sortKey(polys.flat(), 0) + 0.0005, box: box(polys.flat()), draw: (g) => this.drawBlockIcon(g, b.system, anchor, b.room) });
       // console desk: on the block edge facing the crew spot, drawn after the block
       const con = this.ship.rooms.find((r) => r.id === b.room)?.console;
       if (con) {
         const desk = consoleDesk(con, this.ship.tile_size);
         const deskIdx = items.length;
         for (const p of pieces) mustFollow.push([p, deskIdx]);
-        items.push({ key: this.sortKey(desk.footprint, 0) + 0.0006, box: box(desk.footprint), draw: () => this.drawConsole(objects, desk, this.blockFill(b.room)) });
+        items.push({ key: this.sortKey(desk.footprint, 0) + 0.0006, box: box(desk.footprint), draw: (g) => this.drawConsole(g, desk, this.blockFill(b.room)) });
       }
     }
+    return { items, mustFollow, vehicleItem, doorItem };
+  }
+
+  /** Everything standing, drawn into one graphics (Ship Lab / still pictures). */
+  drawObjects(objects: G, crew: CrewOnDeck[], doorOpen: (i: number) => number = () => 0): void {
+    const { items, mustFollow, vehicleItem } = this.collectItems(doorOpen);
     for (const c of crew) {
-      const feet = W(c.at, 0);
-      items.push({
-        key: depth(this.view, feet) + 0.001,
-        box: { minX: feet[0] - 0.3, maxX: feet[0] + 0.3, minY: feet[1] - 0.3, maxY: feet[1] + 0.3 },
-        draw: () => {
-          const p = this.S(feet);
-          drawCrewIso(objects, this.view, c.look, p.x, p.y, this.pxPerM, c.facing, 0, false);
-        },
-      });
+      const it = this.crewItem(c);
+      if (c.vehicle !== undefined && vehicleItem[c.vehicle] !== undefined) mustFollow.push([vehicleItem[c.vehicle]!, items.length]);
+      items.push(it);
     }
     const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key), mustFollow);
-    for (const i of order) items[i]!.draw();
+    for (const i of order) items[i]!.draw(objects);
+  }
+
+  private crewItem(c: CrewOnDeck): Item {
+    const feet = W(c.at, c.lift ?? 0);
+    return {
+      key: depth(this.view, feet) + 0.001,
+      box: { minX: feet[0] - 0.3, maxX: feet[0] + 0.3, minY: feet[1] - 0.3, maxY: feet[1] + 0.3 },
+      draw: (g) => {
+        const p = this.S(feet);
+        drawCrewIso(g, this.view, c.look, p.x, p.y, this.pxPerM, c.facing, c.step ?? 0, false, c.ring);
+      },
+    };
+  }
+
+  /**
+   * Game view: every standing object gets its own graphics, drawn ONCE and stacked by depth (Phaser depth between
+   * `depthFrom` and `depthTo`). Per frame only the crew (and moving doors) are redrawn and slotted in between –
+   * walking crew stay cheap on a phone. Call after drawStatic().
+   */
+  mountObjects(scene: Phaser.Scene, depthFrom: number, depthTo: number, doorOpen: (i: number) => number): ObjectLayer {
+    const { items, mustFollow, vehicleItem, doorItem } = this.collectItems(doorOpen);
+    const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key), mustFollow);
+    const posOf = new Map(order.map((idx, pos) => [idx, pos]));
+    const n = order.length;
+    const depthAt = (pos: number) => depthFrom + ((pos + 1) / (n + 2)) * (depthTo - depthFrom);
+    const gfx = items.map((it, i) => {
+      const g = scene.add.graphics().setDepth(depthAt(posOf.get(i)!));
+      it.draw(g);
+      return g;
+    });
+    const crewGfx: G[] = [];
+    return {
+      redrawDoors: () => {
+        for (const i of doorItem) {
+          gfx[i]!.clear();
+          items[i]!.draw(gfx[i]!);
+        }
+      },
+      setCrew: (crew: CrewOnDeck[]) => {
+        while (crewGfx.length < crew.length) crewGfx.push(scene.add.graphics());
+        crewGfx.forEach((g, ci) => {
+          g.clear();
+          const c = crew[ci];
+          if (!c) return;
+          const it = this.crewItem(c);
+          // after everything that is behind the figure (and after its vehicle), before the rest
+          let after = -1;
+          items.forEach((other, oi) => { if (isBehind(this.view, other.box, it.box)) after = Math.max(after, posOf.get(oi)!); });
+          if (c.vehicle !== undefined && vehicleItem[c.vehicle] !== undefined) after = Math.max(after, posOf.get(vehicleItem[c.vehicle]!)!);
+          g.setDepth(depthAt(after + 0.5) + it.key * 1e-6);
+          it.draw(g);
+        });
+      },
+    };
   }
 
   /** Nearest point to the viewer decides the order (low objects on a grid). */

@@ -2,6 +2,8 @@
 // Same renderer as the Ship Lab (ship_view.ts). Owns NO game state: taps are turned into ship meters and sent to core.
 import Phaser from 'phaser';
 import { makeView } from '../core/projection';
+import { doorsInUse, navOf, selectCrew, tickCrew } from '../core/crewmove';
+import { nodeAt } from '../core/nav';
 import { tapPoint } from '../core/selection';
 import { roomOutline } from '../core/ship';
 import { wallHeight } from '../core/ship3d';
@@ -9,7 +11,7 @@ import type { Store } from '../core/store';
 import type { GameState } from '../core/types';
 import { attachPanZoom } from './panzoom';
 import { WORLD } from './palette';
-import { ShipView } from './ship_view';
+import { ShipView, type CrewOnDeck, type ObjectLayer } from './ship_view';
 import type { ShipOnScreen } from './wasteland';
 
 /** The game's camera angle (degrees). */
@@ -23,12 +25,14 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private view!: ShipView;
   private tint!: Phaser.GameObjects.Graphics;
   private outline!: Phaser.GameObjects.Graphics;
-  private objects!: Phaser.GameObjects.Graphics;
+  private layer!: ObjectLayer;
   /** How far each door is open right now (0…1) – animation only; the real state is store.openDoors. */
   private doorOpen: number[] = [];
   private area = new Phaser.Geom.Rectangle(0, 0, 1, 1);
   private fitZoom = 1;
   private bob = 0;
+  private lastTime = -1; // real time of the previous frame (Phaser's `delta` is smoothed and undercounts on slow devices)
+  private dirty = false; // standing objects need a redraw (crew moved / selection changed)
   ready = false;
   private unsubscribe: (() => void) | null = null;
 
@@ -43,23 +47,34 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
 
     const deck = this.add.graphics();
     this.tint = this.add.graphics().setDepth(0.5); // floor tint: on the deck, under walls and machinery
-    this.objects = this.add.graphics().setDepth(1);
     this.doorOpen = ship.doors.map((_, i) => (this.store.get().openDoors.includes(i) ? 1 : 0));
-    this.outline = this.add.graphics().setDepth(2); // outline on top of the walls, so the half walls never hide it
+    this.outline = this.add.graphics().setDepth(3); // outline on top of the walls, so the half walls never hide it
     this.view.drawStatic(this, deck, -b.x, -b.y);
-    this.view.drawObjects(this.objects, [], (i) => this.doorOpen[i] ?? 0);
+    // walls, blocks, vehicles … drawn once (depth 1..2); crew + moving doors are redrawn and slotted in between
+    this.layer = this.view.mountObjects(this, 1, 2, (i) => this.doorOpen[i] ?? 0);
+    this.layer.setCrew(this.crewToDraw());
 
     this.area = new Phaser.Geom.Rectangle(0, 0, b.width, b.height);
     attachPanZoom(this, {
       bounds: () => this.area,
-      onTap: (x, y) => this.store.update((s) => tapPoint(s, this.view.toShip(x, y))),
+      onTap: (x, y) => {
+        // a figure under the finger wins (they stand up from the floor, so test on screen, not on the deck)
+        const hit = this.crewAt(x, y);
+        if (hit) this.store.update((s) => selectCrew(s, s.selectedCrewId === hit ? null : hit));
+        else this.store.update((s) => tapPoint(s, this.view.toShip(x, y)));
+      },
     });
     // zoom right after fitting = "1" for the wasteland's zoom parallax (refit on resize happens first)
     this.fitZoom = this.cameras.main.zoom;
     this.scale.on(Phaser.Scale.Events.RESIZE, () => (this.fitZoom = this.cameras.main.zoom));
     this.ready = true;
 
-    this.unsubscribe = this.store.subscribe(() => this.drawSelection());
+    let lastSel = this.store.get().selectedCrewId;
+    this.unsubscribe = this.store.subscribe((st) => {
+      this.drawSelection();
+      if (st.selectedCrewId !== lastSel) this.dirty = true;
+      lastSel = st.selectedCrewId;
+    });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsubscribe?.());
     this.drawSelection();
   }
@@ -84,18 +99,57 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     cam.scrollY -= (bob - this.bob) / cam.zoom;
     this.bob = bob;
 
-    const open = this.store.get().openDoors;
-    const step = (DOOR_SPEED * delta) / 1000;
-    let moved = false;
+    // crew walk (core rules), doors open by themselves while someone walks through
+    const walking = this.store.get().crew.some((c) => c.path.length);
+    const now = performance.now();
+    const dt = this.lastTime < 0 ? delta / 1000 : Math.min(now - this.lastTime, 250) / 1000;
+    this.lastTime = now;
+    if (walking) this.store.update((st) => tickCrew(st, dt)); // real elapsed time: same walking speed on any device
+    const state = this.store.get();
+    const inUse = doorsInUse(state);
+    const step = DOOR_SPEED * dt;
+    let doorsMoved = false;
     this.doorOpen = this.doorOpen.map((v, i) => {
-      const target = open.includes(i) ? 1 : 0;
+      const target = state.openDoors.includes(i) || inUse.includes(i) ? 1 : 0;
       if (v === target) return v;
-      moved = true;
+      doorsMoved = true;
       return target > v ? Math.min(target, v + step) : Math.max(target, v - step);
     });
-    if (!moved) return;
-    this.objects.clear();
-    this.view.drawObjects(this.objects, [], (i) => this.doorOpen[i] ?? 0);
+    if (doorsMoved) this.layer.redrawDoors();
+    if (walking || this.dirty) this.layer.setCrew(this.crewToDraw());
+    this.dirty = false;
+  }
+
+  /** Crew as the renderer needs them: facing on screen, lifted onto a vehicle seat, selection ring. */
+  private crewToDraw(): CrewOnDeck[] {
+    const { ship, crew, selectedCrewId } = this.store.get();
+    const nav = navOf(ship);
+    return crew.map((c) => {
+      const node = nodeAt(ship, nav, c.pos);
+      const vehicle = node?.startsWith('v') ? Number(node.slice(1).split(':')[0]) : undefined;
+      // ship heading (atan2(dz, dx)) -> view angle: ship x -> view y, ship z -> view -x
+      const facing = Math.atan2(Math.cos(c.heading), -Math.sin(c.heading));
+      return { look: c.look, at: c.pos, facing, step: c.walked, lift: vehicle !== undefined ? 0.35 : 0, vehicle, ring: c.id === selectedCrewId ? WORLD.select : undefined };
+    });
+  }
+
+  /** Crew member drawn at world point (x, y): feet up to the head, nearest to the viewer first. */
+  private crewAt(x: number, y: number): string | null {
+    const { crew } = this.store.get();
+    const draw = this.crewToDraw();
+    let best: string | null = null;
+    let bestD = Infinity;
+    crew.forEach((c, i) => {
+      const feet = this.view.deckPoint(c.pos, draw[i]!.lift ?? 0);
+      const dx = x - feet.x;
+      const dy = y - feet.y;
+      const h = 1.9 * PX_PER_M * Math.cos((GAME_VIEW.pitch * Math.PI) / 180); // figure height on screen
+      if (Math.abs(dx) < 0.55 * PX_PER_M && dy < 0.35 * PX_PER_M && dy > -h) {
+        const d = Math.abs(dx) + Math.abs(dy + h / 2);
+        if (d < bestD) { bestD = d; best = c.id; }
+      }
+    });
+    return best;
   }
 
   /** Selected room: faint lamp-light tint on its floor + crisp outline along the top of its walls. */

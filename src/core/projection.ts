@@ -75,15 +75,21 @@ export interface FloorBox {
  * Ties / overlaps fall back to `key` (nearest point). `mustFollow` adds fixed pairs [first, then]
  * (e.g. a symbol painted on top of its block). Returns indices in draw order.
  */
-export function drawOrder(v: View, boxes: FloorBox[], key: number[], mustFollow: [number, number][] = []): number[] {
+/** True when floor box `a` lies completely behind `b` along a floor axis that points towards the viewer. */
+export function isBehind(v: View, a: FloorBox, b: FloorBox): boolean {
   const eps = 1e-6;
   const dx = v.yawSin; // how much world +x points towards the viewer
   const dy = v.yawCos; // how much world +y points towards the viewer
-  const behind = (a: FloorBox, b: FloorBox) =>
+  return (
     (dx > eps && a.maxX <= b.minX + eps) ||
     (dx < -eps && a.minX >= b.maxX - eps) ||
     (dy > eps && a.maxY <= b.minY + eps) ||
-    (dy < -eps && a.minY >= b.maxY - eps);
+    (dy < -eps && a.minY >= b.maxY - eps)
+  );
+}
+
+export function drawOrder(v: View, boxes: FloorBox[], key: number[], mustFollow: [number, number][] = []): number[] {
+  const behind = (a: FloorBox, b: FloorBox) => isBehind(v, a, b);
   const n = boxes.length;
   const after: number[][] = Array.from({ length: n }, () => []);
   const before = new Array<number>(n).fill(0);

@@ -1,9 +1,10 @@
 // Pure game rules for room selection. No Phaser, no DOM.
+import { sendSelected } from './crewmove';
 import { getRoom, roomAtPoint } from './ship';
 import type { GameState, Point, Ship, ShipRoom } from './types';
 
 export function createGameState(ship: Ship): GameState {
-  return { ship, selectedRoomId: null, openDoors: [] };
+  return { ship, selectedRoomId: null, openDoors: [], crew: [], selectedCrewId: null };
 }
 
 /** Door under a ship point (within `radius` meters of its centre), or -1. */
@@ -37,8 +38,14 @@ export function clearSelection(state: GameState): GameState {
   return state.selectedRoomId === null ? state : { ...state, selectedRoomId: null };
 }
 
-/** Tap at a ship point (meters): a door opens/closes, a room is selected, empty space clears the selection. */
+/**
+ * Tap at a ship point (meters). With a crew member selected: send them there (deck tile or vehicle seat).
+ * Otherwise: a door opens/closes, a room is selected, empty space clears the selection.
+ */
 export function tapPoint(state: GameState, p: Point): GameState {
+  const sent = sendSelected(state, p);
+  if (sent) return sent;
+  if (state.selectedCrewId) state = { ...state, selectedCrewId: null }; // tapped into the void: let go of the crew member
   const door = doorAt(state.ship, p);
   if (door >= 0) return toggleDoor(state, door);
   const id = roomAtPoint(state.ship, p);

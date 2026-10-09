@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { generateCrew } from './core/crewmove';
 import { createGameState } from './core/selection';
 import { Store } from './core/store';
 import { COLORS, FONT_FAMILY } from './render/palette';
@@ -10,7 +11,8 @@ import './ui/styles.css';
 
 async function boot(): Promise<void> {
   const loaded = loadShip();
-  const store = new Store(createGameState(loaded.ship));
+  // the planner export carries no crew yet -> random crew from the Crew Lab types
+  const store = new Store({ ...createGameState(loaded.ship), crew: generateCrew(loaded.ship) });
 
   mountHud(document.getElementById('hud')!, store, {
     source: loaded.source,

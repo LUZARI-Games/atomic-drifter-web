@@ -11,7 +11,7 @@ if (!ship) throw new Error('demo ship must parse');
 describe('ship loading', () => {
   it('accepts the planner Godot export format', () => {
     expect(parseShip(demo).problems).toEqual([]);
-    expect(ship.rooms.length).toBe(4);
+    expect(ship.rooms.length).toBe(5); // 4 systems + a balcony
   });
 
   it('rejects other files with a readable problem', () => {
@@ -20,7 +20,7 @@ describe('ship loading', () => {
   });
 
   it('computes bounds and room centres in meters', () => {
-    expect(shipBounds(ship)).toEqual({ minX: -2, maxX: 2, minZ: -4, maxZ: 4 });
+    expect(shipBounds(ship)).toEqual({ minX: -2, maxX: 4, minZ: -4, maxZ: 4 }); // balcony reaches x = 4
     expect(roomCenter(ship, 'piloting')).toEqual([0, -3]);
   });
 
@@ -46,9 +46,9 @@ describe('room selection', () => {
   });
 
   it('tapping a room selects it, tapping empty space clears it', () => {
-    let s = tapPoint(createGameState(ship), [1, 0]);
+    let s = tapPoint(createGameState(ship), [1.5, -1.2]);
     expect(getSelectedRoom(s)?.label).toBe('SHIELDS');
-    s = tapPoint(s, [-1, 0]);
+    s = tapPoint(s, [-1.5, 1.2]);
     expect(s.selectedRoomId).toBe('weapons');
     s = tapPoint(s, [20, 0]);
     expect(s.selectedRoomId).toBeNull();

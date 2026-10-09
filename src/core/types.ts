@@ -1,4 +1,5 @@
 // Engine-neutral data types.
+import type { CrewLook } from './crew';
 // Ships use the planner's Godot export format "atomic-drifter-ship-godot" v1 unchanged:
 // meters, bow = -Z, starboard = +X, origin = ship centre. Points are [x, z].
 
@@ -66,9 +67,25 @@ export interface Ship {
   vehicles?: ShipVehicle[];
 }
 
+/** A crew member on board. Positions in ship meters; `node` = spot reached last, `dest` = spot walking to. */
+export interface CrewMember {
+  id: string;
+  name: string;
+  look: CrewLook;
+  node: string;
+  dest: string;
+  pos: Point;
+  path: Point[]; // points still to walk through (doors, dock, then the final spot)
+  pathEnd?: Point;
+  heading: number; // walking direction in ship space: atan2(dz, dx)
+  walked: number; // meters walked in total (drives the walk cycle)
+}
+
 export interface GameState {
   ship: Ship;
   selectedRoomId: string | null;
   /** Indices into ship.doors that are open. */
   openDoors: number[];
+  crew: CrewMember[];
+  selectedCrewId: string | null;
 }

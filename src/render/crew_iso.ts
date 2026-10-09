@@ -32,7 +32,7 @@ export function isoFloor(v: View, x: number, y: number, ox: number, oy: number, 
  * Draw one crew member standing at screen point (x, y) (= feet on the floor).
  * `pxPerM` = zoom, `facing` = floor angle (0 = +x/right, PI/2 = towards the viewer), `step` = walk cycle in meters walked.
  */
-export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean): void {
+export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean, ringColor?: number): void {
   const color = hex(CREW_LOOKS.origins[look.origin].color);
   const skin = hex(CREW_LOOKS.skin_tones[look.skin]!);
   const hair = hex(CREW_LOOKS.hair_colors[look.hair]!);
@@ -129,7 +129,7 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
     });
   g.fillStyle(0x000000, 0.3);
   g.fillPoints(floorEllipse(W + 0.12).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
-  g.lineStyle(Math.max(1.5, 0.05 * pxPerM), hostile ? COLORS.amber : COLORS.green, 1);
+  g.lineStyle(Math.max(1.5, (ringColor !== undefined ? 0.08 : 0.05) * pxPerM), ringColor ?? (hostile ? COLORS.amber : COLORS.green), 1);
   g.strokePoints(floorEllipse(W + 0.3).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
 
   // --- legs (trousers = dark origin colour) ---
