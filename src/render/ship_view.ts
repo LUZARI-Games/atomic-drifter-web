@@ -22,8 +22,11 @@ type V2 = Phaser.Math.Vector2;
 const BLOCK_GAP_M = 0.32; // gap between a system block and the walls
 const ICON_RADIUS_M = 0.5;
 const FRAME = 0x9a8650; // brass door frame – brighter than the walls so doors stand out
-const shade = (c: number, pct: number) =>
-  pct >= 0 ? Phaser.Display.Color.ValueToColor(c).darken(pct).color : Phaser.Display.Color.ValueToColor(c).lighten(-pct).color;
+/** Darker (pct > 0) or lighter (pct < 0) by a share of the colour itself, so dark paint never turns pure black. */
+const shade = (c: number, pct: number) => {
+  const f = (v: number) => Math.round(pct >= 0 ? v * (1 - pct / 100) : v + (255 - v) * (-pct / 100));
+  return (f((c >> 16) & 0xff) << 16) | (f((c >> 8) & 0xff) << 8) | f(c & 0xff);
+};
 
 export interface CrewOnDeck {
   look: CrewLook;
@@ -73,6 +76,7 @@ export class ShipView {
 
     // standing things, back to front
     const items: { key: number; box: FloorBox; draw: () => void }[] = [];
+    const mustFollow: [number, number][] = []; // [first, then] – e.g. a system symbol after its own block
     const box = (footprint: Point[]): FloorBox => {
       const w = footprint.map((p) => W(p));
       const xs = w.map((p) => p[0]);
@@ -90,11 +94,20 @@ export class ShipView {
     for (const b of systemBlocks(this.ship)) {
       const polys = blockPolygons(b, BLOCK_GAP_M);
       const outer = this.outerEdges(polys);
+      const pieces: number[] = [];
       for (const poly of polys) {
+        pieces.push(items.length);
         items.push({ key: this.sortKey(poly, 0), box: box(poly), draw: () => this.drawBlockPiece(objects, poly, outer, b.room) });
       }
       // the symbol is painted after the whole block (same floor area, drawn last among its pieces)
-      items.push({ key: this.sortKey(polys.flat(), 0) + 0.0005, box: box(polys.flat()), draw: () => this.drawBlockIcon(objects, b.system, b.anchor, b.room) });
+      // symbol on a full tile (a diagonal half tile is too small and would push it off the block)
+      const full = b.tiles.filter((t) => t.shape === 'full');
+      const onHalf = b.tiles.some((t) => t.shape !== 'full' && Math.hypot(t.center[0] - b.anchor[0], t.center[1] - b.anchor[1]) < 0.9);
+      const anchor = onHalf && full.length
+        ? full.reduce((best, t) => (Math.hypot(t.center[0] - b.anchor[0], t.center[1] - b.anchor[1]) < Math.hypot(best[0] - b.anchor[0], best[1] - b.anchor[1]) ? t.center : best), full[0]!.center)
+        : b.anchor;
+      for (const p of pieces) mustFollow.push([p, items.length]);
+      items.push({ key: this.sortKey(polys.flat(), 0) + 0.0005, box: box(polys.flat()), draw: () => this.drawBlockIcon(objects, b.system, anchor, b.room) });
     }
     for (const c of crew) {
       const feet = W(c.at, 0);
@@ -107,7 +120,7 @@ export class ShipView {
         },
       });
     }
-    const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key));
+    const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key), mustFollow);
     for (const i of order) items[i]!.draw();
   }
 

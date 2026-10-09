@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import demo from '../data/demo_ship.json';
-import { doorEnds, doorFrame, SHIP_HEIGHTS, segmentBox, shipSolids, wallPieces, wallSolid } from './ship3d';
+import { doorEnds, doorFrame, SHIP_HEIGHTS, segmentBox, shipSolids, wallHeight, wallPieces, wallSolid } from './ship3d';
 import { parseShip } from './ship';
 
 describe('ship heights', () => {
@@ -10,6 +10,12 @@ describe('ship heights', () => {
     const zs = s.footprint.map((p) => p[1]);
     expect(Math.min(...zs)).toBeCloseTo(-0.11);
     expect(Math.max(...zs)).toBeCloseTo(2.11);
+  });
+
+  it("the ship's own wall height from the planner wins, broken values fall back to 1 m", () => {
+    expect(wallHeight({ wall_height: 1.4 })).toBe(1.4);
+    expect(wallHeight({})).toBe(1);
+    expect(wallHeight({ wall_height: -3 })).toBe(1);
   });
 
   it('long walls are cut into 1 m pieces that cover the same length', () => {

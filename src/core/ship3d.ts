@@ -27,14 +27,20 @@ export function segmentBox(a: Point, b: Point, half: number, ext = 0): Point[] {
   return [p(a, -ext, -half), p(b, ext, -half), p(b, ext, half), p(a, -ext, half)];
 }
 
-export function wallSolid(w: ShipWall): Solid {
+/** Wall height: the ship's own value from the planner export wins, else the default from ship_view.json. */
+export function wallHeight(ship: Pick<Ship, 'wall_height'>): number {
+  const h = ship.wall_height;
+  return typeof h === 'number' && h > 0 && h < 10 ? h : VIEW.wall_height_m;
+}
+
+export function wallSolid(w: ShipWall, height: number = VIEW.wall_height_m): Solid {
   const t = VIEW.wall_thickness_m[w.kind];
   // ends extended by half the thickness so corners close without gaps
   return {
     kind: w.kind === 'railing' ? 'railing' : 'wall',
     footprint: segmentBox(w.a, w.b, t / 2, t / 2),
     z0: 0,
-    z1: w.kind === 'railing' ? VIEW.railing_height_m : VIEW.wall_height_m,
+    z1: w.kind === 'railing' ? VIEW.railing_height_m : height,
     segment: { a: w.a, b: w.b, half: t / 2 },
   };
 }
@@ -88,5 +94,6 @@ export function doorThreshold(d: ShipDoor): Point[] {
 }
 
 export function shipSolids(ship: Ship): Solid[] {
-  return [...ship.walls.map(wallSolid), ...ship.doors.flatMap(doorFrame)];
+  const h = wallHeight(ship);
+  return [...ship.walls.map((w) => wallSolid(w, h)), ...ship.doors.flatMap(doorFrame)];
 }

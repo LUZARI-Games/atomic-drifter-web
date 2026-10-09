@@ -39,6 +39,8 @@ export interface Ship {
   version: number;
   name: string;
   tile_size: number;
+  /** Optional: wall height from the planner export (meters). */
+  wall_height?: number;
   rooms: ShipRoom[];
   tiles: ShipTile[];
   walls: ShipWall[];

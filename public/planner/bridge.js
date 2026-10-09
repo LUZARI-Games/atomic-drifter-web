@@ -5,6 +5,7 @@
 //    everything else ("db", "user") is unavailable, so the planner keeps ships in this browser (localStorage).
 // 2. Adds a "TEST IN GAME" button: it presses the planner's own DOWNLOAD GODOT JSON button (#gdBtn),
 //    catches that file instead of downloading it, stores it and opens the game.
+//    "SHIP LAB" does the same but opens the Ship Lab (same ship from all view angles).
 (function () {
   'use strict';
   var TEST_KEY = 'adw.testShip';
@@ -57,7 +58,7 @@
     clearTimeout(t._h); t._h = setTimeout(function () { t.hidden = true; }, 3500);
   }
 
-  function testInGame() {
+  function testInGame(target) {
     var gd = document.getElementById('gdBtn');
     if (!gd) { toast('THIS PLANNER VERSION HAS NO GODOT EXPORT', true); return; }
     var timer = setTimeout(function () {
@@ -69,8 +70,8 @@
         var ship = JSON.parse(text);
         localStorage.setItem(TEST_KEY, JSON.stringify(ship));
       } catch (e) { toast('COULD NOT HAND THE SHIP TO THE GAME', true); return; }
-      toast('SHIP SENT · OPENING GAME');
-      location.href = '../?ship=test';
+      toast(target === 'lab' ? 'SHIP SENT · OPENING SHIP LAB' : 'SHIP SENT · OPENING GAME');
+      location.href = target === 'lab' ? '../ship-lab/' : '../?ship=test';
     };
     gd.click();
   }
@@ -86,10 +87,14 @@
     test.type = 'button'; test.textContent = '▶ TEST IN GAME'; test.style.cssText = css;
     test.style.background = '#E8ECEE'; test.style.color = '#0F1214';
     test.title = 'Open this ship in the Atomic Drifter web prototype';
-    test.addEventListener('click', testInGame);
+    test.addEventListener('click', function () { testInGame('game'); });
+    var lab = document.createElement('button');
+    lab.type = 'button'; lab.textContent = '▶ SHIP LAB'; lab.style.cssText = css;
+    lab.title = 'Open this ship in the Ship Lab (top-down + isometric views)';
+    lab.addEventListener('click', function () { testInGame('lab'); });
     var game = document.createElement('a');
     game.href = '../'; game.textContent = 'GAME'; game.style.cssText = css + ';text-decoration:none';
-    bar.appendChild(game); bar.appendChild(test);
+    bar.appendChild(game); bar.appendChild(lab); bar.appendChild(test);
     document.body.appendChild(bar);
 
     function place() {

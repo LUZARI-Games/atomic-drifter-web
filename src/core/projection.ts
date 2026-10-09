@@ -65,9 +65,10 @@ export interface FloorBox {
 /**
  * Painter's order for things standing on a grid floor (walls, blocks, crew), correct for turned views too:
  * A goes before B when A lies completely behind B along a floor axis that points towards the viewer.
- * Ties / overlaps fall back to `key` (nearest point). Returns indices in draw order.
+ * Ties / overlaps fall back to `key` (nearest point). `mustFollow` adds fixed pairs [first, then]
+ * (e.g. a symbol painted on top of its block). Returns indices in draw order.
  */
-export function drawOrder(v: View, boxes: FloorBox[], key: number[]): number[] {
+export function drawOrder(v: View, boxes: FloorBox[], key: number[], mustFollow: [number, number][] = []): number[] {
   const eps = 1e-6;
   const dx = v.yawSin; // how much world +x points towards the viewer
   const dy = v.yawCos; // how much world +y points towards the viewer
@@ -89,6 +90,10 @@ export function drawOrder(v: View, boxes: FloorBox[], key: number[]): number[] {
       after[i]!.push(j);
       before[j]!++;
     }
+  }
+  for (const [i, j] of mustFollow) {
+    after[i]!.push(j);
+    before[j]!++;
   }
   const out: number[] = [];
   const ready = new Set<number>();

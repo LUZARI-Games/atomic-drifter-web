@@ -47,6 +47,15 @@ describe('look-down projection', () => {
     expect(drawOrder(v, [block, wall], [nearest(block), nearest(wall)])).toEqual([1, 0]);
   });
 
+  it('draw order: fixed pairs win (a symbol after its block, even when it would be ready first)', () => {
+    const v = makeView(90);
+    const wall = { minX: 0, maxX: 1, minY: 0, maxY: 0.2 };
+    const block = { minX: 0, maxX: 1, minY: 0.5, maxY: 1 };
+    const symbol = { minX: 0, maxX: 1, minY: 0, maxY: 1 };
+    // keys would put the symbol before the block; the block waits for the wall behind it
+    expect(drawOrder(v, [wall, block, symbol], [0, 0.5, 0.1], [[1, 2]])).toEqual([0, 1, 2]);
+  });
+
   it('hull keeps only the outline', () => {
     const h = convexHull([[0, 0], [2, 0], [2, 2], [0, 2], [1, 1]]);
     expect(h).toHaveLength(4);

@@ -1,4 +1,4 @@
-// Ship Lab test page (/ship-lab/): the same airship from several angles – TOP-DOWN, look-down 60°/45°, isometric – with half walls (1 m),
+// Ship Lab test page (/ship-lab/): any ship (planner test ship or demo) from three angles – TOP-DOWN, ISO 60/45, ISO 45/45 – with half walls,
 // 1 m system blocks, framed doors and a few crew for scale. Orthographic, flat 2D shapes.
 import Phaser from 'phaser';
 import { parseCrewLook, type CrewLook } from './core/crew';
@@ -15,11 +15,9 @@ import './ui/styles.css';
 const PX_PER_M = 40;
 const PANEL_GAP = 70;
 const ANGLES = [
-  { title: 'TOP-DOWN (90°)', pitch: 90, yaw: 0 },
-  { title: 'LOOK-DOWN 60°', pitch: 60, yaw: 0 },
-  { title: 'LOOK-DOWN 45°', pitch: 45, yaw: 0 },
-  { title: 'ISO 2:1 (TURNED 45°, DOWN 30°)', pitch: 30, yaw: 45 },
-  { title: 'ISO 45/45 (TURNED 45°, DOWN 45°)', pitch: 45, yaw: 45 },
+  { title: 'TOP-DOWN (2D)', pitch: 90, yaw: 0 },
+  { title: 'ISO 60/45 (DOWN 60°, TURNED 45°)', pitch: 60, yaw: 45 },
+  { title: 'ISO 45/45 (DOWN 45°, TURNED 45°)', pitch: 45, yaw: 45 },
 ];
 
 /** A few crew standing on free deck tiles (one per room, up to four) for scale. */
@@ -62,8 +60,8 @@ class ShipLabScene extends Phaser.Scene {
 }
 
 async function boot(): Promise<void> {
-  const { ship } = loadShip();
-  mountMenu(document.getElementById('hud')!, 'SHIP LAB', [
+  const { ship, source } = loadShip();
+  mountMenu(document.getElementById('hud')!, `SHIP LAB // ${ship.name.toUpperCase()} (${source === 'planner' ? 'FROM PLANNER' : 'DEMO'})`, [
     { label: 'GAME', href: '/' },
     { label: 'CREW LAB', href: '/crew-lab/' },
     { label: 'PLANNER', href: '/planner/' },
