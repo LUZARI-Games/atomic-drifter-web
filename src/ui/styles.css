@@ -39,7 +39,7 @@ html, body {
   pointer-events: none;
   z-index: 2;
 }
-#hud button { pointer-events: auto; }
+#hud button, #hud a { pointer-events: auto; }
 
 .topbar {
   position: absolute;
@@ -53,7 +53,12 @@ html, body {
   border-bottom: 3px solid var(--green-dim);
   background: rgba(3, 8, 6, 0.85);
 }
+.actions { display: flex; gap: 8px; flex-shrink: 0; }
 .title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--fs-l);
   letter-spacing: 4px;
   text-shadow: 0 0 6px rgba(26, 255, 128, 0.6);
@@ -68,7 +73,10 @@ html, body {
   padding: 6px 12px;
   letter-spacing: 2px;
   cursor: pointer;
+  text-decoration: none;
 }
+@media (max-width: 1000px) { .brand { display: none; } }
+
 .btn:active { background: rgba(26, 255, 128, 0.18); }
 
 .infoline {
@@ -82,6 +90,7 @@ html, body {
   background: rgba(3, 8, 6, 0.85);
 }
 .prompt { color: var(--amber); }
+.infoline .warn { color: var(--amber); }
 .cursor { animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 

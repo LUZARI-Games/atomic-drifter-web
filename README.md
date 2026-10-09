@@ -1,7 +1,7 @@
 # Atomic Drifter Web
 
 2D browser prototype of **Atomic Drifter** – Phaser 4 + TypeScript + HTML/CSS overlay.
-Live (after setup): https://adw.luzari-games.com
+Live: https://adw.luzari-games.com · Ship planner: https://adw.luzari-games.com/planner/
 
 ## Run & build
 ```bash
@@ -16,6 +16,7 @@ npm run build      # typecheck + build to dist/
 - `src/data/` – game content as JSON
 - `src/render/` – Phaser scenes (drawing only)
 - `src/ui/` – HTML/CSS interface
+- `planner/` – Ship Interior Planner (unchanged copy), see `docs/updating-planner.md`
 - `docs/handoffs/` – task specs
 
 ## Cloudflare setup (one time, works from the phone)

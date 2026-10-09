@@ -13,10 +13,14 @@ The owner works from an Android phone and is not a programmer: keep explanations
 | `src/data/` | All game content as JSON (rooms, systems, items, crew…). snake_case ids. | – |
 | `src/render/` | Phaser scenes. Only *draws* core state and forwards input to core. | core, data, Phaser |
 | `src/ui/` | HTML/CSS overlay for all UI (menus, HUD, panels). | core |
+| `planner/source.html` | Ship Interior Planner artifact, **copied unchanged**. Never edit it – replace it with a new revision. | – |
+| `public/planner/bridge.js` | Website add-on for the planner (downloads, TEST IN GAME). See `docs/updating-planner.md`. | – |
 
 - State lives in a `Store` (`src/core/store.ts`); updates are pure functions `(state) => newState`.
 - Renderer/UI subscribe to the store; they never hold their own copy of game state.
 - Every rule in `src/core` gets a Vitest test next to it (`*.test.ts`).
+- Ships use the planner's Godot export (`atomic-drifter-ship-godot` v1: meters, bow = -Z, starboard = +X) unchanged –
+  the same file feeds the web prototype and Godot. The game draws it top-down with the bow pointing right.
 
 ## Design rules
 - Colors: background `#030806`, phosphor green `#1AFF80`, amber `#FFB43A` = enemy/warning, red `#FF4A3A` = error/damage.
