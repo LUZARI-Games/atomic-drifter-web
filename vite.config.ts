@@ -8,7 +8,7 @@ export default defineConfig({
     target: 'es2022',
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
-      input: { main: 'index.html', crewlab: 'crew-lab/index.html' },
+      input: { main: 'index.html', crewlab: 'crew-lab/index.html', shiplab: 'ship-lab/index.html' },
       output: {
         manualChunks: { phaser: ['phaser'] },
       },

@@ -1,33 +1,11 @@
 import Phaser from 'phaser';
 import { createGameState } from './core/selection';
-import { parseShip } from './core/ship';
 import { Store } from './core/store';
-import type { Ship } from './core/types';
-import demoShip from './data/demo_ship.json';
 import { COLORS, FONT_FAMILY } from './render/palette';
 import { ShipScene } from './render/ShipScene';
 import { mountHud } from './ui/hud';
+import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
 import './ui/styles.css';
-
-/** Key the planner's TEST IN GAME button writes the exported ship to (see public/planner/bridge.js). */
-export const TEST_SHIP_KEY = 'adw.testShip';
-
-function loadShip(): { ship: Ship; source: 'planner' | 'demo'; problems: string[] } {
-  const demo = parseShip(demoShip).ship!;
-  let raw: string | null = null;
-  try {
-    raw = localStorage.getItem(TEST_SHIP_KEY);
-  } catch {
-    /* storage blocked – use the demo ship */
-  }
-  if (!raw) return { ship: demo, source: 'demo', problems: [] };
-  try {
-    const { ship, problems } = parseShip(JSON.parse(raw));
-    return ship ? { ship, source: 'planner', problems } : { ship: demo, source: 'demo', problems };
-  } catch {
-    return { ship: demo, source: 'demo', problems: ['SAVED SHIP IS DAMAGED'] };
-  }
-}
 
 async function boot(): Promise<void> {
   const loaded = loadShip();

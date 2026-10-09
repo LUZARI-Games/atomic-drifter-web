@@ -137,6 +137,7 @@ async function boot(): Promise<void> {
   mountMenu(document.getElementById('hud')!, 'CREW LAB', [
     { label: 'SWAP M/F', onClick: () => (swapped = !swapped) },
     { label: 'GAME', href: '/' },
+    { label: 'SHIP LAB', href: '/ship-lab/' },
     ...(document.fullscreenEnabled ? [{ label: 'FULLSCREEN', onClick: () => void toggleFullscreen() }] : []),
   ]);
 

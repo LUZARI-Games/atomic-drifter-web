@@ -1,0 +1,9 @@
+{
+  "wall_height_m": 1.0,
+  "railing_height_m": 1.0,
+  "system_height_m": 1.0,
+  "door_frame_height_m": 1.5,
+  "door_post_m": 0.16,
+  "hull_depth_m": 1.2,
+  "wall_thickness_m": { "interior": 0.22, "hull": 0.3, "railing": 0.12 }
+}

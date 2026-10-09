@@ -42,6 +42,12 @@ never restate the owner's tasks back to them.
   New looks use `builds.*.torso` (shoulders/waist) – tanks are a clear V shape; OLD keeps `builds.*.shoulders`.
   The Crew Lab shows OLD | NEW | NEW + GEAR | ISO 45° | ISO 60° side by side until the owner decides.
 
+## Ship Lab (in evaluation)
+- `/ship-lab/` (`src/shiplab.ts`, `src/render/ship_view.ts`): the same ship at 90° (top-down), 60° and 45°, orthographic,
+  flat 2D. Heights in `src/data/ship_view.json` (half walls 1 m, systems 1 m, door frames 1.5 m) → `src/core/ship3d.ts`.
+  Doors = brass frame (2 posts + lintel) + floor plate; airlocks rust-orange with hazard stripes.
+  The main game view (`ShipScene`) is unchanged until the owner picks an angle.
+
 ## Design rules (terminal UI)
 - Colors: background `#030806`, phosphor green `#1AFF80`, amber `#FFB43A` = enemy/warning, red `#FF4A3A` = error/damage.
   Tokens live in `src/ui/styles.css` (`:root`) and `src/render/palette.ts` – keep both in sync.
