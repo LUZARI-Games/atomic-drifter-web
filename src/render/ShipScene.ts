@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 import { airshipHull, blockNotches, blockPolygons, systemBlocks, type HullShape, type SystemBlock } from '../core/hull';
 import { tapPoint } from '../core/selection';
 import { roomFloorCenter, roomOutline } from '../core/ship';
+import { systemColor } from '../core/systems';
 import type { Store } from '../core/store';
 import type { GameState, Point } from '../core/types';
 import { drawSystemIcon } from './icons';
@@ -129,22 +130,24 @@ export class ShipScene extends Phaser.Scene {
       g.strokePoints(this.poly(this.shrink(t.polygon, t.center, 0.1)), true);
     }
 
-    // System blocks: one continuous shape per system, dark rim, symbol in the middle
+    // System blocks: one continuous shape per system in its planner colour, darker rim, symbol in the middle
     for (const b of this.blocks) {
-      g.fillStyle(WORLD.machineryDark, 1);
+      const fill = Phaser.Display.Color.HexStringToColor(systemColor(ship.rooms.find((r) => r.id === b.room))).color;
+      const rim = Phaser.Display.Color.ValueToColor(fill).darken(55).color;
+      g.fillStyle(rim, 1);
       for (const p of blockPolygons(b, BLOCK_GAP_M)) g.fillPoints(this.poly(p), true);
-      g.fillStyle(WORLD.machinery, 1);
+      g.fillStyle(fill, 1);
       for (const p of blockPolygons(b, BLOCK_GAP_M + BLOCK_RIM_M)) g.fillPoints(this.poly(p), true);
       // inside corners (L-shapes): rim, then gap, cut as squares into the corner tile
       for (const { point, dir } of blockNotches(b)) {
-        for (const [m, col] of [[BLOCK_GAP_M + BLOCK_RIM_M, WORLD.machineryDark], [BLOCK_GAP_M, WORLD.floor]] as const) {
+        for (const [m, col] of [[BLOCK_GAP_M + BLOCK_RIM_M, rim], [BLOCK_GAP_M, WORLD.floor]] as const) {
           const q: Point = [point[0] + dir[0] * m, point[1] + dir[1] * m];
           g.fillStyle(col, 1);
           g.fillPoints(this.poly([point, [q[0], point[1]], q, [point[0], q[1]]]), true);
         }
       }
       const c = this.toScreen(b.anchor);
-      drawSystemIcon(g, b.system, c.x, c.y, ICON_RADIUS_M * px);
+      drawSystemIcon(g, b.system, c.x, c.y, ICON_RADIUS_M * px, fill);
     }
 
     // Walls: dark body + light top edge; square caps fill the joints

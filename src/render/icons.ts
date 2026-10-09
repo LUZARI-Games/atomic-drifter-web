@@ -1,33 +1,26 @@
 // System icons for the world view: bold, flat, filled silhouettes (FTL-style readability),
-// painted in worn stencil colour on the system block. `s` = icon radius in px; every icon fits a circle of radius s.
+// painted in dark stencil ink on the colour-coded system block. `s` = icon radius in px; every icon fits a circle of radius s.
 import Phaser from 'phaser';
+import { systemId } from '../core/systems';
 import { WORLD } from './palette';
 
 type G = Phaser.GameObjects.Graphics;
 const INK_ALPHA = 0.85;
+const INK = WORLD.wall; // dark stencil ink, readable on every planner system colour
 
 /** Points rotated by `a` radians around (cx, cy). */
 const rot = (pts: [number, number][], a: number, cx: number, cy: number) =>
   pts.map(([px, py]) => new Phaser.Math.Vector2(cx + px * Math.cos(a) - py * Math.sin(a), cy + px * Math.sin(a) + py * Math.cos(a)));
 
-/** Normalise planner system ids: "MedBay", "med_bay", "Engines" … -> "medbay", "engine". */
-export function iconId(system: string | null): string {
-  const id = String(system ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const alias: Record<string, string> = {
-    engines: 'engine', piloting: 'cockpit', helm: 'cockpit', weapon: 'weapons', shield: 'shields',
-    sensors: 'sensor', door: 'doors', medical: 'medbay', teleporter: 'crewteleporter', drone: 'drones',
-  };
-  return alias[id] ?? id;
-}
-
 export const KNOWN_ICONS = ['reactor', 'engine', 'cockpit', 'weapons', 'shields', 'sensor', 'doors', 'medbay', 'crewteleporter', 'drones'];
 
-export function drawSystemIcon(g: G, system: string | null, x: number, y: number, s: number): void {
-  const ink = () => { g.fillStyle(WORLD.label, INK_ALPHA); g.lineStyle(Math.max(2, s * 0.13), WORLD.label, INK_ALPHA); };
-  const cut = () => g.fillStyle(WORLD.machinery, 1); // "holes" in the icon = block colour
+/** `fill` = colour of the block underneath (icon "holes" are cut in it). */
+export function drawSystemIcon(g: G, system: string | null, x: number, y: number, s: number, fill: number): void {
+  const ink = () => { g.fillStyle(INK, INK_ALPHA); g.lineStyle(Math.max(2, s * 0.13), INK, INK_ALPHA); };
+  const cut = () => g.fillStyle(fill, 1); // "holes" in the icon = block colour
   ink();
 
-  switch (iconId(system)) {
+  switch (systemId(system)) {
     case 'reactor': { // ring + radiation trefoil
       g.strokeCircle(x, y, s * 0.92);
       for (let i = 0; i < 3; i++) {
@@ -49,9 +42,9 @@ export function drawSystemIcon(g: G, system: string | null, x: number, y: number
       break;
     }
     case 'cockpit': { // ship's helm wheel: rim, spokes with handles, hub
-      g.lineStyle(Math.max(2, s * 0.16), WORLD.label, INK_ALPHA);
+      g.lineStyle(Math.max(2, s * 0.16), INK, INK_ALPHA);
       g.strokeCircle(x, y, s * 0.62);
-      g.lineStyle(Math.max(2, s * 0.12), WORLD.label, INK_ALPHA);
+      g.lineStyle(Math.max(2, s * 0.12), INK, INK_ALPHA);
       for (let i = 0; i < 8; i++) {
         const a = (i * Math.PI) / 4;
         g.lineBetween(x, y, x + Math.cos(a) * s * 0.85, y + Math.sin(a) * s * 0.85);
@@ -69,9 +62,9 @@ export function drawSystemIcon(g: G, system: string | null, x: number, y: number
       break;
     }
     case 'shields': { // mini airship inside a shield bubble
-      g.lineStyle(Math.max(2, s * 0.12), WORLD.label, INK_ALPHA);
+      g.lineStyle(Math.max(2, s * 0.12), INK, INK_ALPHA);
       g.strokeCircle(x, y, s * 0.92);
-      g.lineStyle(Math.max(1, s * 0.06), WORLD.label, 0.45);
+      g.lineStyle(Math.max(1, s * 0.06), INK, 0.45);
       g.strokeCircle(x, y, s * 0.74); // inner bubble shimmer
       ink();
       g.fillEllipse(x - s * 0.08, y, s * 1.05, s * 0.5); // hull
@@ -86,7 +79,7 @@ export function drawSystemIcon(g: G, system: string | null, x: number, y: number
         [[cx - w / 2, cy - h / 2], [cx + w / 2, cy - h / 2], [cx + w / 2, cy + h / 2], [cx - w / 2, cy + h / 2]];
       g.fillPoints(rot(rect(-s * 0.62, 0, s * 0.5, s * 0.42), t, x, y), true); // left panel
       g.fillPoints(rot(rect(s * 0.62, 0, s * 0.5, s * 0.42), t, x, y), true); // right panel
-      g.lineStyle(Math.max(1, s * 0.06), WORLD.machinery, 1); // panel cells
+      g.lineStyle(Math.max(1, s * 0.06), fill, 1); // panel cells
       for (const cx of [-s * 0.62, s * 0.62]) {
         const [p1, p2] = rot([[cx, -s * 0.21], [cx, s * 0.21]], t, x, y);
         g.lineBetween(p1!.x, p1!.y, p2!.x, p2!.y);
@@ -101,7 +94,7 @@ export function drawSystemIcon(g: G, system: string | null, x: number, y: number
       break;
     }
     case 'doors': { // sliding blast door: frame + two leaves
-      g.lineStyle(Math.max(2, s * 0.12), WORLD.label, INK_ALPHA);
+      g.lineStyle(Math.max(2, s * 0.12), INK, INK_ALPHA);
       g.strokeRect(x - s * 0.7, y - s * 0.85, s * 1.4, s * 1.7);
       ink();
       g.fillRect(x - s * 0.55, y - s * 0.7, s * 0.47, s * 1.4);
@@ -121,7 +114,7 @@ export function drawSystemIcon(g: G, system: string | null, x: number, y: number
       break;
     }
     case 'drones': { // quad drone
-      g.lineStyle(Math.max(2, s * 0.14), WORLD.label, INK_ALPHA);
+      g.lineStyle(Math.max(2, s * 0.14), INK, INK_ALPHA);
       g.lineBetween(x - s * 0.6, y - s * 0.6, x + s * 0.6, y + s * 0.6);
       g.lineBetween(x + s * 0.6, y - s * 0.6, x - s * 0.6, y + s * 0.6);
       for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) g.fillCircle(x + dx * s * 0.62, y + dy * s * 0.62, s * 0.3);

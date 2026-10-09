@@ -1,0 +1,12 @@
+{
+  "reactor": { "name": "REACTOR", "color": "#59D96B" },
+  "engine": { "name": "ENGINE", "color": "#5AA2FF" },
+  "crewteleporter": { "name": "CREW TELEPORTER", "color": "#9B8CFF" },
+  "medbay": { "name": "MED BAY", "color": "#9AF2CF" },
+  "weapons": { "name": "WEAPONS", "color": "#FF7A9C" },
+  "shields": { "name": "SHIELDS", "color": "#3FD5E0" },
+  "drones": { "name": "DRONES", "color": "#C8E65A" },
+  "doors": { "name": "DOORS", "color": "#F07CD8" },
+  "cockpit": { "name": "COCKPIT", "color": "#C77DFF" },
+  "sensor": { "name": "SENSOR", "color": "#F2E86B" }
+}
