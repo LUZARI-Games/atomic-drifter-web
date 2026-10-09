@@ -34,6 +34,16 @@ export interface IdlePose {
   t: number;
   seed: number;
   typing: boolean;
+  /** Mood (core/mood.ts): bored (sit 0…1 = sitting on the floor), telling a story / listening, wary of the other. */
+  mood?: 'bored' | 'teller' | 'listener' | 'wary';
+  sit?: number;
+  /** Head turn towards someone (rad, relative to the body) – listener / wary side glances. */
+  glance?: number;
+  /** Melee: punch 0…1 (1 = fist fully out), which arm, hurt 0…1 (just got hit), dying 0…1 (falling). */
+  punch?: number;
+  punchSide?: number;
+  hurt?: number;
+  dying?: number;
 }
 
 const POD_RIM = 0.72; // top of the sidecar pod (m) – keep in sync with ship_view's egg
@@ -63,7 +73,7 @@ const now_and_then = (x: number) => {
  * far half, then the bike, then the near half, so the far leg disappears behind the bike.
  */
 export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean, ringColor?: number, idle?: IdlePose, sit?: SitPose, half?: 'far' | 'near'): void {
-  const color = hex(CREW_LOOKS.origins[look.origin].color);
+  const color = shade(hex(CREW_LOOKS.origins[look.origin].color), -45 * (idle?.hurt ?? 0)); // flashes lighter when hit
   const skin = hex(CREW_LOOKS.skin_tones[look.skin]!);
   const hair = hex(CREW_LOOKS.hair_colors[look.hair]!);
   const tank = look.build === 'tank';
@@ -78,13 +88,30 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   // idle: breathing lifts chest + head a little, weight moves from foot to foot, the head turns now and then
   const it = idle?.t ?? 0;
   const sd = idle?.seed ?? 0;
-  const breath = idle ? Math.sin((it / (2.6 + (sd % 1) * 1.2)) * Math.PI * 2) * 0.022 : 0;
-  const shift = idle && !sit ? now_and_then(it * 0.37 + sd * 7) * 0.055 : 0; // weight from foot to foot (m, sideways)
-  const headTurn = idle ? now_and_then(it * 0.6 + sd * 13) * (idle.typing ? 0.35 : 0.8) : 0; // head turn (rad)
-  const akimbo = idle && !idle.typing && !sit ? Math.abs(now_and_then(it * 0.19 + sd * 3 + 1)) : 0; // hands on hips (0…1)
-  const hip = sit ? sit.hip : 0.85 * k;
-  const shoulder = hip + 0.55 * k + breath;
-  const head = shoulder + 0.2 * k + breath * 0.1;
+  const mood = idle?.mood;
+  const fighting = idle?.punch !== undefined;
+  const special = !!mood || fighting || idle?.dying !== undefined;
+  const breath = idle ? Math.sin((it / (2.6 + (sd % 1) * 1.2)) * Math.PI * 2) * (mood === 'bored' ? 0.03 : 0.022) : 0;
+  const shift = idle && !sit && !special ? now_and_then(it * 0.37 + sd * 7) * 0.055 : 0; // weight from foot to foot (m, sideways)
+  let headTurn = idle && !special ? now_and_then(it * 0.6 + sd * 13) * (idle.typing ? 0.35 : 0.8) : 0; // head turn (rad)
+  const akimbo = idle && !idle.typing && !sit && !special ? Math.abs(now_and_then(it * 0.19 + sd * 3 + 1)) : 0; // hands on hips (0…1)
+  // bored: deep sighs (shoulders sag), now and then a big yawn / stretch, a tapping foot, sitting down on the floor
+  const sigh = mood === 'bored' ? Math.max(0, Math.sin(it * 0.9 + sd * 5)) ** 6 : 0;
+  const stretch = mood === 'bored' ? Math.abs(now_and_then(it * 0.21 + sd * 11)) : 0;
+  const tap = mood === 'bored' && !stretch ? Math.max(0, Math.sin(it * 10)) * (now_and_then(it * 0.33 + sd) !== 0 ? 1 : 0) : 0;
+  const floorSit = Math.max(mood === 'bored' ? idle?.sit ?? 0 : 0, idle?.dying ?? 0); // dying = slumping down
+  // telling a story: lively head bob, laughing fits (shoulders shake, head back); listening: nods
+  const laugh = mood === 'teller' ? Math.abs(now_and_then(it * 0.47 + sd * 3)) : 0;
+  const shake = laugh * Math.sin(it * 42) * 0.016;
+  const bob = mood === 'teller' ? Math.sin(it * 6.3) * 0.012 : 0;
+  const nod = mood === 'listener' ? Math.max(0, Math.sin(it * 4.2)) * (now_and_then(it * 0.7 + sd) !== 0 ? 0.03 : 0.008) : 0;
+  if (mood === 'listener' || mood === 'teller') headTurn = (idle?.glance ?? 0) * 0.8;
+  // wary: side glances at the other, otherwise looking a bit away
+  if (mood === 'wary') headTurn = now_and_then(it * 0.55 + sd * 9) !== 0 ? (idle?.glance ?? 0) : -(idle?.glance ?? 0) * 0.25;
+  const standHip = 0.85 * k;
+  const hip = sit ? sit.hip : standHip + (0.24 - standHip) * floorSit;
+  const shoulder = hip + 0.55 * k + breath - sigh * 0.05 + shake;
+  const head = shoulder + 0.2 * k + breath * 0.1 + bob - nod + laugh * 0.02 - (idle?.dying ?? 0) * 0.08;
   const headR = 0.12 * (tank ? 1.05 : 1);
 
   // walk cycle: legs and arms swing in opposite directions
@@ -210,7 +237,12 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
     const f = swing * side;
     // weight on one foot: the other knee bends a little, its foot slides forward
     const free = idle ? Math.max(0, -side * Math.sign(shift)) * Math.abs(shift) * 1.6 : 0;
-    capsule([f * 0.5, side * hipW + shift, hip], [f + free, side * hipW, legR], legR, shade(color, 35));
+    const stance = fighting ? side * 0.14 : 0; // fight: one foot forward, the other back
+    const wide = fighting ? 0.07 : 0;
+    let foot: Vec3 = [f + free + stance, side * (hipW + wide), legR + (side > 0 ? tap * 0.05 : 0)];
+    // sitting on the floor: legs stretched out in front
+    if (floorSit > 0) foot = [foot[0] + (0.62 - foot[0]) * floorSit, foot[1] + side * 0.04 * floorSit, foot[2]];
+    capsule([f * 0.5, side * hipW + shift, hip], foot, legR, shade(color, 35));
   }
 
   limbSide = 0;
@@ -236,7 +268,25 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
         : sit.hands === 'wheel' ? [0.34, side * 0.15, hip + 0.28 + grip * side]
           : [0.24, side * W * 0.75, hip + 0.1];
     } else if (idle?.typing) hand = [0.42, side * W * 0.55 + shift, 0.82 + tap];
-    else if (akimbo > 0) {
+    else if (fighting) {
+      // fists up; the punching arm shoots forward
+      const guard: Vec3 = [0.24, side * 0.15, shoulder - 0.12];
+      const out = side === (idle?.punchSide ?? 1) ? idle?.punch ?? 0 : 0;
+      hand = [guard[0] + 0.38 * out, guard[1] - side * 0.08 * out, guard[2] + 0.04 * out];
+      elbow = [0.08 + 0.2 * out, side * (W + 0.1 - 0.06 * out), shoulder - 0.3 + 0.18 * out];
+    } else if (floorSit > 0.5) hand = [-0.22, side * (W + 0.06), hip - 0.14]; // leaning back on the hands
+    else if (mood === 'bored' && stretch > 0) {
+      // yawn + stretch: arms up over the head
+      hand = [down[0] + (0.05 - down[0]) * stretch, down[1] + (side * 0.16 - down[1]) * stretch, down[2] + (head + 0.3 - down[2]) * stretch];
+    } else if (mood === 'teller') {
+      // gesturing while telling the story
+      hand = [0.3 + 0.1 * Math.sin(it * 3.1 + side), side * (W + 0.12 + 0.08 * Math.sin(it * 2.3 + side * 2)), shoulder - 0.18 + 0.16 * Math.sin(it * 3.7 + side * 1.3)];
+      elbow = [0.08, side * (W + 0.14), shoulder - 0.28];
+    } else if (mood === 'wary') {
+      // arms crossed over the chest
+      hand = [0.15, -side * 0.08, shoulder - 0.27 - (side > 0 ? 0.03 : 0)];
+      elbow = [0.12, side * (W + 0.06), shoulder - 0.3];
+    } else if (akimbo > 0) {
       // hands on hips, elbows out
       const onHip: Vec3 = [0.02, side * (W * torso.waist + 0.06) + shift, hip + 0.06];
       const lerp = (a: Vec3, b: Vec3, t: number): Vec3 => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];

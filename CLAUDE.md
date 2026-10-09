@@ -117,6 +117,19 @@ never restate the owner's tasks back to them.
   pickers. After a confirm the CRT switches off → REBOOT + BACK TO GAME. Never drop parts of the owner's mockups
   without asking. Equipment picks are stored as `equip:<id>` in `run.turrets` until the run gets an equipment list.
 
+## Boarding combat + moods
+- Enemies: placed in the planner with the ENEMY CREW tool (key E) → export `crew: [{ side: 'enemy', tile }]` →
+  `spawnShipEnemies` at game start (random hostile look from `combat.json` enemy_origins + enemy portrait).
+- `src/core/combat.ts` `tickCombat` (every frame): crew and boarders standing in the same room fight in melee (FTL);
+  blows every `attack_interval_s`, HP by build, death animation then removed. Boarders walk to the nearest system that
+  is not wrecked and damage it (`systemDamage`, red pulsing block); crew repair it when the room is clear.
+  Enemies cannot be selected; tapping them does nothing. Numbers in `src/data/combat.json`.
+- `src/core/mood.ts` `moods`: bored (alone, not operating, idle ≥ 6 s; sits on the floor after 18 s, "zZ"),
+  chat (same origin in one room: the one not operating tells a story – gestures, laughs, "!"/"HA" – the other nods),
+  wary (different origins in one room: crossed arms, side glances, "?"; `keepDistance` makes one walk to another tile).
+  No moods while boarders are in the room. Poses in `IdlePose` (crew_iso.ts), marks/health bars/damage numbers in
+  ShipScene's overlay. Test scenes: `?test=fight|boarders|chat|wary|bored`.
+
 ## Sound
 - `src/ui/sound.ts`: all sounds made in code with Web Audio (no files): terminal blips (select / deselect / send),
   metal footsteps (one per stride), sliding doors, engine hum + wind ambience. Starts after the first tap (browser rule).

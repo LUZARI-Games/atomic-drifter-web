@@ -51,6 +51,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .tool:hover{border-color:var(--p)}
 .tool.on{border-color:var(--p);background:var(--p);color:var(--ink)}
 .tool.on small{color:var(--ink)}
+.tool[data-tool="enemy"]{color:#FFB43A;border-color:rgba(255,180,58,.45)} /* [website] ENEMY CREW tool = amber */
+.tool[data-tool="enemy"]:hover{border-color:#FFB43A}
+.tool[data-tool="enemy"].on{border-color:#FFB43A;background:#FFB43A;color:var(--ink)}
 /* stage */
 .stage{position:relative;min-width:0;min-height:0;border:1px solid var(--p-faint);background:var(--glass);display:flex;flex-direction:column}
 .stage::before,.stage::after{content:"";position:absolute;width:14px;height:14px;border:solid var(--p);pointer-events:none;z-index:2}
@@ -517,6 +520,8 @@ const TOOLS = [
   { k: 'delete', key: '7', name: 'DELETE', ic: 'M4 7 H20 M9 7 V4 H15 V7 M6 7 L7 21 H17 L18 7 M10 11 V17 M14 11 V17', hint: 'TAP A ROOM TO DELETE IT · UNDO BRINGS IT BACK' },
   { k: 'balcony', key: '8', name: 'BALCONY', ic: 'M3 20 H21 M3 12 H21 M5 12 V20 M9 12 V20 M13 12 V20 M17 12 V20 M21 12 V20', hint: 'TAP AN EMPTY ROOM: CLOSED ↔ BALCONY (OPEN RAILING · VEHICLES DOCK HERE)' },
   { k: 'crew', key: '6', name: 'CREW', ic: 'M9 7 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0 M5 21 C5 14 19 14 19 21', hint: 'PICK A CREW MEMBER IN THE CREW ROSTER, THEN TAP A FLOOR FIELD · TAP A PLACED ONE TO REMOVE' },
+  // [website] ENEMY CREW tool: boarders for testing (tile.enemies = 1..4), exported as Godot crew[] with side 'enemy'
+  { k: 'enemy', key: 'E', name: 'ENEMY CREW', ic: 'M12 3 L22 20 H2 Z M12 9 V14 M12 16.5 V17.5', hint: 'TAP A FLOOR FIELD: +1 ENEMY BOARDER (UP TO 4) · A 5TH TAP CLEARS THE FIELD' },
   { k: 'system', key: '', hidden: true, name: 'SYSTEM', ic: '', hint: 'TAP SYSTEM BLOCKS TO GIVE THEM THIS SYSTEM' },
   { k: 'stamp', key: '', hidden: true, name: 'PLACE BLOCK', ic: '', hint: 'CLICK THE GRID · THE BLOCK SNAPS TO THE SHIP · [R] ROTATE · [ESC] CANCEL' },
   { k: 'pan', key: 'H', name: 'PAN', ic: 'M12 2 V22 M2 12 H22 M9 5 L12 2 L15 5 M9 19 L12 22 L15 19 M5 9 L2 12 L5 15 M19 9 L22 12 L19 15', hint: 'DRAG TO MOVE THE VIEW' },
@@ -658,6 +663,34 @@ function crewTap(t) {
   const next = nextFreeCrew(id); armedCrew = next || id;
   commit();
   status(`${crewLabel(id)} ${oldK ? 'MOVED' : 'PLACED'}${replaced ? ` · ${crewLabel(replaced)} IS FREE AGAIN` : ''}${next ? ` · NEXT: ${crewLabel(next)}` : roster.rows.length ? ' · ALL CREW PLACED' : ''}`);
+}
+// [website] ENEMY CREW: tile.enemies = 1..4 enemy boarders on that floor field (tap adds one, the 5th tap clears)
+const ENEMY_MAX = 4, ENEMY_COL = '#FFB43A';
+function enemyTap(t) {
+  if (!t) { error('TAP A FIELD INSIDE THE SHIP'); return; }
+  if (isMach(t)) { error('ENEMIES STAND ON FLOOR, NOT ON MACHINERY'); return; }
+  const n = t.enemies || 0;
+  if (n >= ENEMY_MAX) { delete t.enemies; commit(); status('ENEMIES REMOVED FROM THIS FIELD'); return; }
+  t.enemies = n + 1; commit();
+  const all = [...S.tiles.values()].reduce((m, x) => m + (x.enemies || 0), 0);
+  status(`ENEMY ${t.enemies} / ${ENEMY_MAX} ON THIS FIELD · ${all} ON BOARD${t.enemies === ENEMY_MAX ? ' · TAP AGAIN TO CLEAR' : ''}`);
+}
+function drawEnemies(s) {
+  for (const [k, t] of S.tiles) {
+    const n = t.enemies || 0; if (!n) continue;
+    const [x, y] = unkey(k), cx = sx(x + .5), cy = sy(y + .5);
+    // 1 = centre · 2 = diagonal · 3/4 = corners of a 2x2 grid
+    const o = s * .22, spots = n === 1 ? [[0, 0]] : n === 2 ? [[-o, -o], [o, o]] : n === 3 ? [[-o, -o], [o, -o], [0, o]] : [[-o, -o], [o, -o], [-o, o], [o, o]];
+    const rr = Math.max(4, n === 1 ? s * .26 : s * .17);
+    ctx.save();
+    for (const [dx, dy] of spots) {
+      ctx.beginPath(); ctx.arc(cx + dx, cy + dy, rr, 0, Math.PI * 2); ctx.fillStyle = ENEMY_COL; ctx.fill();
+      ctx.lineWidth = Math.max(1.5, s * .045); ctx.strokeStyle = C.bg; ctx.stroke();
+      if (rr >= 6) { ctx.fillStyle = C.ink; const w = Math.max(1.5, rr * .26);
+        ctx.fillRect(cx + dx - w / 2, cy + dy - rr * .58, w, rr * .7); ctx.fillRect(cx + dx - w / 2, cy + dy + rr * .26, w, w); } // "!"
+    }
+    ctx.restore();
+  }
 }
 function renderCrew() {
   const list = $('crewList'); if (!list) return;
@@ -1454,6 +1487,8 @@ function normalize() {
   }
   // crew only on floor
   for (const t of S.tiles.values()) if (t.crew && t.kind === 'machine') delete t.crew;
+  // [website] enemies only on floor, 1..4 per field
+  for (const t of S.tiles.values()) if ('enemies' in t) { const n = Math.min(4, Math.floor(+t.enemies || 0)); if (n < 1 || t.kind === 'machine') delete t.enemies; else t.enemies = n; }
   // machinery only on full tiles
   for (const t of S.tiles.values()) if (t.kind && t.shape !== 'full') delete t.kind;
   // doors: only where a door / airlock is still possible
@@ -1653,6 +1688,7 @@ function drawNow() {
     }
     ctx.restore();
   }
+  drawEnemies(s); // [website] ENEMY CREW markers
   // hovered crew member: full name above the field
   if (hover && !drag) { const ht = S.tiles.get(key(hover.x, hover.y)); if (ht && ht.crew && (showCrew || tool === 'crew')) { const id = crewIdOf(ht); label(id ? crewLabel(id) + (id === S.captain ? ' · CAPTAIN' : '') + (crewInfo(id) ? '' : ' · NOT IN CREW TABLE') : 'CREW SPOT · NO ONE ASSIGNED', sx(hover.x), sy(hover.y) - 22, id ? (crewInfo(id) ? C.p : C.red) : C.amber); } }
   // bounding box + dimensions
@@ -1848,6 +1884,7 @@ function tapAction(h) {
       deleteRoom(t.room); break;
     }
     case 'crew': crewTap(t); break;
+    case 'enemy': enemyTap(t); break; // [website]
     case 'rotate': {
       const vv = vehAt(h.x, h.y);
       if (vv) { selVeh = vv.id; sel = null; turnVehicle(vv.id, 'rot'); break; }
@@ -2259,7 +2296,7 @@ function shapeNorm(sh) {
 }
 function xform(sh, op) {
   const f = op === 'rot' ? (x, y) => [-y, x] : (x, y) => [-x, y], map = op === 'rot' ? ROT : MIR;
-  const out = { sys: sh.sys, name: sh.name, cells: sh.cells.map(c => { const [X, Y] = f(c.X, c.Y); return { X, Y, t: map[c.t] || c.t, face: c.face && (op === 'rot' ? ROT_F : MIR_F)[c.face], crew: c.crew }; }),
+  const out = { sys: sh.sys, name: sh.name, cells: sh.cells.map(c => { const [X, Y] = f(c.X, c.Y); return { X, Y, t: map[c.t] || c.t, face: c.face && (op === 'rot' ? ROT_F : MIR_F)[c.face], crew: c.crew, enemies: c.enemies }; }), // [website] enemies
     doors: new Set([...sh.doors].map(d => f(...d.split(',').map(Number)).join(','))) };
   if (sh.walls) out.walls = new Set([...sh.walls].map(d => f(...d.split(',').map(Number)).join(',')));
   out.vehicle = sh.vehicle;
@@ -2519,7 +2556,7 @@ function turnRoom(id, op) {
   for (const [k] of ts) { const [x, y] = unkey(k); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + 1); y1 = Math.max(y1, y + 1); }
   const face = r.console ? consoleSide(r.console) : null;
   let sh = { sys: r.system, name: '', cells: ts.map(([k, t]) => { const [x, y] = unkey(k); const ch = isMach(t) ? 'M' : k === r.console ? 'S' : t.shape !== 'full' ? HALF_INV[t.shape] : 'F';
-    return { X: 2 * (x - x0) + 1, Y: 2 * (y - y0) + 1, t: ch, face: ch === 'S' ? face : undefined, crew: t.crew || undefined }; }), doors: new Set() };
+    return { X: 2 * (x - x0) + 1, Y: 2 * (y - y0) + 1, t: ch, face: ch === 'S' ? face : undefined, crew: t.crew || undefined, enemies: t.enemies || undefined }; }), doors: new Set() }; // [website] enemies
   const doorKinds = new Map();
   for (const [ek, d] of S.doors) { const st = edgeState(ek); if ((st.A && st.A.room === id) || (st.B && st.B.room === id)) {
     const dk = st.type === 'v' ? `${2 * (st.X - x0)},${2 * (st.Y - y0) + 1}` : `${2 * (st.X - x0) + 1},${2 * (st.Y - y0)}`; sh.doors.add(dk); doorKinds.set(ek, d); } }
@@ -2534,6 +2571,7 @@ function turnRoom(id, op) {
     const k = key(sn[0] + (c.X - 1) / 2, sn[1] + (c.Y - 1) / 2), t = { room: id, shape: HALF[c.t] || 'full' };
     if (c.t === 'M') t.kind = 'machine'; if (c.t === 'S') { r.console = k; r.face = c.face || null; }
     if (c.crew) t.crew = c.crew;
+    if (c.enemies) t.enemies = c.enemies; // [website]
     S.tiles.set(k, t);
   }
   for (const d of sh.doors) { const [ex, ey] = d.split(',').map(Number), X = 2 * sn[0] + ex, Y = 2 * sn[1] + ey;
@@ -2941,6 +2979,10 @@ function godotShip() {
         tiles: v.cells.map(([X, Y]) => { const x = (X - 1) / 2, y = (Y - 1) / 2; return { center: W(x + .5, y + .5), polygon: [W(x, y), W(x + 1, y), W(x + 1, y + 1), W(x, y + 1)] }; }),
         exits: v.exits.map(edge), walls: v.walls.map(edge) };
     }),
+    // [website] crew placed in the planner: one entry per person, tile = floor tile centre [x, z] (like rooms[].console.tile)
+    crew_info: 'crew[]: { side: enemy, tile: [x, z] centre of the floor tile } · one entry per person (up to 4 per tile). Missing = no crew placed.',
+    crew: [...S.tiles].filter(([, t]) => t.enemies > 0).flatMap(([k, t]) => { const [x, y] = unkey(k), c = W(x + .5, y + .5);
+      return Array.from({ length: t.enemies }, () => ({ side: 'enemy', tile: [c[0], c[1]] })); }),
     rooms, tiles, walls, doors } };
 }
 function exportGodot(all, copyOnly) {

@@ -68,6 +68,13 @@ export interface Ship {
   doors: ShipDoor[];
   /** Optional (newer planner exports). */
   vehicles?: ShipVehicle[];
+  /** Optional: crew placed in the planner (for now only enemy boarders). */
+  crew?: ShipCrewSpawn[];
+}
+
+export interface ShipCrewSpawn {
+  side: 'crew' | 'enemy';
+  tile: Point; // tile centre
 }
 
 /** A crew member on board. Positions in ship meters; `node` = spot reached last, `dest` = spot walking to. */
@@ -87,6 +94,10 @@ export interface CrewMember {
   hpMax: number;
   captain?: boolean; // the player's own character (first, big portrait)
   portrait?: string; // portrait id (src/data/portraits.json)
+  side?: 'crew' | 'enemy'; // missing = own crew
+  idle?: number; // seconds standing around without anything to do (moods)
+  fight?: { target: string; cooldown: number; hits: number }; // melee: whom, time to the next blow, blows dealt
+  dying?: number; // seconds left of the death animation (then removed)
 }
 
 export interface GameState {
@@ -98,4 +109,6 @@ export interface GameState {
   selectedCrewId: string | null;
   /** Hull, shields, evasion, ammo, scrap (HUD). */
   status: ShipStatus;
+  /** Boarder damage per system room (room id -> damage, 0 = intact … SYSTEM_MAX_DAMAGE = broken). */
+  systemDamage: Record<string, number>;
 }

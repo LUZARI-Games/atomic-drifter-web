@@ -43,6 +43,8 @@ export interface CrewOnDeck {
   lift?: number; // meters above the deck (sitting in a vehicle)
   vehicle?: number; // index into ship.vehicles when sitting in one – drawn after it
   ring?: number; // ring colour override (selection)
+  hostile?: boolean; // enemy boarder: amber outline
+  alpha?: number; // fading out (dying)
   idle?: IdlePose; // standing still: breathing, looking around, typing
   sit?: SitPose; // seated in a vehicle (`at` = under the hips, lift 0)
 }
@@ -213,7 +215,7 @@ export class ShipView {
       box: { minX: feet[0] - 0.3, maxX: feet[0] + 0.3, minY: feet[1] - 0.3, maxY: feet[1] + 0.3 },
       draw: (g) => {
         const p = this.S(feet);
-        drawCrewIso(g, this.view, c.look, p.x, p.y, this.pxPerM, c.facing, c.step ?? 0, false, c.ring, c.idle, c.sit);
+        drawCrewIso(g, this.view, c.look, p.x, p.y, this.pxPerM, c.facing, c.step ?? 0, !!c.hostile, c.ring, c.idle, c.sit);
       },
     };
   }
@@ -261,7 +263,7 @@ export class ShipView {
           let after = -1;
           items.forEach((other, oi) => { if (isBehind(this.view, other.box, it.box)) after = Math.max(after, posOf.get(oi)!); });
           if (c.vehicle !== undefined && vehicleItem[c.vehicle] !== undefined) after = Math.max(after, posOf.get(vehicleItem[c.vehicle]!)!);
-          g.setDepth(depthAt(after + 0.5) + it.key * 1e-6);
+          g.setDepth(depthAt(after + 0.5) + it.key * 1e-6).setAlpha(c.alpha ?? 1);
           it.draw(g);
         });
       },

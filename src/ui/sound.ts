@@ -160,6 +160,27 @@ export class Sound {
     this.hiss(open ? 700 : 1800, open ? 1800 : 700, 0.45, 0.18, 2);
     this.blip(open ? 90 : 75, 0.42, 0.12, 0.25, 'triangle');
   }
+  /** Melee blow: dull punch thud. */
+  hit(): void {
+    this.hiss(900, 200, 0.12, 0.22, 1);
+    this.blip(70 + Math.random() * 20, 0, 0.14, 0.3, 'triangle');
+  }
+  /** Someone goes down: low falling tone. */
+  die(): void {
+    const ctx = this.ready();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(220, t);
+    o.frequency.exponentialRampToValueAtTime(40, t + 0.7);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+    o.connect(g).connect(this.master!);
+    o.start(t);
+    o.stop(t + 0.85);
+  }
   /** Boot on a metal deck: short click + a faint ring, slightly different each time. */
   step(): void {
     const p = 0.85 + Math.random() * 0.3;

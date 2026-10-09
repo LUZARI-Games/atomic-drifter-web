@@ -2,7 +2,7 @@
 // opening doors while someone walks through. Pure functions (state) => state – engine-neutral.
 import LAB from '../data/crew_lab.json';
 import MOVE from '../data/crew_move.json';
-import START from '../data/run_start.json';
+import COMBAT from '../data/combat.json';
 import PORTRAITS from '../data/portraits.json';
 import { CREW_GEAR, CREW_LOOKS, equip, parseCrewLook, type CrewLook, type GearId } from './crew';
 import { seatPose } from './exterior';
@@ -86,11 +86,16 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
     crew.push({
       id: look.id, name: look.name, look, node, dest: node, pos: spot(ship, crew, node, look.id), path: [],
       heading: desk ? headingOf(desk) : r() * Math.PI * 2, walked: 0,
-      hp: START.crew_hp, hpMax: START.crew_hp, captain: i === 0, // the first one is the player's captain
+      hp: maxHp(look), hpMax: maxHp(look), captain: i === 0, // the first one is the player's captain
       portrait: face?.id,
     });
   }
   return crew;
+}
+
+/** Full health of a crew member / boarder (tanks are tougher). */
+export function maxHp(look: CrewLook): number {
+  return look.build === 'tank' ? COMBAT.hp.tank : COMBAT.hp.normal;
 }
 
 /** Free standing spot on a node: deck tiles have 4 slots, a vehicle seat one. */
@@ -126,7 +131,7 @@ export function placeCrew(state: GameState, id: string, p: Point): GameState {
 }
 
 export function selectCrew(state: GameState, id: string | null): GameState {
-  if (id !== null && !state.crew.some((c) => c.id === id)) return state;
+  if (id !== null && !state.crew.some((c) => c.id === id && c.side !== 'enemy' && c.dying === undefined)) return state;
   return state.selectedCrewId === id ? state : { ...state, selectedCrewId: id };
 }
 
@@ -134,10 +139,16 @@ export function selectCrew(state: GameState, id: string | null): GameState {
 export function sendSelected(state: GameState, p: Point): GameState | null {
   const id = state.selectedCrewId;
   if (!id) return null;
+  return moveTo(state, id, p);
+}
+
+/** Walk crew member / boarder `id` to the spot under ship point `p`; null if `p` is not walkable. */
+export function moveTo(state: GameState, id: string, p: Point): GameState | null {
   const nav = navOf(state.ship);
   const target = nodeAt(state.ship, nav, p);
   if (!target) return null;
-  const c = state.crew.find((m) => m.id === id)!;
+  const c = state.crew.find((m) => m.id === id);
+  if (!c || c.dying !== undefined) return state;
   // a vehicle seat holds one person
   if (target.startsWith('v') && state.crew.some((m) => m.id !== id && m.dest === target)) return state;
   const way = findPath(nav, c.node, target);
@@ -147,7 +158,15 @@ export function sendSelected(state: GameState, p: Point): GameState | null {
   const back: Point[] = c.path.length ? [nav.nodes.get(c.node)!.pos] : [];
   const points = [...back, ...way.points.slice(0, -1), end];
   const moved = c.path.length ? (c.moved ?? 0) : 0; // already walking: no new slow start
-  return { ...state, crew: state.crew.map((m) => (m.id === id ? { ...m, dest: target, path: points, pathEnd: end, moved } : m)) };
+  return { ...state, crew: state.crew.map((m) => (m.id === id ? { ...m, dest: target, path: points, pathEnd: end, moved, idle: 0 } : m)) };
+}
+
+/** Standing at the desk spot of a console (= operating that system). */
+export function atDesk(ship: Ship, c: CrewMember): boolean {
+  if (c.path.length) return false;
+  const desk = consoleOf(ship, c.node);
+  const base = navOf(ship).nodes.get(c.node)?.pos;
+  return !!desk && !!base && Math.hypot(c.pos[0] - base[0] - desk[0] * 0.3, c.pos[1] - base[1] - desk[1] * 0.3) < 0.05;
 }
 
 /** Advance everybody along their way by `dt` seconds. */

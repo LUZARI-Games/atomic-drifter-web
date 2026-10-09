@@ -1,5 +1,5 @@
 // Ship loading + geometry. Pure TypeScript – no Phaser, no DOM.
-import type { Point, Ship, ShipConsole, ShipRoom, ShipTile, ShipVehicle } from './types';
+import type { Point, Ship, ShipConsole, ShipCrewSpawn, ShipRoom, ShipTile, ShipVehicle } from './types';
 
 export const SHIP_FORMAT = 'atomic-drifter-ship-godot';
 
@@ -26,6 +26,7 @@ export function parseShip(data: unknown): { ship: Ship | null; problems: string[
   const walls = (Array.isArray(d.walls) ? d.walls : []).filter((w) => isPoint(w.a) && isPoint(w.b));
   const doors = (Array.isArray(d.doors) ? d.doors : []).filter((o) => isPoint(o.center));
   const vehicles = parseVehicles((d as { vehicles?: unknown }).vehicles);
+  const crew = parseCrewSpawns((d as { crew?: unknown }).crew);
 
   return {
     ship: {
@@ -37,6 +38,7 @@ export function parseShip(data: unknown): { ship: Ship | null; problems: string[
       walls,
       doors,
       vehicles,
+      crew,
     },
     problems,
   };
@@ -55,6 +57,16 @@ export function parseVehicles(raw: unknown): ShipVehicle[] {
     const exits = (Array.isArray(o.exits) ? o.exits : []).filter(seg);
     const walls = (Array.isArray(o.walls) ? o.walls : []).filter(seg);
     return [{ type: o.type, seats: typeof o.seats === 'number' ? o.seats : tiles.length, tiles, exits, walls }];
+  });
+}
+
+/** Crew placed in the planner (`crew: [{ side, tile }]`); damaged entries are skipped, older exports have none. */
+export function parseCrewSpawns(raw: unknown): ShipCrewSpawn[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((c): ShipCrewSpawn[] => {
+    const o = c as { side?: unknown; tile?: unknown } | null;
+    if (!o || !isPoint(o.tile)) return [];
+    return [{ side: o.side === 'crew' ? 'crew' : 'enemy', tile: o.tile }];
   });
 }
 

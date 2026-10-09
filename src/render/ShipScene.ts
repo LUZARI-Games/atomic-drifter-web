@@ -2,15 +2,18 @@
 // Same renderer as the Ship Lab (ship_view.ts). Owns NO game state: taps are turned into ship meters and sent to core.
 import Phaser from 'phaser';
 import { makeView } from '../core/projection';
-import { consoleOf, doorsInUse, navOf, seatOf, selectCrew, STRIDE_M, tickCrew } from '../core/crewmove';
+import COMBAT from '../data/combat.json';
+import { SYSTEM_MAX_DAMAGE, tickCombat } from '../core/combat';
+import { atDesk, doorsInUse, navOf, seatOf, selectCrew, STRIDE_M, tickCrew } from '../core/crewmove';
+import { keepDistance, moods, type Mood } from '../core/mood';
 import { nodeAt } from '../core/nav';
 import { tapPoint } from '../core/selection';
 import { roomOutline } from '../core/ship';
 import { wallHeight } from '../core/ship3d';
 import type { Store } from '../core/store';
-import type { GameState, Point } from '../core/types';
+import type { CrewMember, GameState, Point } from '../core/types';
 import { attachPanZoom } from './panzoom';
-import { WORLD } from './palette';
+import { FONT_FAMILY, WORLD } from './palette';
 import { ShipView, type CrewOnDeck, type ObjectLayer } from './ship_view';
 import type { ShipOnScreen } from './wasteland';
 
@@ -21,8 +24,14 @@ export interface ShipSounds {
   send(): void;
   door(open: boolean): void;
   step(): void;
+  hit?(): void;
+  die?(): void;
 }
 const SILENT: ShipSounds = { select() {}, deselect() {}, send() {}, door() {}, step() {} };
+const TEXT_STYLE = { fontFamily: FONT_FAMILY, fontSize: '15px', resolution: 3 };
+const COLORS_HEX = { red: 0xff4a3a, amber: 0xffb43a, green: 0x1aff80 };
+const CSS = { red: '#FF4A3A', amber: '#FFB43A', green: '#1AFF80' };
+const HEAD_M = 2.05; // speech marks / health bars sit this high above the feet
 
 /** The game's camera angle (degrees). */
 export const GAME_VIEW = { pitch: 60, yaw: 45 } as const;
@@ -47,6 +56,12 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private lastIdle = 0;
   private doorTarget: number[] = [];
   private stepCount = new Map<string, number>();
+  private overlay!: Phaser.GameObjects.Graphics; // health bars, damaged systems
+  private marks = new Map<string, Phaser.GameObjects.Text>(); // speech marks above heads
+  private lastHp = new Map<string, number>();
+  private hurtAt = new Map<string, number>();
+  private floats: { text: Phaser.GameObjects.Text; born: number }[] = [];
+  private moodNow = new Map<string, Mood>();
   ready = false;
   private unsubscribe: (() => void) | null = null;
 
@@ -68,6 +83,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.tint = this.add.graphics().setDepth(0.5); // floor tint: on the deck, under walls and machinery
     this.doorOpen = ship.doors.map((_, i) => (this.store.get().openDoors.includes(i) ? 1 : 0));
     this.outline = this.add.graphics().setDepth(3); // outline on top of the walls, so the half walls never hide it
+    this.overlay = this.add.graphics().setDepth(3.2);
     this.view.drawStatic(this, deck, -b.x, -b.y);
     // walls, blocks, vehicles … drawn once (depth 1..2); crew + moving doors are redrawn and slotted in between
     this.layer = this.view.mountObjects(this, 1, 2, (i) => this.doorOpen[i] ?? 0);
@@ -99,8 +115,10 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
 
     let lastSel = this.store.get().selectedCrewId;
     let lastDest = new Map(this.store.get().crew.map((c) => [c.id, c.dest]));
+    let lastRoom = this.store.get().selectedRoomId;
     this.unsubscribe = this.store.subscribe((st) => {
-      this.drawSelection();
+      if (st.selectedRoomId !== lastRoom) this.drawSelection();
+      lastRoom = st.selectedRoomId;
       if (st.selectedCrewId !== lastSel) {
         this.dirty = true;
         if (st.selectedCrewId) this.sfx.select();
@@ -145,7 +163,8 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     const now = performance.now();
     const dt = this.lastTime < 0 ? delta / 1000 : Math.min(now - this.lastTime, 250) / 1000;
     this.lastTime = now;
-    if (walking) this.store.update((st) => tickCrew(st, dt)); // real elapsed time: same walking speed on any device
+    // walking, then fights / boarders / repairs / idle timers (core rules), in real elapsed time
+    this.store.update((st) => keepDistance(tickCombat(walking ? tickCrew(st, dt) : st, dt)));
     const state = this.store.get();
     const inUse = doorsInUse(state);
     const step = DOOR_SPEED * dt;
@@ -164,10 +183,14 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       if (c.path.length && n !== this.stepCount.get(c.id)) this.sfx.step();
       this.stepCount.set(c.id, n);
     }
-    if (walking || this.dirty || now - this.lastIdle > IDLE_FRAME_MS) {
+    this.reactToHits(now);
+    const busy = state.crew.some((c) => c.fight || c.dying !== undefined);
+    if (walking || busy || this.dirty || now - this.lastIdle > IDLE_FRAME_MS) {
+      this.moodNow = moods(this.store.get());
       this.layer.setCrew(this.crewToDraw(now / 1000));
       this.lastIdle = now;
     }
+    this.drawOverlay(now / 1000);
     this.dirty = false;
   }
 
@@ -175,26 +198,124 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private crewToDraw(t = performance.now() / 1000): CrewOnDeck[] {
     const { ship, crew, selectedCrewId } = this.store.get();
     const nav = navOf(ship);
+    const byId = new Map(crew.map((c) => [c.id, c]));
+    // ship heading (atan2(dz, dx)) -> view angle: ship x -> view y, ship z -> view -x
+    const toView = (heading: number) => Math.atan2(Math.cos(heading), -Math.sin(heading));
+    const towards = (from: CrewMember, to: CrewMember | undefined) => (to ? Math.atan2(to.pos[1] - from.pos[1], to.pos[0] - from.pos[0]) : from.heading);
     return crew.map((c, i) => {
       const node = nodeAt(ship, nav, c.pos);
       const vehicle = node?.startsWith('v') ? Number(node.slice(1).split(':')[0]) : undefined;
-      // ship heading (atan2(dz, dx)) -> view angle: ship x -> view y, ship z -> view -x
-      const facing = Math.atan2(Math.cos(c.heading), -Math.sin(c.heading));
+      const base = { look: c.look, vehicle, ring: c.id === selectedCrewId ? WORLD.select : undefined, hostile: c.side === 'enemy' };
+      const seed = i * 0.618 + 0.3;
+      const hurt = Math.max(0, 1 - (performance.now() - (this.hurtAt.get(c.id) ?? -1e9)) / 250);
       // standing still: idle animation; at the desk spot of a console: typing; in a vehicle: seated
-      let idle: CrewOnDeck['idle'];
       const seat = c.path.length ? null : seatOf(ship, c.node);
-      if (seat) {
-        idle = { t, seed: i * 0.618 + 0.3, typing: false };
-        return { look: c.look, at: seat.pos, facing, step: 0, lift: 0, vehicle, ring: c.id === selectedCrewId ? WORLD.select : undefined, idle, sit: seat };
+      if (seat) return { ...base, at: seat.pos, facing: toView(c.heading), step: 0, lift: 0, idle: { t, seed, typing: false }, sit: seat };
+      if (c.dying !== undefined) {
+        const d = 1 - c.dying / COMBAT.death_s; // 0 … 1
+        return { ...base, at: c.pos, facing: toView(c.heading), step: 0, lift: 0, idle: { t, seed, typing: false, dying: Math.min(1, d * 1.6) }, alpha: Math.max(0, 1 - Math.max(0, d - 0.4) / 0.6) };
       }
+      if (c.fight) {
+        const since = COMBAT.attack_interval_s - c.fight.cooldown; // seconds since the last blow
+        const punch = c.fight.hits > 0 ? Math.max(0, 1 - since / 0.28) : 0;
+        return { ...base, at: c.pos, facing: toView(towards(c, byId.get(c.fight.target))), step: 0, lift: 0, idle: { t, seed, typing: false, punch, punchSide: c.fight.hits % 2 ? 1 : -1, hurt } };
+      }
+      let idle: CrewOnDeck['idle'];
+      let facing = toView(c.heading);
       if (!c.path.length) {
-        const desk = consoleOf(ship, c.node);
-        const base = nav.nodes.get(c.node)?.pos;
-        const typing = !!desk && !!base && Math.hypot(c.pos[0] - base[0] - desk[0] * 0.3, c.pos[1] - base[1] - desk[1] * 0.3) < 0.05;
-        idle = { t, seed: i * 0.618 + 0.3, typing };
+        idle = { t, seed, typing: atDesk(ship, c), hurt };
+        const m = this.moodNow.get(c.id);
+        if (m) {
+          const other = byId.get(m.kind === 'bored' ? '' : m.kind === 'chat' ? m.partner : m.other);
+          const rel = Math.atan2(Math.sin(towards(c, other) - c.heading), Math.cos(towards(c, other) - c.heading)); // turn needed to look at them
+          if (m.kind === 'bored') idle = { ...idle, mood: 'bored', sit: m.sit };
+          else if (m.kind === 'wary') idle = { ...idle, mood: 'wary', glance: Math.max(-1.3, Math.min(1.3, -rel)) };
+          else if (m.role === 'teller' && !idle.typing) {
+            facing = toView(towards(c, other)); // the storyteller turns to the listener
+            idle = { ...idle, mood: 'teller' };
+          } else idle = { ...idle, mood: 'listener', glance: Math.max(-1.3, Math.min(1.3, -rel)) };
+        }
       }
-      return { look: c.look, at: c.pos, facing, step: c.walked, lift: vehicle !== undefined ? 0.35 : 0, vehicle, ring: c.id === selectedCrewId ? WORLD.select : undefined, idle };
+      return { ...base, at: c.pos, facing, step: c.walked, lift: vehicle !== undefined ? 0.35 : 0, idle };
     });
+  }
+
+  /** Hits and deaths since the last frame: damage numbers, hurt flash, sounds. */
+  private reactToHits(now: number): void {
+    const { crew } = this.store.get();
+    for (const c of crew) {
+      const before = this.lastHp.get(c.id);
+      if (before !== undefined && c.hp < before) {
+        this.hurtAt.set(c.id, now);
+        this.sfx.hit?.();
+        const p = this.view.deckPoint(c.pos, HEAD_M);
+        const text = this.add.text(p.x, p.y, `-${Math.round(before - c.hp)}`, { ...TEXT_STYLE, color: CSS.red }).setOrigin(0.5).setDepth(3.4);
+        this.floats.push({ text, born: now });
+        if (c.hp <= 0) this.sfx.die?.();
+      }
+      this.lastHp.set(c.id, c.hp);
+    }
+    for (const id of [...this.lastHp.keys()]) if (!crew.some((c) => c.id === id)) this.lastHp.delete(id);
+    this.floats = this.floats.filter((f) => {
+      const age = (now - f.born) / 900;
+      if (age >= 1) {
+        f.text.destroy();
+        return false;
+      }
+      f.text.setAlpha(1 - age).setY(f.text.y - 0.6);
+      return true;
+    });
+  }
+
+  /** Health bars over fighters / the wounded, speech marks over chatting / wary / bored crew, wrecked systems. */
+  private drawOverlay(t: number): void {
+    const { ship, crew, systemDamage } = this.store.get();
+    const g = this.overlay;
+    g.clear();
+    // damaged systems: the block pulses red, stronger the more it is wrecked
+    for (const [room, dmg] of Object.entries(systemDamage)) {
+      const a = (dmg / SYSTEM_MAX_DAMAGE) * (0.25 + 0.15 * Math.sin(t * 6));
+      g.fillStyle(COLORS_HEX.red, a);
+      for (const tile of ship.tiles) if (tile.room === room && tile.machinery) g.fillPoints(tile.polygon.map((p) => this.view.deckPoint(p, 1)), true);
+    }
+    const seen = new Set<string>();
+    for (const c of crew) {
+      if (c.dying !== undefined || seatOf(ship, c.node)) continue;
+      const head = this.view.deckPoint(c.pos, HEAD_M);
+      if (c.fight || c.hp < c.hpMax) {
+        const w = 0.7 * PX_PER_M;
+        const share = Math.max(0, c.hp / c.hpMax);
+        const col = c.side === 'enemy' ? COLORS_HEX.amber : share > 0.35 ? COLORS_HEX.green : COLORS_HEX.red;
+        g.fillStyle(0x000000, 0.7).fillRect(head.x - w / 2 - 1, head.y - 1, w + 2, 6);
+        g.fillStyle(col, 1).fillRect(head.x - w / 2, head.y, w * share, 4);
+      }
+      const mark = this.markFor(c, t);
+      if (!mark) continue;
+      seen.add(c.id);
+      let text = this.marks.get(c.id);
+      if (!text) {
+        text = this.add.text(0, 0, '', TEXT_STYLE).setOrigin(0.5, 1).setDepth(3.3);
+        this.marks.set(c.id, text);
+      }
+      text.setText(mark.text).setColor(mark.color).setPosition(head.x + 10, head.y - 4).setAlpha(mark.alpha).setVisible(true);
+    }
+    for (const [id, text] of this.marks) if (!seen.has(id)) text.setVisible(false);
+  }
+
+  /** Speech mark for a mood: storyteller "…" / "!" / "HA", listener nods (no mark), wary "?", bored "zZ" when sitting. */
+  private markFor(c: CrewMember, t: number): { text: string; color: string; alpha: number } | null {
+    const m = this.moodNow.get(c.id);
+    if (!m) return null;
+    const seed = (c.id.length * 1.7) % 3;
+    const cycle = (t + seed) % 4; // marks pop up for a while, then pause
+    const show = cycle < 2.6;
+    if (m.kind === 'chat' && m.role === 'teller') {
+      const glyph = ['…', '!', 'HA', '…', '!!', 'HA HA'][Math.floor((t + seed) / 4) % 6]!;
+      return show ? { text: glyph, color: CSS.green, alpha: 1 } : null;
+    }
+    if (m.kind === 'wary') return cycle < 1.4 ? { text: '?', color: CSS.amber, alpha: 0.9 } : null;
+    if (m.kind === 'bored') return m.sit > 0.9 ? { text: 'zZ', color: CSS.green, alpha: 0.7 } : cycle < 1 ? { text: '…', color: CSS.green, alpha: 0.7 } : null;
+    return null;
   }
 
   /** Crew member drawn at world point (x, y): feet up to the head, nearest to the viewer first. */
@@ -204,6 +325,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     let best: string | null = null;
     let bestD = Infinity;
     crew.forEach((c, i) => {
+      if (c.side === 'enemy' || c.dying !== undefined) return; // only own crew can be picked
       const feet = this.view.deckPoint(c.pos, draw[i]!.lift ?? 0);
       const dx = x - feet.x;
       const dy = y - feet.y;

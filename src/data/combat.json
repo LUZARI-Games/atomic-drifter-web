@@ -1,0 +1,13 @@
+{
+  "_info": "Boarding combat (FTL-like melee) and crew moods. Times in seconds, damage in HP.",
+  "hp": { "normal": 100, "tank": 150 },
+  "hit_damage": { "normal": 10, "tank": 13 },
+  "attack_interval_s": 1.1,
+  "death_s": 1.4,
+  "system_max_damage": 3,
+  "boarder_damage_per_s": 0.25,
+  "repair_per_s": 0.35,
+  "bored_after_s": 6,
+  "sit_after_s": 18,
+  "enemy_origins": ["raider", "sentinel"]
+}

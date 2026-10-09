@@ -70,8 +70,17 @@ export function mountStatusHud(root: HTMLElement, store: Store<GameState>): void
   });
 
   let crewKey = '';
+  let statusKey = '';
   const render = (s: GameState) => {
     const st = s.status;
+    const sk = JSON.stringify(st);
+    if (sk !== statusKey) {
+      statusKey = sk;
+      renderStatus(st);
+    }
+    renderCrew(s);
+  };
+  const renderStatus = (st: GameState['status']) => {
     // hull: one segment per hull point (FTL style), lit = remaining
     const hull = $('hull');
     if (hull.childElementCount !== st.hullMax) hull.innerHTML = '<i></i>'.repeat(st.hullMax);
@@ -85,9 +94,11 @@ export function mountStatusHud(root: HTMLElement, store: Store<GameState>): void
     $('evasion').textContent = `${Math.round(st.evasion * 100)}%`;
     $('ammo').textContent = `${st.ammo}/${st.ammoMax}`;
     $('scrap').textContent = fmt(st.scrap);
+  };
+  const renderCrew = (s: GameState) => {
 
     // crew: rebuild only when people / selection / health / station change
-    const ordered = [...s.crew].sort((a, b) => Number(!!b.captain) - Number(!!a.captain));
+    const ordered = s.crew.filter((c) => c.side !== 'enemy').sort((a, b) => Number(!!b.captain) - Number(!!a.captain));
     const key = JSON.stringify([s.selectedCrewId, ordered.map((c) => [c.id, c.hp, c.hpMax, stationOf(s, c)])]);
     if (key === crewKey) return;
     crewKey = key;

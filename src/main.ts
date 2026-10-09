@@ -6,6 +6,7 @@ import { COLORS, FONT_FAMILY } from './render/palette';
 import { ShipScene } from './render/ShipScene';
 import { HazeScene, WastelandScene } from './render/wasteland';
 import { mountHud } from './ui/hud';
+import { spawnShipEnemies } from './core/combat';
 import { statusFromRun } from './core/run';
 import { parseShip } from './core/ship';
 import { loadRun } from './ui/runStore';
@@ -26,6 +27,7 @@ async function boot(): Promise<void> {
   // the captain carries the name entered in New Run
   const crew = generateCrew(loaded.ship).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
   let start = { ...createGameState(loaded.ship), crew, status: statusFromRun(run) };
+  start = spawnShipEnemies(start); // enemy boarders placed in the planner (ENEMY CREW)
   if (scene) start = applyTestScene(start, scene);
   const store = new Store(start);
   const sound = new Sound();

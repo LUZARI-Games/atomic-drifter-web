@@ -2,6 +2,7 @@
 // and points the camera at it – see src/data/test_scenes.json. Ships pasted from the owner (COPY SHIP) can be stored
 // in src/data/test_ships/ and used by name.
 import SCENES from '../data/test_scenes.json';
+import { spawnEnemy } from '../core/combat';
 import { placeCrew, selectCrew, sendSelected } from '../core/crewmove';
 import type { GameState, Point } from '../core/types';
 
@@ -9,6 +10,9 @@ interface SceneCrew {
   at: Point;
   send?: Point;
   selected?: boolean;
+  enemy?: boolean; // spawn an enemy boarder here (does not use up a crew member)
+  origin?: string; // give this crew member another origin (mood tests)
+  idle?: number; // seconds they have been standing around already (bored tests)
 }
 export interface TestScene {
   name: string;
@@ -36,18 +40,30 @@ export function testShip(name: string): unknown {
 /** Place the scene's crew (in order), send the ones that should walk, select the one marked. */
 export function applyTestScene(state: GameState, scene: TestScene): GameState {
   let s = state;
-  scene.crew.forEach((c, i) => {
+  const own = scene.crew.filter((c) => !c.enemy);
+  own.forEach((c, i) => {
     const m = s.crew[i];
     if (!m) return;
     s = placeCrew(s, m.id, c.at);
+    if (c.origin || c.idle !== undefined) {
+      s = {
+        ...s,
+        crew: s.crew.map((x) => (x.id === m.id
+          ? { ...x, look: c.origin ? { ...x.look, origin: c.origin as typeof x.look.origin } : x.look, idle: c.idle ?? x.idle }
+          : x)),
+      };
+    }
   });
   scene.crew.forEach((c, i) => {
+    if (c.enemy) s = spawnEnemy(s, c.at, 500 + i * 7919);
+  });
+  own.forEach((c, i) => {
     const m = s.crew[i];
     if (!m || !c.send) return;
     s = sendSelected(selectCrew(s, m.id), c.send) ?? s;
     s = selectCrew(s, null);
   });
-  const sel = scene.crew.findIndex((c) => c.selected);
+  const sel = own.findIndex((c) => c.selected);
   if (sel >= 0 && s.crew[sel]) s = selectCrew(s, s.crew[sel]!.id);
   return s;
 }

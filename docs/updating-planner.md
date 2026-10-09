@@ -26,6 +26,10 @@ and the export format `atomic-drifter-ship-godot` v1. If the format changes, `sr
 - Console = keyboard desk drawn ON the machinery edge facing the console tile, overhanging that tile a little (`drawConsoleRect`).
 - Godot export: `rooms[].console = { tile: [x, z], facing: [x, z] } | null` (+ `console_info`), read by `src/core/ship.ts`.
 - Godot export: `vehicles[] = { type, seats, docked, tiles[{center, polygon}], exits[{a, b}], walls[{a, b}] }` (+ `vehicles_info`).
+- **ENEMY CREW** tool (amber, key **[E]**): tap a floor field to add an enemy boarder (up to 4 per field, the 5th tap clears it;
+  not on machinery). Stored as `tile.enemies = 1..4` (so it is in save / undo / localStorage and follows moved / turned rooms),
+  drawn as amber dots with "!" (`drawEnemies`). Godot export: `crew[] = { side: "enemy", tile: [x, z] }` – one entry per
+  enemy, `tile` = floor tile centre like `rooms[].console.tile` (+ `crew_info`). Older exports without `crew` stay valid.
 
 ## Things to know
 - Ships and loaded Unreal tables are stored **per browser**. Ships saved in the artifact are not on the website automatically:
