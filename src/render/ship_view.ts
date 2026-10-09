@@ -9,7 +9,7 @@ import { roomFloorCenter } from '../core/ship';
 import { consoleDesk, doorLeaves, doorThreshold, SHIP_HEIGHTS, shipSolids, wallHeight, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
 import type { Point, Ship, ShipVehicle } from '../core/types';
-import { drawCrewIso } from './crew_iso';
+import { drawCrewIso, type IdlePose } from './crew_iso';
 import { drawSystemIcon } from './icons';
 import { FONT_FAMILY, FONT_SIZES, VEHICLE, WORLD, worldPaint } from './palette';
 import { balconyRoomIds, dockArms, railingParts, vehicleFrame } from '../core/exterior';
@@ -44,6 +44,7 @@ export interface CrewOnDeck {
   lift?: number; // meters above the deck (sitting in a vehicle)
   vehicle?: number; // index into ship.vehicles when sitting in one – drawn after it
   ring?: number; // ring colour override (selection)
+  idle?: IdlePose; // standing still: breathing, looking around, typing
 }
 
 /** Ship space [x, z] + height -> view world (x = towards the bow/right, y = starboard/towards the viewer, z = up). */
@@ -200,7 +201,7 @@ export class ShipView {
       box: { minX: feet[0] - 0.3, maxX: feet[0] + 0.3, minY: feet[1] - 0.3, maxY: feet[1] + 0.3 },
       draw: (g) => {
         const p = this.S(feet);
-        drawCrewIso(g, this.view, c.look, p.x, p.y, this.pxPerM, c.facing, c.step ?? 0, false, c.ring);
+        drawCrewIso(g, this.view, c.look, p.x, p.y, this.pxPerM, c.facing, c.step ?? 0, false, c.ring, c.idle);
       },
     };
   }

@@ -3,6 +3,7 @@
 // parts are drawn back to front. Top faces get a lighter shade so the figure reads as standing upright.
 import Phaser from 'phaser';
 import { CREW_GEAR, CREW_LOOKS, type CrewLook } from '../core/crew';
+import { STRIDE_M } from '../core/crewmove';
 import { convexHull, depth, makeView, project, type Vec2, type Vec3, type View } from '../core/projection';
 import { COLORS, WORLD } from './palette';
 
@@ -28,11 +29,26 @@ export function isoFloor(v: View, x: number, y: number, ox: number, oy: number, 
   });
 }
 
+/** Standing still: `t` = seconds (clock), `seed` = per person, so nobody moves in sync; `typing` = working a console. */
+export interface IdlePose {
+  t: number;
+  seed: number;
+  typing: boolean;
+}
+
+/** 0 most of the time, eases to ±1 now and then (looking around, shifting weight). */
+const now_and_then = (x: number) => {
+  const s = Math.sin(x);
+  const a = Math.min(1, Math.max(0, (Math.abs(s) - 0.55) / 0.35));
+  return Math.sign(s) * a * a * (3 - 2 * a);
+};
+
 /**
  * Draw one crew member standing at screen point (x, y) (= feet on the floor).
  * `pxPerM` = zoom, `facing` = floor angle (0 = +x/right, PI/2 = towards the viewer), `step` = walk cycle in meters walked.
+ * `idle` = standing still (breathing, weight shift, looking around, typing); omit while walking.
  */
-export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean, ringColor?: number): void {
+export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean, ringColor?: number, idle?: IdlePose): void {
   const color = hex(CREW_LOOKS.origins[look.origin].color);
   const skin = hex(CREW_LOOKS.skin_tones[look.skin]!);
   const hair = hex(CREW_LOOKS.hair_colors[look.hair]!);
@@ -45,13 +61,19 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   const torso = CREW_LOOKS.builds[look.build].torso; // tanks: very wide shoulders, narrow waist = V shape
   const W = 0.2 * torso.shoulders * (female ? 0.9 : 1); // shoulder half-width
   const D = tank ? 0.15 : 0.12; // torso half-depth
+  // idle: breathing lifts chest + head a little, weight moves from foot to foot, the head turns now and then
+  const it = idle?.t ?? 0;
+  const sd = idle?.seed ?? 0;
+  const breath = idle ? Math.sin((it / (3 + (sd % 1) * 1.4)) * Math.PI * 2) * 0.012 : 0;
+  const shift = idle ? now_and_then(it * 0.23 + sd * 7) * 0.03 : 0; // sideways (m)
+  const headTurn = idle ? now_and_then(it * 0.41 + sd * 13) * (idle.typing ? 0.35 : 0.75) : 0; // head turn (rad)
   const hip = 0.85 * k;
-  const shoulder = 1.4 * k;
-  const head = 1.6 * k;
+  const shoulder = 1.4 * k + breath;
+  const head = 1.6 * k + breath * 1.1;
   const headR = 0.12 * (tank ? 1.05 : 1);
 
   // walk cycle: legs and arms swing in opposite directions
-  const swing = Math.sin((step / 0.75) * Math.PI) * 0.16;
+  const swing = Math.sin((step / STRIDE_M) * Math.PI) * 0.18; // one stride per leg swing
 
   // local (forward, side, up) -> world -> screen
   const cos = Math.cos(facing);
@@ -122,10 +144,10 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
       fill(convexHull(pts), col);
     }, bias);
   /** Upright elliptic column (torso), side radius `rs0` at the bottom widening to `rs1` at the top, lighter top face. */
-  const column = (rf: number, rs0: number, rs1: number, z0: number, z1: number, col: number) =>
-    add([0, 0, (z0 + z1) / 2], () => {
+  const column = (rf: number, rs0: number, rs1: number, z0: number, z1: number, col: number, side = 0) =>
+    add([0, side, (z0 + z1) / 2], () => {
       const ring = (z: number, rs: number): Vec3[] =>
-        Array.from({ length: 16 }, (_, i) => [Math.cos((i / 16) * 2 * Math.PI) * rf, Math.sin((i / 16) * 2 * Math.PI) * rs, z]);
+        Array.from({ length: 16 }, (_, i) => [Math.cos((i / 16) * 2 * Math.PI) * rf, side + Math.sin((i / 16) * 2 * Math.PI) * rs, z]);
       fill(convexHull([...ring(z0, rs0), ...ring(z1, rs1)].map(S)), col);
       fill(ring(z1, rs1).map(S), shade(col, -12));
     });
@@ -157,35 +179,46 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   for (const side of [-1, 1]) {
     const f = swing * side;
     const hipW = Math.max(W * torso.waist * 0.6, legR * 1.1);
-    capsule([f * 0.5, side * hipW, hip], [f, side * hipW, legR], legR, shade(color, 35));
+    capsule([f * 0.5, side * hipW + shift, hip], [f, side * hipW, legR], legR, shade(color, 35));
   }
 
   // --- torso + arms + hands ---
-  column(D, W * torso.waist, W, hip - 0.05 * k, shoulder, color);
+  column(D, W * torso.waist, W, hip - 0.05 * k, shoulder, color, shift);
   const armR = tank ? 0.075 : 0.06;
   for (const side of [-1, 1]) {
     const f = -swing * side;
-    const sh: Vec3 = [0, side * (W + armR * 0.6), shoulder - 0.04];
-    const hand: Vec3 = [f * 1.4 + 0.03, side * (W + armR * 0.9), shoulder - 0.55 * k];
+    const sh: Vec3 = [0, side * (W + armR * 0.6) + shift, shoulder - 0.04];
+    // typing: hands on the desk in front, tapping in short bursts
+    const tap = idle?.typing ? Math.max(0, Math.sin(it * 17 + side * 1.7)) * 0.025 * (now_and_then(it * 0.9 + sd) !== 0 ? 0 : 1) : 0;
+    const hand: Vec3 = idle?.typing
+      ? [0.42, side * W * 0.55 + shift, 0.82 + tap]
+      : [f * 1.4 + 0.03, side * (W + armR * 0.9) + shift * 0.6, shoulder - 0.55 * k + breath * 0.5];
     capsule(sh, hand, armR, shade(color, 14));
     sphere(hand, armR * 1.05, skin, 0.01);
   }
 
   // --- gear (neutral metal) ---
-  if (wears('backpack')) box([-D - 0.17, -0.15, hip + 0.1], [-D + 0.02, 0.15, shoulder - 0.02], METAL);
+  if (wears('backpack')) box([-D - 0.17, -0.15 + shift, hip + 0.1], [-D + 0.02, 0.15 + shift, shoulder - 0.02], METAL);
   if (wears('shoulder_plates')) {
-    for (const side of [-1, 1]) cap([0, side * W, shoulder - 0.02], tank ? 0.13 : 0.1, [0, side * 0.5, 0.85], 0.05, METAL, 0.05);
+    for (const side of [-1, 1]) cap([0, side * W + shift, shoulder - 0.02], tank ? 0.13 : 0.1, [0, side * 0.5, 0.85], 0.05, METAL, 0.05);
   }
 
-  // --- head: skin ball, hair cap tilted to the back, ponytail ---
-  const hc: Vec3 = [0.02, 0, head];
+  // --- head: skin ball, hair cap tilted to the back, ponytail (turned by `look` around the neck) ---
+  const hc: Vec3 = [0.02, shift, head];
+  const lc = Math.cos(headTurn);
+  const ls = Math.sin(headTurn);
+  const turn = ([f, s2, u]: Vec3): Vec3 => [f * lc - s2 * ls, f * ls + s2 * lc, u]; // direction
+  const at = ([f, s2, u]: Vec3): Vec3 => { const [a, b] = turn([f - hc[0], s2 - hc[1], 0]); return [hc[0] + a, hc[1] + b, u]; };
   sphere(hc, headR, skin);
   if (wears('helmet')) {
-    cap(hc, headR * 1.15, [-0.15, 0, 1], -0.05, METAL, 0.02);
-    box([headR * 0.75, -headR * 0.9, head + 0.02], [headR * 1.25, headR * 0.9, head + 0.05], METAL_DARK, 0.03); // brim
+    cap(hc, headR * 1.15, turn([-0.15, 0, 1]), -0.05, METAL, 0.02);
+    // brim: a flat box in front of the face, turned with the head
+    const brim: Vec3[] = [];
+    for (const f of [headR * 0.75, headR * 1.25]) for (const s2 of [-headR * 0.9, headR * 0.9]) for (const u of [head + 0.02, head + 0.05]) brim.push(at([f + hc[0] - 0.02, s2 + hc[1], u]));
+    add(at([hc[0] + headR, hc[1], head + 0.035]), () => fill(convexHull(brim.map(S)), METAL_DARK), 0.03);
   } else {
-    cap(hc, headR * 1.06, [-0.55, 0, 0.84], 0.0, hair, 0.02);
-    if (female) capsule([hc[0] - headR * 0.9, 0, head + 0.02], [hc[0] - headR * 1.6, 0, head - 0.12], 0.045, hair);
+    cap(hc, headR * 1.06, turn([-0.55, 0, 0.84]), 0.0, hair, 0.02);
+    if (female) capsule(at([hc[0] - headR * 0.9, hc[1], head + 0.02]), at([hc[0] - headR * 1.6, hc[1], head - 0.12]), 0.045, hair);
   }
 
   parts.sort((a, b) => a.d - b.d);

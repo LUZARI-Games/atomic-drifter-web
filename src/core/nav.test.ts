@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import demo from '../data/demo_ship.json';
-import { doorsInUse, generateCrew, navOf, selectCrew, tickCrew } from './crewmove';
+import { consoleOf, doorsInUse, generateCrew, navOf, selectCrew, tickCrew, walkFactor } from './crewmove';
+import { consoleDesk } from './ship3d';
 import { findPath, nodeAt } from './nav';
 import { createGameState, tapPoint } from './selection';
 import { parseShip } from './ship';
@@ -79,5 +80,26 @@ describe('crew', () => {
     let s = selectCrew(start(ship), generateCrew(ship)[0]!.id);
     s = tapPoint(s, [40, 40]);
     expect(s.selectedCrewId).toBeNull();
+  });
+});
+
+describe('walking feel', () => {
+  it('speeds up after the start, slows down before the end', () => {
+    expect(walkFactor(0, 5)).toBeLessThan(0.5);
+    expect(walkFactor(2, 5)).toBe(1);
+    expect(walkFactor(2, 0.1)).toBeLessThan(0.5);
+  });
+
+  it('crew at a console stand in front of the desk and face it', () => {
+    const crew = generateCrew(ship);
+    for (const c of crew) {
+      const desk = consoleOf(ship, c.node);
+      if (!desk) continue;
+      expect(c.heading).toBeCloseTo(Math.atan2(desk[1], desk[0]));
+      const rm = ship.rooms.find((r) => r.console && nodeAt(ship, navOf(ship), r.console.tile) === c.node)!;
+      const front = consoleDesk(rm.console!, ship.tile_size).footprint[0]!; // desk edge on the crew side
+      const ahead = (p: [number, number]) => p[0] * desk[0] + p[1] * desk[1];
+      expect(ahead(c.pos) + 0.3).toBeLessThan(ahead(front as [number, number])); // body (0.3 m) clear of the desk
+    }
   });
 });

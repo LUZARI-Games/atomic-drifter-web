@@ -2,7 +2,7 @@
 export interface MenuItem {
   label: string;
   href?: string;
-  onClick?: () => void;
+  onClick?: () => unknown; // a returned string becomes the new label
 }
 
 export function mountMenu(root: HTMLElement, title: string, items: MenuItem[]): void {
@@ -20,7 +20,8 @@ export function mountMenu(root: HTMLElement, title: string, items: MenuItem[]): 
     if (item.onClick) {
       el.addEventListener('click', () => {
         menu.classList.remove('open');
-        item.onClick!();
+        const label = item.onClick!();
+        if (typeof label === 'string') el.textContent = `[ ${label} ]`;
       });
     }
     list.appendChild(el);

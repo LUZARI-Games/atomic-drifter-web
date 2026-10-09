@@ -78,12 +78,22 @@ never restate the owner's tasks back to them.
 - `src/core/nav.ts`: walk graph – deck tiles (machinery excluded), same-room tiles connect directly, rooms only through
   doors, balcony → docked vehicle seat over the railing (dock point). `findPath` (Dijkstra), `nodeAt`.
 - `src/core/crewmove.ts`: `generateCrew` (planner exports carry no crew yet → 4 random Crew Lab types, seeded by ship
-  name, start at consoles), `selectCrew`, `sendSelected` (tap a tile / vehicle seat), `tickCrew` (1.5 m/s, real time),
-  `doorsInUse` (doors open by themselves while someone walks through). Up to 4 crew share a deck tile, 1 per seat.
+  name, start at consoles), `selectCrew`, `sendSelected` (tap a tile / vehicle seat), `tickCrew` (real time; speed,
+  start/stop easing and stride in `src/data/crew_move.json`, 3.2 m/s), `doorsInUse` (doors open by themselves while
+  someone walks through). Up to 4 crew share a deck tile, 1 per seat. On a console tile the first spot is at the desk
+  (crew face it and type); the other spots stay clear of the desk (`consoleOf`).
+- Idle animation (`IdlePose` in crew_iso.ts): breathing, weight shift, looking around now and then, typing at a desk –
+  each person on their own rhythm. Redrawn at ~20 fps while nobody walks.
 - Taps: a figure on screen selects / deselects it; with crew selected a tap sends them; tapping the void lets go.
 - Rendering: `ShipView.mountObjects` draws every standing object ONCE into its own graphics (stacked by depth);
   per frame only crew (and moving doors) are redrawn and slotted in by `isBehind`. Never redraw the whole ship per frame.
 - Demo ship: 4 rooms in a row (machinery port side, floors connected by doors) + balcony with a docked bike.
+
+## Sound
+- `src/ui/sound.ts`: all sounds made in code with Web Audio (no files): terminal blips (select / deselect / send),
+  metal footsteps (one per stride), sliding doors, engine hum + wind ambience. Starts after the first tap (browser rule).
+  Menu: `SOUND: ON/OFF`, `VOLUME` (25/50/75/100 %), remembered per browser. ShipScene only calls the `ShipSounds`
+  interface; main.ts wires it to `Sound`.
 
 ## Design rules (terminal UI)
 - Colors: background `#030806`, phosphor green `#1AFF80`, amber `#FFB43A` = enemy/warning, red `#FF4A3A` = error/damage.

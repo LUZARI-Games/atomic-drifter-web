@@ -9,6 +9,7 @@ export interface HudOptions {
   source: 'planner' | 'demo';
   problems: string[];
   onUseDemo: () => void;
+  extraItems?: MenuItem[]; // e.g. sound settings
 }
 
 export function mountHud(root: HTMLElement, store: Store<GameState>, opts: HudOptions): void {
@@ -18,7 +19,7 @@ export function mountHud(root: HTMLElement, store: Store<GameState>, opts: HudOp
     { label: 'PLANNER', href: '/planner/' },
   ];
   if (opts.source === 'planner') items.push({ label: 'DEMO SHIP', onClick: opts.onUseDemo });
-  items.push(greyscaleItem());
+  items.push(...(opts.extraItems ?? []), greyscaleItem());
   if (document.fullscreenEnabled) items.push({ label: 'FULLSCREEN', onClick: () => void toggleFullscreen() });
   applyGreyscale();
   mountMenu(root, store.get().ship.name.toUpperCase(), items);

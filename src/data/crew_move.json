@@ -1,0 +1,6 @@
+{
+  "walk_speed_mps": 3.2,
+  "ramp_m": 0.6,
+  "start_speed_share": 0.35,
+  "stride_m": 0.9
+}

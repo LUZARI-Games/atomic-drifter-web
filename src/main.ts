@@ -7,15 +7,18 @@ import { ShipScene } from './render/ShipScene';
 import { HazeScene, WastelandScene } from './render/wasteland';
 import { mountHud } from './ui/hud';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
+import { Sound } from './ui/sound';
 import './ui/styles.css';
 
 async function boot(): Promise<void> {
   const loaded = loadShip();
   // the planner export carries no crew yet -> random crew from the Crew Lab types
   const store = new Store({ ...createGameState(loaded.ship), crew: generateCrew(loaded.ship) });
+  const sound = new Sound();
 
   mountHud(document.getElementById('hud')!, store, {
     source: loaded.source,
+    extraItems: sound.menuItems(),
     problems: loaded.problems,
     onUseDemo: () => {
       try {
@@ -34,7 +37,7 @@ async function boot(): Promise<void> {
     /* fall back to monospace */
   }
 
-  const shipScene = new ShipScene(store);
+  const shipScene = new ShipScene(store, sound);
   new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',

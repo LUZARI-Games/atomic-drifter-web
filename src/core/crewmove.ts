@@ -1,12 +1,32 @@
 // Crew on board: random crew when the ship file brings none, selecting, sending somewhere, walking along the way,
 // opening doors while someone walks through. Pure functions (state) => state – engine-neutral.
 import LAB from '../data/crew_lab.json';
+import MOVE from '../data/crew_move.json';
 import { CREW_GEAR, CREW_LOOKS, equip, parseCrewLook, type CrewLook, type GearId } from './crew';
 import { buildNav, findPath, nodeAt, type NavGraph } from './nav';
 import type { CrewMember, GameState, Point, Ship } from './types';
 
-export const WALK_SPEED = 1.5; // m/s
+export const WALK_SPEED = MOVE.walk_speed_mps; // top speed, m/s
+export const STRIDE_M = MOVE.stride_m; // one step (drives walk cycle + footstep sounds)
 const SLOTS: Point[] = [[-0.45, -0.45], [0.45, 0.45], [-0.45, 0.45], [0.45, -0.45]]; // up to 4 crew share a deck tile
+/** Console tile: first spot = at the desk (operator), the others stay clear of the desk. (forward = towards the desk, side) */
+const CONSOLE_SLOTS: Point[] = [[0.3, 0], [-0.45, -0.45], [-0.45, 0.45], [-0.45, 0]];
+
+/** Speed share (0…1): picks up over the first meters of a way, slows down before the end. */
+export function walkFactor(moved: number, left: number): number {
+  const r = MOVE.ramp_m;
+  const start = MOVE.start_speed_share + (1 - MOVE.start_speed_share) * Math.min(1, moved / r);
+  const end = Math.max(0.3, Math.min(1, left / r));
+  return Math.min(start, end);
+}
+
+/** The console a deck node belongs to (the direction from the tile to the machine), or null. */
+export function consoleOf(ship: Ship, node: string): Point | null {
+  const nav = navOf(ship);
+  for (const rm of ship.rooms) if (rm.console && nodeAt(ship, nav, rm.console.tile) === node) return rm.console.facing;
+  return null;
+}
+const headingOf = (f: Point) => Math.atan2(f[1], f[0]);
 const NAMES = ['HANK', 'MAE', 'GUS', 'IRIS', 'VERN', 'DOT', 'ABE', 'LULA', 'SILAS', 'RUTH', 'JED', 'NELL', 'OTIS', 'PEARL', 'WADE', 'FAY'];
 
 const navCache = new WeakMap<Ship, NavGraph>();
@@ -50,7 +70,8 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
       gear,
     };
     const node = starts[i]!;
-    crew.push({ id: look.id, name: look.name, look, node, dest: node, pos: spot(ship, crew, node, look.id), path: [], heading: 0, walked: 0 });
+    const desk = consoleOf(ship, node);
+    crew.push({ id: look.id, name: look.name, look, node, dest: node, pos: spot(ship, crew, node, look.id), path: [], heading: desk ? headingOf(desk) : r() * Math.PI * 2, walked: 0 });
   }
   return crew;
 }
@@ -59,12 +80,14 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
 function spot(ship: Ship, others: CrewMember[], node: string, self: string): Point {
   const base = navOf(ship).nodes.get(node)!.pos;
   if (node.startsWith('v')) return base;
+  const desk = consoleOf(ship, node);
+  const slots: Point[] = desk ? CONSOLE_SLOTS.map(([f, s]) => [f * desk[0] - s * desk[1], f * desk[1] + s * desk[0]]) : SLOTS;
   const used = new Set(others.filter((c) => c.id !== self && c.dest === node).map((c) => {
     const d: Point = [c.pathEnd?.[0] ?? c.pos[0], c.pathEnd?.[1] ?? c.pos[1]];
-    return SLOTS.findIndex((s) => Math.hypot(base[0] + s[0] - d[0], base[1] + s[1] - d[1]) < 0.05);
+    return slots.findIndex((s) => Math.hypot(base[0] + s[0] - d[0], base[1] + s[1] - d[1]) < 0.05);
   }));
-  const free = SLOTS.findIndex((_, i) => !used.has(i));
-  const s = SLOTS[free < 0 ? 0 : free]!;
+  const free = slots.findIndex((_, i) => !used.has(i));
+  const s = slots[free < 0 ? 0 : free]!;
   return [base[0] + s[0], base[1] + s[1]];
 }
 
@@ -89,7 +112,8 @@ export function sendSelected(state: GameState, p: Point): GameState | null {
   // walking already: first back to the last spot reached, so nobody cuts through a wall
   const back: Point[] = c.path.length ? [nav.nodes.get(c.node)!.pos] : [];
   const points = [...back, ...way.points.slice(0, -1), end];
-  return { ...state, crew: state.crew.map((m) => (m.id === id ? { ...m, dest: target, path: points, pathEnd: end } : m)) };
+  const moved = c.path.length ? (c.moved ?? 0) : 0; // already walking: no new slow start
+  return { ...state, crew: state.crew.map((m) => (m.id === id ? { ...m, dest: target, path: points, pathEnd: end, moved } : m)) };
 }
 
 /** Advance everybody along their way by `dt` seconds. */
@@ -98,7 +122,10 @@ export function tickCrew(state: GameState, dt: number): GameState {
   const crew = state.crew.map((c): CrewMember => {
     if (!c.path.length) return c;
     let pos = c.pos;
-    let left = WALK_SPEED * dt;
+    let rest = 0;
+    for (let i = 0, p = c.pos; i < c.path.length; p = c.path[i]!, i++) rest += Math.hypot(c.path[i]![0] - p[0], c.path[i]![1] - p[1]);
+    const go = WALK_SPEED * walkFactor(c.moved ?? 0, rest) * dt;
+    let left = go;
     let path = c.path;
     let heading = c.heading;
     while (left > 0 && path.length) {
@@ -116,8 +143,12 @@ export function tickCrew(state: GameState, dt: number): GameState {
         left = 0;
       }
     }
-    const walked = c.walked + WALK_SPEED * dt - left;
-    return path.length ? { ...c, pos, path, heading, walked } : { ...c, pos, path, heading, walked, node: c.dest, pathEnd: undefined };
+    const walked = c.walked + go - left;
+    const moved = (c.moved ?? 0) + go - left;
+    if (path.length) return { ...c, pos, path, heading, walked, moved };
+    // arrived: at a console, turn to the desk
+    const desk = consoleOf(state.ship, c.dest);
+    return { ...c, pos, path, heading: desk ? headingOf(desk) : heading, walked, moved: 0, node: c.dest, pathEnd: undefined };
   });
   return { ...state, crew };
 }

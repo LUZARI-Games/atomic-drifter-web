@@ -79,6 +79,7 @@ export interface CrewMember {
   pathEnd?: Point;
   heading: number; // walking direction in ship space: atan2(dz, dx)
   walked: number; // meters walked in total (drives the walk cycle)
+  moved?: number; // meters walked on the current way (speeds up after the start)
 }
 
 export interface GameState {
