@@ -5,13 +5,12 @@ import Phaser from 'phaser';
 import type { CrewLook } from '../core/crew';
 import { airshipHull, blockPolygons, systemBlocks } from '../core/hull';
 import { depth, drawOrder, isBehind, project, turn, unprojectFloor, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
-import { roomFloorCenter } from '../core/ship';
 import { consoleDesk, doorLeaves, doorThreshold, SHIP_HEIGHTS, shipSolids, wallHeight, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
 import type { Point, Ship, ShipVehicle } from '../core/types';
 import { drawCrewIso, type IdlePose, type SitPose } from './crew_iso';
 import { drawSystemIcon } from './icons';
-import { FONT_FAMILY, FONT_SIZES, VEHICLE, WORLD, worldPaint } from './palette';
+import { VEHICLE, WORLD, worldPaint } from './palette';
 import { balconyRoomIds, dockArms, railingParts, SEATS, vehicleFrame } from '../core/exterior';
 
 type G = Phaser.GameObjects.Graphics;
@@ -51,7 +50,17 @@ export interface CrewOnDeck {
 /** Ship space [x, z] + height -> view world (x = towards the bow/right, y = starboard/towards the viewer, z = up). */
 const W = ([x, z]: Point, h = 0): Vec3 => [-z, x, h];
 
+/** Seated crew grouped by the vehicle they sit in. */
+function seatedByVehicle(crew: CrewOnDeck[]): Map<number, CrewOnDeck[]> {
+  const m = new Map<number, CrewOnDeck[]>();
+  for (const c of crew) if (c.sit && c.vehicle !== undefined) m.set(c.vehicle, [...(m.get(c.vehicle) ?? []), c]);
+  return m;
+}
+
 export class ShipView {
+  /** Who sits in which vehicle right now (drawn by the vehicle). */
+  private seated = new Map<number, CrewOnDeck[]>();
+
   constructor(
     private readonly ship: Ship,
     private readonly view: View,
@@ -98,20 +107,19 @@ export class ShipView {
     this.drawObjects(objects, crew, doorOpen);
   }
 
-  /** Hull, deck plates, door plates and floor labels – drawn once. */
-  drawStatic(scene: Phaser.Scene, deck: G, ox: number, oy: number): void {
+  /** Hull, deck plates and door plates – drawn once. */
+  drawStatic(_scene: Phaser.Scene, deck: G, ox: number, oy: number): void {
     this.ox = ox;
     this.oy = oy;
     this.drawHull(deck);
-    this.drawDeck(deck);
-    this.drawLabels(scene);
+    this.drawDeck(deck); // no room names on the floor: the system icon on the block says it
   }
 
   /**
    * Everything standing (walls, door frames + leaves, system blocks, consoles, crew), back to front.
    * Call again (after objects.clear()) whenever doors move. `doorOpen(i)` = 0 closed … 1 open for ship.doors[i].
    */
-  private collectItems(doorOpen: (i: number) => number): { items: Item[]; mustFollow: [number, number][]; vehicleItem: number[]; vehicleRim: (number | undefined)[]; doorItem: number[] } {
+  private collectItems(doorOpen: (i: number) => number): { items: Item[]; mustFollow: [number, number][]; vehicleItem: number[]; doorItem: number[] } {
     const items: Item[] = [];
     const mustFollow: [number, number][] = []; // [first, then] – e.g. a system symbol after its own block
     const box = (footprint: Point[]): FloorBox => {
@@ -130,20 +138,14 @@ export class ShipView {
         else items.push({ key: this.sortKey(s.footprint, 0), box: box(s.footprint), draw: (g) => this.drawSolid(g, s) });
       }
     }
+    // a vehicle draws the people sitting in it itself (rider legs left/right of the bike, passengers inside)
     const vehicleItem: number[] = [];
-    const vehicleRim: (number | undefined)[] = []; // car: the near side walls, drawn over the people sitting inside
-    for (const v of this.ship.vehicles ?? []) {
+    (this.ship.vehicles ?? []).forEach((v, vi) => {
       vehicleItem.push(items.length + dockArms(this.ship, v).length);
       for (const arm of dockArms(this.ship, v)) items.push({ key: this.sortKey(arm.footprint, 0), box: box(arm.footprint), draw: (g) => this.drawSolid(g, arm) });
       const fp = v.tiles.flatMap((t) => t.polygon);
-      const hasRim = v.type === 'car' || (v.type === 'sidecar' && v.tiles.length >= 2);
-      items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: (g) => this.drawVehicle(g, v, hasRim ? 'body' : 'all') });
-      if (hasRim) {
-        mustFollow.push([items.length - 1, items.length]);
-        vehicleRim.push(items.length);
-        items.push({ key: this.sortKey(fp, 0) + 0.0001, box: box(fp), draw: (g) => this.drawVehicle(g, v, 'rim') });
-      } else vehicleRim.push(undefined);
-    }
+      items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: (g) => this.drawVehicle(g, v, this.seated.get(vi) ?? []) });
+    });
     for (const s of shipSolids(this.ship)) {
       if (s.kind === 'console') continue; // drawn below with its keyboard, after its system block
       if (s.kind === 'railing') continue; // drawn above as posts + rails
@@ -187,17 +189,17 @@ export class ShipView {
         items.push({ key: this.sortKey(desk.footprint, 0) + 0.0006, box: box(desk.footprint), draw: (g) => this.drawConsole(g, desk, this.blockFill(b.room)) });
       }
     }
-    return { items, mustFollow, vehicleItem, vehicleRim, doorItem };
+    return { items, mustFollow, vehicleItem, doorItem };
   }
 
   /** Everything standing, drawn into one graphics (Ship Lab / still pictures). */
   drawObjects(objects: G, crew: CrewOnDeck[], doorOpen: (i: number) => number = () => 0): void {
-    const { items, mustFollow, vehicleItem, vehicleRim } = this.collectItems(doorOpen);
+    this.seated = seatedByVehicle(crew);
+    const { items, mustFollow, vehicleItem } = this.collectItems(doorOpen);
     for (const c of crew) {
+      if (c.sit && c.vehicle !== undefined) continue; // drawn by its vehicle
       const it = this.crewItem(c);
       if (c.vehicle !== undefined && vehicleItem[c.vehicle] !== undefined) mustFollow.push([vehicleItem[c.vehicle]!, items.length]);
-      const rim = c.vehicle !== undefined ? vehicleRim[c.vehicle] : undefined;
-      if (rim !== undefined) mustFollow.push([items.length, rim]);
       items.push(it);
     }
     const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key), mustFollow);
@@ -222,7 +224,7 @@ export class ShipView {
    * walking crew stay cheap on a phone. Call after drawStatic().
    */
   mountObjects(scene: Phaser.Scene, depthFrom: number, depthTo: number, doorOpen: (i: number) => number): ObjectLayer {
-    const { items, mustFollow, vehicleItem, vehicleRim, doorItem } = this.collectItems(doorOpen);
+    const { items, mustFollow, vehicleItem, doorItem } = this.collectItems(doorOpen);
     const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key), mustFollow);
     const posOf = new Map(order.map((idx, pos) => [idx, pos]));
     const n = order.length;
@@ -241,19 +243,24 @@ export class ShipView {
         }
       },
       setCrew: (crew: CrewOnDeck[]) => {
+        // seated people are part of their vehicle's picture: redraw the vehicles that have (or just had) someone in them
+        const before = this.seated;
+        this.seated = seatedByVehicle(crew);
+        vehicleItem.forEach((idx, vi) => {
+          if (!before.has(vi) && !this.seated.has(vi)) return;
+          gfx[idx]!.clear();
+          items[idx]!.draw(gfx[idx]!);
+        });
         while (crewGfx.length < crew.length) crewGfx.push(scene.add.graphics());
         crewGfx.forEach((g, ci) => {
           g.clear();
           const c = crew[ci];
-          if (!c) return;
+          if (!c || (c.sit && c.vehicle !== undefined)) return;
           const it = this.crewItem(c);
-          // after everything that is behind the figure (and after its vehicle), before the rest
+          // after everything that is behind the figure (and after its vehicle, when climbing in), before the rest
           let after = -1;
-          const rim = c.vehicle !== undefined ? vehicleRim[c.vehicle] : undefined;
-          items.forEach((other, oi) => { if (oi !== rim && isBehind(this.view, other.box, it.box)) after = Math.max(after, posOf.get(oi)!); });
+          items.forEach((other, oi) => { if (isBehind(this.view, other.box, it.box)) after = Math.max(after, posOf.get(oi)!); });
           if (c.vehicle !== undefined && vehicleItem[c.vehicle] !== undefined) after = Math.max(after, posOf.get(vehicleItem[c.vehicle]!)!);
-          // sitting in a car: under its near side walls (they hide the legs)
-          if (rim !== undefined) after = Math.min(after, posOf.get(rim)! - 1);
           g.setDepth(depthAt(after + 0.5) + it.key * 1e-6);
           it.draw(g);
         });
@@ -415,15 +422,19 @@ export class ShipView {
    * A docked vehicle, built from simple shapes: bike / bike with an egg-shaped sidecar pod / open car you can look into.
    * It lies along the railing it is docked to, on the outer side of it.
    */
-  private drawVehicle(g: G, v: ShipVehicle, part: 'all' | 'body' | 'rim' = 'all'): void {
+  private drawVehicle(g: G, v: ShipVehicle, seated: CrewOnDeck[] = []): void {
     const { center: c, u, w } = vehicleFrame(this.ship, v);
     const at = (o: Point, du: number, dw: number): Point => [o[0] + u[0] * du + w[0] * dw, o[1] + u[1] * du + w[1] * dw];
+    // Parts belong to a group: 'bike' (with its rider), 'pod' (sidecar egg with its passenger), 'car' (with everyone in it).
     // layer: 0 = wheels (under the body), 1 = floor pan, 2 = everything else (back to front)
-    // shell = car walls / hood / trunk / windscreen: the ones nearer the viewer than the car's middle form the "rim"
-    // pod = the sidecar's egg: drawn whole under the passenger, its sides again over them (they sit IN it)
-    const parts: { fp: Point[]; z0: number; z1: number; top: number; side: number; layer: number; shell?: boolean; pod?: boolean }[] = [];
+    // shell = car walls / hood / trunk / windscreen: the ones nearer the viewer than the car's middle are drawn over the
+    // people inside; pod = the egg: drawn whole under the passenger, its sides again over them (they sit IN it)
+    type Group = 'bike' | 'pod' | 'car';
+    type Part = { fp: Point[]; z0: number; z1: number; top: number; side: number; layer: number; group: Group; shell?: boolean; pod?: boolean };
+    const parts: Part[] = [];
+    let group: Group = v.type === 'car' ? 'car' : 'bike';
     const box = (o: Point, du0: number, du1: number, dw0: number, dw1: number, z0: number, z1: number, col: number, layer = 2, shell = false) =>
-      parts.push({ fp: [at(o, du0, dw0), at(o, du1, dw0), at(o, du1, dw1), at(o, du0, dw1)], z0, z1, top: col, side: shade(col, 30), layer, shell });
+      parts.push({ fp: [at(o, du0, dw0), at(o, du1, dw0), at(o, du1, dw1), at(o, du0, dw1)], z0, z1, top: col, side: shade(col, 30), layer, shell, group });
     /** Egg shape (convex): length 2·ru along u, width 2·rw, narrower towards the front (+u). */
     const egg = (o: Point, ru: number, rw: number, z0: number, z1: number, col: number, pod = false) => {
       const fp = Array.from({ length: 18 }, (_, i): Point => {
@@ -431,7 +442,7 @@ export class ShipView {
         const cu = Math.cos(a);
         return at(o, cu * ru, Math.sin(a) * rw * (cu > 0 ? 1 - 0.3 * cu : 1));
       });
-      parts.push({ fp, z0, z1, top: col, side: shade(col, 30), layer: 2, pod });
+      parts.push({ fp, z0, z1, top: col, side: shade(col, 30), layer: 2, pod, group });
     };
     const bike = (o: Point) => {
       box(o, -0.85, -0.45, -0.06, 0.06, 0, 0.55, VEHICLE.tyre); // rear wheel
@@ -468,6 +479,7 @@ export class ShipView {
       const l = Math.hypot(o[0] - bc[0], o[1] - bc[1]) || 1;
       const t: Point = [bc[0] + ((o[0] - bc[0]) / l) * SEATS.podOffset, bc[1] + ((o[1] - bc[1]) / l) * SEATS.podOffset];
       for (const du of [-0.45, 0.25]) box(bc, du, du + 0.05, 0.12, SEATS.podOffset - 0.35, 0.38, 0.46, VEHICLE.chrome); // struts to the bike
+      group = 'pod';
       box(t, -0.35, 0.15, 0.3, 0.44, 0, 0.45, VEHICLE.tyre); // pod wheel
       egg(t, 0.75, 0.45, 0.2, 0.72, VEHICLE.olive, true); // egg-shaped pod
       egg(at(t, -0.12, 0), 0.4, 0.27, 0.72, 0.73, VEHICLE.seat); // open cockpit of the pod
@@ -475,47 +487,51 @@ export class ShipView {
     } else {
       bike(c);
     }
-    // wheels, then the floor, then the rest back to front (by the centre of each part, at its top)
-    const mid = (p: (typeof parts)[number]) => {
+    const mid = (p: Part) => {
       const cx = p.fp.reduce((s2, x) => s2 + x[0], 0) / p.fp.length;
       const cz = p.fp.reduce((s2, x) => s2 + x[1], 0) / p.fp.length;
       return depth(this.view, W([cx, cz], p.z1));
     };
-    parts.sort((p, q) => p.layer - q.layer || mid(p) - mid(q));
-    const centre = depth(this.view, W(c, 0.6));
-    const isRim = (p: (typeof parts)[number]) => !!p.shell && mid(p) > centre + 0.05;
-    for (const p of parts) {
-      if (part === 'rim' && p.pod) this.prism(g, p.fp, p.z0, p.z1, p.top, p.side, undefined, false); // pod sides only
-      else if (part === 'all' || (part === 'rim') === isRim(p)) this.prism(g, p.fp, p.z0, p.z1, p.top, p.side);
-    }
-  }
+    const sorted = (ps: Part[]) => [...ps].sort((p, q) => p.layer - q.layer || mid(p) - mid(q));
+    const prism = (p: Part, withTop = true) => this.prism(g, p.fp, p.z0, p.z1, p.top, p.side, undefined, withTop);
+    const person = (cr: CrewOnDeck, half?: 'far' | 'near') => {
+      const pt = this.S(W(cr.at, 0));
+      drawCrewIso(g, this.view, cr.look, pt.x, pt.y, this.pxPerM, cr.facing, 0, false, cr.ring, cr.idle, cr.sit, half);
+    };
+    const byDepth = (cs: CrewOnDeck[]) => [...cs].sort((a, b) => depth(this.view, W(a.at, 0)) - depth(this.view, W(b.at, 0)));
+    const groupOf = (cr: CrewOnDeck): Group => (cr.sit?.kind === 'pod' ? 'pod' : cr.sit?.kind === 'seat' ? 'car' : 'bike');
 
-  /** Stencil paint on the free deck of each system room, squashed like the floor. */
-  private drawLabels(scene: Phaser.Scene): void {
-    for (const room of this.ship.rooms) {
-      if (room.kind !== 'system') continue;
-      const c = roomFloorCenter(this.ship, room.id);
-      if (!c) continue;
-      const free = this.ship.tiles.filter((t) => t.room === room.id && !t.machinery);
-      const tiles = free.length ? free : this.ship.tiles.filter((t) => t.room === room.id);
-      const xs = tiles.flatMap((t) => t.polygon.map((p) => this.S(W(p)).x));
-      const roomW = Math.max(...xs) - Math.min(...xs);
-      const pos = this.S(W(c));
-      const label = scene.add
-        .text(pos.x, pos.y, (room.label || room.id).toUpperCase(), {
-          fontFamily: FONT_FAMILY,
-          fontSize: `${FONT_SIZES.small}px`,
-          color: '#' + WORLD.stencil.toString(16).padStart(6, '0'),
-          resolution: 4,
-        })
-        .setLetterSpacing(1)
-        .setAlpha(0.7)
-        .setOrigin(0.5);
-      // lie on the deck: run along the ship's length, squashed like the floor (text cannot shear – close enough)
-      const ex = project(this.view, [1, 0, 0]);
-      label.setRotation(Math.atan2(ex[1], ex[0])).setScale(1, this.view.sin);
-      if (label.width > roomW * 0.9) label.setVisible(false);
+    // each group back to front: its far stuff, its people, its near stuff
+    const draws: { d: number; draw: () => void }[] = [];
+    for (const gr of ['bike', 'pod', 'car'] as Group[]) {
+      const ps = parts.filter((p) => p.group === gr);
+      if (!ps.length) continue;
+      const people = byDepth(seated.filter((cr) => groupOf(cr) === gr));
+      const d = ps.reduce((sum, p) => sum + mid(p), 0) / ps.length;
+      draws.push({
+        d,
+        draw: () => {
+          if (gr === 'bike') {
+            // rider: far leg + arm behind the bike, body + near leg + arm in front of it
+            for (const cr of people) person(cr, 'far');
+            for (const p of sorted(ps)) prism(p);
+            for (const cr of people) person(cr, 'near');
+          } else if (gr === 'pod') {
+            for (const p of sorted(ps)) prism(p);
+            for (const cr of people) person(cr);
+            for (const p of sorted(ps)) if (p.pod) prism(p, false); // egg sides over the passenger
+          } else {
+            const centre = depth(this.view, W(c, 0.6));
+            const near = (p: Part) => !!p.shell && mid(p) > centre + 0.05;
+            for (const p of sorted(ps)) if (!near(p)) prism(p);
+            for (const cr of people) person(cr);
+            for (const p of sorted(ps)) if (near(p)) prism(p);
+          }
+        },
+      });
     }
+    draws.sort((a, b) => a.d - b.d);
+    for (const x of draws) x.draw();
   }
 
   /** How much the outward normal of edge a-b points at the viewer (after the view's yaw; positive = visible). */

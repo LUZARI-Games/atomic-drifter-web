@@ -38,6 +38,7 @@ never restate the owner's tasks back to them.
   Setting: post-nuclear Earth (Fallout-like); ships are patched-up pre-war **airships** flying low over the wasteland –
   hull with a rounded-pointed nose at the bow (right), propellers + tail fins at the stern (left). Never space/rockets.
   Each system's machine tiles form ONE continuous block (gap to the walls, darker rim, dark system symbol),
+  No room names on the floor – the system icon on the block is enough.
   filled with the **Ship Planner colour, faded into Fallout paint** (`worldPaint` in palette.ts; no neon) (`src/data/systems.json`, `src/core/systems.ts`) – `src/core/hull.ts`.
   Grimdark, desaturated Fallout 3 tones from `WORLD` in `src/render/palette.ts` (olive-grey steel, rust, dim lamp-yellow).
   No green glow and no scanlines on the world. Selection = pale lamp-yellow outline.
@@ -87,9 +88,10 @@ never restate the owner's tasks back to them.
 - Vehicles: 1 tile = 1 seat. `seatPose` (core/exterior.ts, layout `SEATS`): astride the bike (hands on the bar), car
   seats (driver at the wheel, legs hidden), low in the sidecar pod. Seated crew face the driving direction (`SitPose`
   in crew_iso.ts). Car: front and back row are walled apart (`vehicles[].walls` from the export) – you get in at your
-  row's door only and can switch seats only within the row; a rust partition shows it. The car's near walls are a
-  separate "rim" item drawn over the people inside; the sidecar pod likewise (its egg sides are drawn again over the
-  passenger, who sits low in it, 1.05 m beside the bike).
+  row's door only and can switch seats only within the row; a rust partition shows it.
+- Seated crew are drawn BY their vehicle (`ShipView.drawVehicle`), in depth-sorted groups: bike = rider's far half
+  (far leg + arm, `drawCrewIso(..., half)`) → bike → near half; pod = egg → passenger (only chest + head above the
+  rim) → egg sides; car = body → people → near walls/hood. Check with `?test=bike|sidecar|car`.
 - Taps: a figure on screen selects / deselects it; with crew selected a tap sends them; tapping the void lets go.
 - Rendering: `ShipView.mountObjects` draws every standing object ONCE into its own graphics (stacked by depth);
   per frame only crew (and moving doors) are redrawn and slotted in by `isBehind`. Never redraw the whole ship per frame.

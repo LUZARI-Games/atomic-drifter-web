@@ -36,6 +36,8 @@ export interface IdlePose {
   typing: boolean;
 }
 
+const POD_RIM = 0.72; // top of the sidecar pod (m) – keep in sync with ship_view's egg
+
 /** Sitting in a vehicle (heights in meters above the deck the figure stands on). */
 export interface SitPose {
   hip: number;
@@ -57,8 +59,10 @@ const now_and_then = (x: number) => {
  * `pxPerM` = zoom, `facing` = floor angle (0 = +x/right, PI/2 = towards the viewer), `step` = walk cycle in meters walked.
  * `idle` = standing still (breathing, weight shift, looking around, hands on hips, typing); omit while walking.
  * `sit` = seated in a vehicle: (x, y) is the deck point under the hips.
+ * `half` = draw only the limbs on the side away from the viewer ('far') or everything else ('near') – a rider is drawn
+ * far half, then the bike, then the near half, so the far leg disappears behind the bike.
  */
-export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean, ringColor?: number, idle?: IdlePose, sit?: SitPose): void {
+export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean, ringColor?: number, idle?: IdlePose, sit?: SitPose, half?: 'far' | 'near'): void {
   const color = hex(CREW_LOOKS.origins[look.origin].color);
   const skin = hex(CREW_LOOKS.skin_tones[look.skin]!);
   const hair = hex(CREW_LOOKS.hair_colors[look.hair]!);
@@ -96,13 +100,16 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   };
   const D3 = (p: Vec3) => depth(v, W3(p));
 
-  const parts: { d: number; draw: () => void }[] = [];
+  const parts: { d: number; draw: () => void; side: number }[] = [];
   // two passes: first every part as a thick silhouette in the team colour (green = own crew, amber = hostile),
   // then the normal figure on top with thin dark edges -> a coloured outline that also reads in greyscale
   const team = hostile ? COLORS.amber : COLORS.green;
   const rim = Math.max(2.5, 0.1 * pxPerM);
   let sil = false;
-  const add = (center: Vec3, draw: () => void, bias = 0) => parts.push({ d: D3(center) + bias, draw });
+  let limbSide = 0; // -1 / +1 while adding a left / right limb, 0 = middle of the body
+  const add = (center: Vec3, draw: () => void, bias = 0) => parts.push({ d: D3(center) + bias, draw, side: limbSide });
+  // which side of the body faces away from the viewer
+  const farSide = depth(v, W3([0, 1, 0])) > depth(v, W3([0, 0, 0])) ? -1 : 1;
   const line = () => g.lineStyle(Math.max(1, 0.025 * pxPerM), OUTLINE, 1);
   const fill = (pts: Vec2[], col: number, outline = true) => {
     const vs = pts.map(([a, b]) => new Phaser.Math.Vector2(a, b));
@@ -177,11 +184,11 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
       const [sx, sy] = project(v, [Math.cos((i / 24) * 2 * Math.PI) * r, Math.sin((i / 24) * 2 * Math.PI) * r, z]);
       return [x + sx * pxPerM, y + sy * pxPerM];
     });
-  if (!sit) {
+  if (!sit && half !== 'near') {
     g.fillStyle(0x000000, 0.35);
     g.fillPoints(floorEllipse(W + 0.14).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
   }
-  if (ringColor !== undefined) {
+  if (ringColor !== undefined && half !== 'near') {
     // selected: ring on the floor (team colour is already the outline)
     g.lineStyle(Math.max(2, 0.08 * pxPerM), ringColor, 1);
     g.strokePoints(floorEllipse(W + 0.3, sit ? (sit.kind === 'pod' ? 0.74 : sit.hip) : 0).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
@@ -191,6 +198,7 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   const legR = tank ? 0.085 : 0.07;
   const hipW = Math.max(W * torso.waist * 0.6, legR * 1.1);
   for (const side of [-1, 1]) {
+    limbSide = side;
     if (sit) {
       if (sit.legsHidden) continue; // inside the car / pod
       // astride: thighs forward and out, shins down to the footpegs
@@ -205,10 +213,16 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
     capsule([f * 0.5, side * hipW + shift, hip], [f + free, side * hipW, legR], legR, shade(color, 35));
   }
 
+  limbSide = 0;
+
   // --- torso + arms + hands ---
-  column(D, W * torso.waist, W, hip - 0.05 * k, shoulder, color, shift);
+  // low in the sidecar pod: only the chest above its rim shows (the rest is inside the egg)
+  const inPod = sit?.kind === 'pod';
+  column(D, W * torso.waist, W, inPod ? Math.max(hip, POD_RIM - 0.02) : hip - 0.05 * k, shoulder, color, shift);
   const armR = tank ? 0.075 : 0.06;
   for (const side of [-1, 1]) {
+    if (inPod) break; // arms rest inside the pod
+    limbSide = side;
     const f = -swing * side;
     const sh: Vec3 = [0, side * (W + armR * 0.6) + shift, shoulder - 0.04];
     // typing: hands on the desk in front, tapping in short bursts
@@ -218,7 +232,7 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
     let elbow: Vec3 | null = null;
     if (sit) {
       const grip = Math.sin(it * 1.3 + side) * 0.01; // small steering moves
-      hand = sit.hands === 'bar' ? [0.5, side * 0.3, shoulder - 0.3]
+      hand = sit.hands === 'bar' ? [0.66, side * 0.34, 0.93] // on the handlebar grips
         : sit.hands === 'wheel' ? [0.34, side * 0.15, hip + 0.28 + grip * side]
           : [0.24, side * W * 0.75, hip + 0.1];
     } else if (idle?.typing) hand = [0.42, side * W * 0.55 + shift, 0.82 + tap];
@@ -236,11 +250,16 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
     } else capsule(sh, hand, armR, shade(color, 14));
     sphere(hand, armR * 1.05, skin, 0.01);
   }
+  limbSide = 0;
 
   // --- gear (neutral metal) ---
   if (wears('backpack')) box([-D - 0.17, -0.15 + shift, hip + 0.1], [-D + 0.02, 0.15 + shift, shoulder - 0.02], METAL);
   if (wears('shoulder_plates')) {
-    for (const side of [-1, 1]) cap([0, side * W + shift, shoulder - 0.02], tank ? 0.13 : 0.1, [0, side * 0.5, 0.85], 0.05, METAL, 0.05);
+    for (const side of [-1, 1]) {
+      limbSide = side;
+      cap([0, side * W + shift, shoulder - 0.02], tank ? 0.13 : 0.1, [0, side * 0.5, 0.85], 0.05, METAL, 0.05);
+    }
+    limbSide = 0;
   }
 
   // --- head: skin ball, hair cap tilted to the back, ponytail (turned by `look` around the neck) ---
@@ -261,9 +280,9 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
     if (female) capsule(at([hc[0] - headR * 0.9, hc[1], head + 0.02]), at([hc[0] - headR * 1.6, hc[1], head - 0.12]), 0.045, hair);
   }
 
-  parts.sort((a, b) => a.d - b.d);
+  const shown = parts.filter((p) => half === undefined || (half === 'far') === (p.side === farSide)).sort((a, b) => a.d - b.d);
   sil = true;
-  for (const p of parts) p.draw();
+  for (const p of shown) p.draw();
   sil = false;
-  for (const p of parts) p.draw();
+  for (const p of shown) p.draw();
 }
