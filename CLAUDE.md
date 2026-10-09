@@ -22,7 +22,13 @@ The owner works from an Android phone and is not a programmer: keep explanations
 - Ships use the planner's Godot export (`atomic-drifter-ship-godot` v1: meters, bow = -Z, starboard = +X) unchanged –
   the same file feeds the web prototype and Godot. The game draws it top-down with the bow pointing right.
 
-## Design rules
+## Two looks
+- **Terminal UI** (HTML overlay: bars, menus, HUD) – green phosphor rules below.
+- **Game world** (the ship in Phaser) – flat 2D top-down like FTL / Void War, no 3D / 2.5D / perspective.
+  Grimdark, desaturated Fallout 3 tones from `WORLD` in `src/render/palette.ts` (olive-grey steel, rust, dim lamp-yellow).
+  No green glow and no scanlines on the world. Selection = pale lamp-yellow outline.
+
+## Design rules (terminal UI)
 - Colors: background `#030806`, phosphor green `#1AFF80`, amber `#FFB43A` = enemy/warning, red `#FF4A3A` = error/damage.
   Tokens live in `src/ui/styles.css` (`:root`) and `src/render/palette.ts` – keep both in sync.
 - Font: Share Tech Mono. Sizes **24 / 18 / 15 px only** (game units for Phaser, CSS px for HTML).

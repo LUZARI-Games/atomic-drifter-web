@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import demo from '../data/demo_ship.json';
 import { clearSelection, createGameState, getSelectedRoom, selectRoom, tapPoint } from './selection';
-import { parseShip, pointInPolygon, roomAtPoint, roomCenter, shipBounds } from './ship';
+import { parseShip, pointInPolygon, roomAtPoint, roomCenter, roomOutline, shipBounds } from './ship';
 import { Store } from './store';
 import type { Point } from './types';
 
@@ -22,6 +22,12 @@ describe('ship loading', () => {
   it('computes bounds and room centres in meters', () => {
     expect(shipBounds(ship)).toEqual({ minX: -2, maxX: 2, minZ: -4, maxZ: 4 });
     expect(roomCenter(ship, 'piloting')).toEqual([0, -3]);
+  });
+
+  it('outlines a room without its inner tile seams', () => {
+    // cockpit = 2 tiles of 2x2 m side by side -> 6 outer edges, the shared middle edge is dropped
+    expect(roomOutline(ship, 'piloting').length).toBe(6);
+    expect(roomOutline(ship, 'nope').length).toBe(0);
   });
 });
 

@@ -76,3 +76,24 @@ export function roomCenter(ship: Ship, id: string): Point | null {
   if (!ts.length) return null;
   return [ts.reduce((s, t) => s + t.center[0], 0) / ts.length, ts.reduce((s, t) => s + t.center[1], 0) / ts.length];
 }
+
+/**
+ * Outer outline of a room: every tile edge that is not shared with another tile of the same room.
+ * Used for the selection outline. Edges are matched with 1 mm tolerance.
+ */
+export function roomOutline(ship: Ship, id: string): [Point, Point][] {
+  const k = ([x, z]: Point) => `${Math.round(x * 1000)},${Math.round(z * 1000)}`;
+  const count = new Map<string, { seg: [Point, Point]; n: number }>();
+  for (const t of ship.tiles) {
+    if (t.room !== id) continue;
+    for (let i = 0; i < t.polygon.length; i++) {
+      const a = t.polygon[i]!;
+      const b = t.polygon[(i + 1) % t.polygon.length]!;
+      const key = [k(a), k(b)].sort().join('|');
+      const e = count.get(key);
+      if (e) e.n++;
+      else count.set(key, { seg: [a, b], n: 1 });
+    }
+  }
+  return [...count.values()].filter((e) => e.n === 1).map((e) => e.seg);
+}
