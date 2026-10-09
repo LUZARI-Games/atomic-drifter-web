@@ -152,6 +152,8 @@ never restate the owner's tasks back to them.
 - Deploy: Cloudflare Workers Builds runs `npm run build` + `npx wrangler deploy` on every push to `main` (see README).
 
 ## Workflow
+- When unsure what the owner wants (e.g. which part of a mockup belongs in the game), ASK before building – don't guess.
+- Owner's design mockups: proper rebuild (own code, phone layout, wired to core) – never a 1:1 copy of the export.
 - The owner works from several sessions (phone cloud session + PC). Start every session with `git pull`.
 - Owner wants changes live right away: commit and push straight to `main` (auto deploy) after checks pass.
 - Small steps; after each change: `npm run typecheck && npm test && npm run build`.
