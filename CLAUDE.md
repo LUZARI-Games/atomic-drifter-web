@@ -5,6 +5,8 @@ Purpose: find out which items, crew, systems and synergies are fun. The final ga
 so **rules and data must stay engine-neutral**. Visuals = basic shapes.
 
 The owner works from an Android phone and is not a programmer: keep explanations short, test on a 16:9 landscape phone.
+Replies: always in English (even when the owner writes German), short and to the point, bullet lists for multiple points,
+never restate the owner's tasks back to them.
 
 ## Architecture (strict)
 | Folder | Contains | May import |
