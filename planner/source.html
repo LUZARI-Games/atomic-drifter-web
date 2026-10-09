@@ -1327,9 +1327,7 @@ function edgeState(ek) {
   const wall = !!(A || B) && !(A && B && A.room === B.room);
   const kind = A && B ? (A.room !== B.room ? 'door' : null) : (A || B ? 'airlock' : null);
   const blocked = isMach(A) || isMach(B);
-  // [website] the console tile is where crew stands to use the system: no door on any of its edges
-  const onConsole = isConsoleTile(key(e.a[0], e.a[1])) || isConsoleTile(key(e.b[0], e.b[1]));
-  return { ...e, A, B, wall, kind, blocked, onConsole };
+  return { ...e, A, B, wall, kind, blocked };
 }
 function tileEdge(x, y, side) {
   return { n: `h:${x},${y}`, s: `h:${x},${y + 1}`, w: `v:${x},${y}`, e: `v:${x + 1},${y}` }[side];
@@ -1832,7 +1830,6 @@ function tapAction(h) {
       if (S.doors.has(ek)) { S.doors.delete(ek); commit(); status(`${st.kind === 'airlock' ? 'AIRLOCK' : 'DOOR'} REMOVED`); }
       else if (!st.kind) error(st.A && st.B ? 'SAME ROOM · NO WALL HERE' : 'NO STRAIGHT WALL HERE');
       else if (st.blocked) error('NO DOOR NEXT TO MACHINERY');
-      else if (st.onConsole) error('NO DOOR ON THE CONSOLE SPOT · CREW STANDS THERE'); // [website]
       else if (railEdge(st)) error('BALCONY RAILING · NO DOOR NEEDED · VEHICLES DOCK HERE');
       else { S.doors.set(ek, { kind: st.kind }); commit(); status(`${st.kind === 'airlock' ? 'AIRLOCK' : 'DOOR'} PLACED`); }
       break;
@@ -3128,12 +3125,12 @@ function spotsFor(sh) {
   const cells = sh.cells.map(c => ({ x: (c.X - 1) / 2, y: (c.Y - 1) / 2, t: c.t }));
   const b = bbox(), out = [];
   for (const [k, t] of S.tiles) {
-    if (isMach(t) || isConsoleTile(k)) continue; // [website] no door on a console spot
+    if (isMach(t)) continue;
     const [fx, fy] = unkey(k);
     for (const sd of ['n', 'e', 's', 'w']) {
       const [nx, ny] = neighbor(fx, fy, sd); if (S.tiles.has(key(nx, ny))) continue;
       for (const c of cells) {
-        if (c.t === 'M' || c.t === 'S') continue; // [website] doors only on plain floor, never on the console spot
+        if (c.t === 'M') continue;
         const ox = nx - c.x, oy = ny - c.y;
         if (cells.some(q => S.tiles.has(key(ox + q.x, oy + q.y)))) continue;
         let x0 = b.x0, y0 = b.y0, x1 = b.x1, y1 = b.y1, touch = 0;
@@ -3182,7 +3179,7 @@ function generateShip(o) {
   let locks = 0;
   for (const k of shuffle([...S.tiles.keys()])) {
     if (locks >= o.airlocks) break;
-    const t = S.tiles.get(k); if (isMach(t) || isConsoleTile(k)) continue; // [website] no airlock on a console spot
+    const t = S.tiles.get(k); if (isMach(t)) continue;
     const [x, y] = unkey(k);
     for (const sd of shuffle(['n', 'e', 's', 'w'])) { const ek = tileEdge(x, y, sd), st = edgeState(ek);
       if (st.kind === 'airlock' && !st.blocked && !S.doors.has(ek)) { S.doors.set(ek, { kind: 'airlock' }); locks++; break; } }

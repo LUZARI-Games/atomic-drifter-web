@@ -24,8 +24,6 @@ and the export format `atomic-drifter-ship-godot` v1. If the format changes, `sr
 - No automatic "BEFORE YOU START · LOAD YOUR GAME TABLES" pop-up on start (the `setTimeout(... openSetup() ...)` at the end
   of the setup code is removed). The window still opens with **[T]** or the tables button.
 - Console = keyboard desk drawn ON the machinery edge facing the console tile, overhanging that tile a little (`drawConsoleRect`).
-- No door / airlock on a console tile (`isConsoleTile`, `edgeState().onConsole`): the door tool refuses it, the random
-  generator never places one there.
 - Godot export: `rooms[].console = { tile: [x, z], facing: [x, z] } | null` (+ `console_info`), read by `src/core/ship.ts`.
 - Godot export: `vehicles[] = { type, seats, docked, tiles[{center, polygon}], exits[{a, b}], walls[{a, b}] }` (+ `vehicles_info`).
 

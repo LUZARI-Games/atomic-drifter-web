@@ -59,7 +59,7 @@ never restate the owner's tasks back to them.
   Doors = 2 slim brass posts (no top beam) + floor plate + two leaves that slide sideways into the walls (`doorLeaves`);
   airlocks rust-orange with hazard stripes. Tap a door to open/close it (`toggleDoor`, `GameState.openDoors`);
   ShipScene animates the slide and redraws only the standing objects (`ShipView.drawObjects`) while doors move.
-- Consoles: a system's console tile is where crew stands to use it (never a door there). The keyboard is a shelf in the
+- Consoles: a system's console tile is where crew stands to use it (doors on its other edges are fine – crew can pass). The keyboard is a shelf in the
   system's paint, fixed to the block front facing that tile, lower than the block, overhanging the tile ~0.28 m
   (`consoleDesk` in core/ship3d.ts; drawn by ship_view in game + Ship Lab).
   Planner export: `rooms[].console = { tile, facing } | null` – older exports without it still load.
