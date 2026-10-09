@@ -11,10 +11,7 @@
   --p22: color-mix(in srgb, var(--p) 22%, transparent);
   position: fixed;
   inset: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
+  overflow: hidden;
   background: #010302;
   color: var(--p);
   font-family: var(--font);
@@ -22,9 +19,18 @@
 }
 .nr *, .nr *::before, .nr *::after { box-sizing: border-box; }
 .nr svg { width: 24px; height: 24px; flex: none; display: block; }
-.nr .g { text-shadow: 0 0 6px color-mix(in srgb, var(--p) 65%, transparent); }
+.nr .g { text-shadow: 0 0 calc(6px * var(--bloom, 1)) color-mix(in srgb, var(--p) 65%, transparent); }
 
-/* ----- screen layer (boots like a CRT) ----- */
+/* ----- screen layer (boots like a CRT; only while live – before POWER ON / after BACK the boot screen shows) ----- */
+.nr-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+.nr:not(.live) .nr-scroll { display: none; }
 .nr-crt {
   min-height: 100%;
   display: flex;
@@ -66,7 +72,7 @@
   display: flex; align-items: center; gap: 10px; min-height: 24px;
   font-size: var(--fs-m); letter-spacing: 0.2em; white-space: nowrap;
 }
-.nr-hd svg { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--p) 60%, transparent)); }
+.nr-hd svg { filter: drop-shadow(0 0 calc(3px * var(--bloom, 1)) color-mix(in srgb, var(--p) 60%, transparent)); }
 .nr-hd::after { content: ""; flex: 1 1 0; min-width: 16px; height: 1px; background: var(--p30); }
 .nr-hd .x { order: 2; opacity: 0.65; letter-spacing: 0.1em; }
 .nr-hd .hint { display: flex; align-items: center; gap: 6px; font-size: var(--fs-s); letter-spacing: 0.06em; }
@@ -79,10 +85,10 @@
   font-family: var(--font); font-size: var(--fs-m); letter-spacing: 0.14em; text-transform: uppercase;
   border-radius: 0; outline: none;
   -webkit-user-select: text; user-select: text;
-  text-shadow: 0 0 6px color-mix(in srgb, var(--p) 65%, transparent);
+  text-shadow: 0 0 calc(6px * var(--bloom, 1)) color-mix(in srgb, var(--p) 65%, transparent);
 }
 .nr-in::placeholder { color: color-mix(in srgb, var(--p) 38%, transparent); opacity: 1; text-shadow: none; }
-.nr-in:focus { border-color: var(--p); box-shadow: 0 0 12px var(--p30); }
+.nr-in:focus { border-color: var(--p); box-shadow: 0 0 calc(12px * var(--bloom, 1)) var(--p30); }
 :where(.nr) button {
   font-family: var(--font); font-size: var(--fs-m); color: var(--p); border-radius: 0; cursor: pointer;
   -webkit-tap-highlight-color: transparent; padding: 0; margin: 0;
@@ -93,7 +99,7 @@
   flex: none; width: 48px; height: 48px; display: grid; place-items: center;
   border: 3px solid var(--p40); background: transparent;
 }
-.nr-sq svg { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--p) 60%, transparent)); }
+.nr-sq svg { filter: drop-shadow(0 0 calc(3px * var(--bloom, 1)) color-mix(in srgb, var(--p) 60%, transparent)); }
 .nr-sq:active { background: color-mix(in srgb, var(--p) 16%, transparent); }
 
 /* difficulty */
@@ -104,17 +110,17 @@
   letter-spacing: 0.02em; line-height: 1.15; text-align: center;
   border: 3px solid var(--p45); background: rgba(0, 6, 3, 0.6); color: var(--p);
 }
-.nr-diff .lbl { text-shadow: 0 0 6px color-mix(in srgb, var(--p) 65%, transparent); }
+.nr-diff .lbl { text-shadow: 0 0 calc(6px * var(--bloom, 1)) color-mix(in srgb, var(--p) 65%, transparent); }
 .nr-diff.sel {
   border-color: var(--p); background: var(--p); color: var(--dark);
-  box-shadow: 0 0 16px var(--p45);
+  box-shadow: 0 0 calc(16px * var(--bloom, 1)) var(--p45);
 }
 .nr-diff.sel .lbl { text-shadow: none; }
 .nr-diff.locked { border: 3px dashed var(--p25); background: transparent; color: var(--p40); cursor: not-allowed; }
 .nr-diff.locked .lbl { text-shadow: none; }
 .nr-pips { display: flex; gap: 3px; }
 .nr-pips i { width: 14px; height: 14px; border: 1px solid color-mix(in srgb, var(--p) 32%, transparent); }
-.nr-pips i.on { background: var(--p); border-color: var(--p); box-shadow: 0 0 4px color-mix(in srgb, var(--p) 50%, transparent); }
+.nr-pips i.on { background: var(--p); border-color: var(--p); box-shadow: 0 0 calc(4px * var(--bloom, 1)) color-mix(in srgb, var(--p) 50%, transparent); }
 .nr-diff.sel .nr-pips i { border-color: rgba(2, 16, 6, 0.35); }
 .nr-diff.sel .nr-pips i.on { background: var(--dark); border-color: var(--dark); box-shadow: none; }
 .nr-diff.locked .nr-pips i.on { background: var(--p40); border-color: transparent; box-shadow: none; }
@@ -138,13 +144,13 @@
   position: relative; width: 100%; height: 72px; display: grid; place-items: center;
   border: 3px solid var(--p40); background: rgba(0, 6, 3, 0.6); color: var(--p80);
 }
-.nr-mod svg { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--p) 55%, transparent)); }
+.nr-mod svg { filter: drop-shadow(0 0 calc(3px * var(--bloom, 1)) color-mix(in srgb, var(--p) 55%, transparent)); }
 .nr-mod.on {
   border-color: var(--p); background: color-mix(in srgb, var(--p) 16%, #020a06); color: var(--p);
-  box-shadow: 0 0 14px var(--p30);
+  box-shadow: 0 0 calc(14px * var(--bloom, 1)) var(--p30);
 }
 .nr-mod.on::after {
-  content: ""; position: absolute; right: 4px; top: 4px; width: 8px; height: 8px; background: var(--p); box-shadow: 0 0 6px var(--p);
+  content: ""; position: absolute; right: 4px; top: 4px; width: 8px; height: 8px; background: var(--p); box-shadow: 0 0 calc(6px * var(--bloom, 1)) var(--p);
 }
 .nr-mod.locked { border: 3px dashed var(--p22); background: transparent; color: color-mix(in srgb, var(--p) 35%, transparent); cursor: not-allowed; }
 .nr-mod.locked svg { filter: none; }
@@ -157,7 +163,7 @@
 .nr-back:active, .nr-start:not(.dis):active { filter: brightness(1.3); }
 .nr-start {
   height: 56px; padding: 0 30px; display: flex; align-items: center; gap: 12px; letter-spacing: 0.18em;
-  border: 3px solid var(--p); background: var(--p); color: var(--dark); box-shadow: 0 0 24px var(--p45);
+  border: 3px solid var(--p); background: var(--p); color: var(--dark); box-shadow: 0 0 calc(24px * var(--bloom, 1)) var(--p45);
 }
 .nr-start.dis { border: 3px dashed var(--p30); background: transparent; color: var(--p40); box-shadow: none; cursor: not-allowed; }
 .nr-init {
@@ -169,7 +175,7 @@
 /* errors */
 .nr .err {
   border-color: var(--red) !important; border-style: solid !important; color: var(--red) !important;
-  box-shadow: 0 0 18px rgba(255, 74, 58, 0.45) !important;
+  box-shadow: 0 0 calc(18px * var(--bloom, 1)) rgba(255, 74, 58, 0.45) !important;
   animation: nr-shake 0.45s ease-in-out, nr-errfl 0.7s steps(1) forwards;
 }
 .nr-errscreen {
@@ -179,8 +185,13 @@
 .nr-errscreen.on { display: block; animation: nr-escr 0.6s steps(1) forwards; }
 
 /* glass: scan lines, rolling band, glare, grain, inner shadow (all static except the slow roll; no flicker) */
-.nr-fx { position: fixed; inset: 0; pointer-events: none; z-index: 1; overflow: hidden; }
-.nr-fx .lines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px); }
+.nr-fx { position: fixed; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; }
+.nr-fx .lines {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px), radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+}
+html:not(.glass-on) .nr-fx .roll, html:not(.glass-on) .nr-fx .glare, html:not(.glass-on) .nr-fx svg.grain { display: none; }
+.nr:not(.live) .nr-fx .roll { display: none; }
 .nr-fx .roll {
   position: absolute; left: 0; right: 0; top: 0; height: 140px;
   background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--p) 5%, transparent) 45%, rgba(255, 255, 255, 0.035) 52%, color-mix(in srgb, var(--p) 4%, transparent) 60%, transparent);
@@ -191,14 +202,64 @@
   background:
     linear-gradient(118deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.02) 18%, transparent 34%),
     radial-gradient(ellipse 70% 45% at 30% -8%, rgba(255, 255, 255, 0.045), transparent 70%);
-  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.55), inset 0 0 24px color-mix(in srgb, var(--p) 8%, transparent);
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.55), inset 0 0 calc(24px * var(--bloom, 1)) color-mix(in srgb, var(--p) 8%, transparent);
 }
 .nr-fx svg.grain { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.5; mix-blend-mode: screen; }
 .nr-dot {
   position: fixed; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
-  background: #e8fff2; box-shadow: 0 0 16px var(--p), 0 0 40px var(--p); pointer-events: none; z-index: 2; opacity: 0;
+  background: #e8fff2; box-shadow: 0 0 calc(16px * var(--bloom, 1)) var(--p), 0 0 calc(40px * var(--bloom, 1)) var(--p); pointer-events: none; z-index: 2; opacity: 0;
 }
 .nr-dot.on { animation: nr-ag 0.6s ease-out forwards; }
+
+/* ----- boot screen (shared module src/ui/terminal.ts), tuned to the mockup's switched-off screen ----- */
+.nr .boot-screen {
+  z-index: 1; background: transparent; padding: max(72px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+  justify-content: safe center; overscroll-behavior: contain;
+  animation: nr-fi 0.25s steps(3) 0.45s both;
+}
+.nr .boot-screen.hidden { display: none; }
+.nr .boot-power {
+  flex: none; border-color: color-mix(in srgb, var(--p) 60%, transparent); color: var(--p);
+  box-shadow: 0 0 calc(14px * var(--bloom, 1)) color-mix(in srgb, var(--p) 25%, transparent);
+  text-shadow: 0 0 calc(6px * var(--bloom, 1)) color-mix(in srgb, var(--p) 65%, transparent);
+}
+.nr .boot-power svg { width: 24px; height: 24px; filter: drop-shadow(0 0 calc(3px * var(--bloom, 1)) color-mix(in srgb, var(--p) 60%, transparent)); }
+.nr .boot-cap { margin-top: 16px; font-size: var(--fs-s); letter-spacing: 0.3em; opacity: 0.5; }
+.nr .boot-row { flex: none; gap: 12px; }
+.nr .boot-tog {
+  height: 48px; min-height: 48px; padding: 0 16px; font-size: var(--fs-s); letter-spacing: 0.14em;
+  border: 3px solid color-mix(in srgb, var(--p) 25%, transparent); background: transparent;
+  color: color-mix(in srgb, var(--p) 55%, transparent); box-shadow: none; text-shadow: none; opacity: 1;
+}
+.nr .boot-tog.on {
+  border-color: var(--p); background: color-mix(in srgb, var(--p) 14%, transparent); color: var(--p);
+  box-shadow: 0 0 calc(12px * var(--bloom, 1)) color-mix(in srgb, var(--p) 35%, transparent);
+  text-shadow: 0 0 calc(6px * var(--bloom, 1)) color-mix(in srgb, var(--p) 65%, transparent);
+}
+.nr .boot-bloom { flex: none; width: auto; max-width: 100%; height: 48px; gap: 16px; font-size: var(--fs-s); }
+.nr .boot-bloom span { letter-spacing: 0.14em; opacity: 0.7; }
+.nr .boot-bloom b {
+  width: 56px; min-width: 56px; text-align: left; letter-spacing: 0.1em; white-space: nowrap;
+  text-shadow: 0 0 calc(6px * var(--bloom, 1)) color-mix(in srgb, var(--p) 65%, transparent);
+}
+.nr .boot-bloom input {
+  -webkit-appearance: none; appearance: none; flex: 0 1 240px; width: 240px; min-width: 120px; height: 28px;
+  background: transparent; cursor: pointer; margin: 0;
+}
+.nr .boot-bloom input:focus { outline: none; }
+.nr .boot-bloom input:focus-visible { outline: 1px dashed var(--p); outline-offset: 3px; }
+.nr .boot-bloom input::-webkit-slider-runnable-track {
+  height: 8px; border: 3px solid color-mix(in srgb, var(--p) 50%, transparent); background: rgba(0, 8, 4, 0.6);
+}
+.nr .boot-bloom input::-moz-range-track {
+  height: 8px; border: 3px solid color-mix(in srgb, var(--p) 50%, transparent); background: rgba(0, 8, 4, 0.6);
+}
+.nr .boot-bloom input::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 28px; margin-top: -13px; background: var(--p); border: 3px solid var(--dark);
+  box-shadow: 0 0 calc(10px * var(--bloom, 1)) var(--p);
+}
+.nr .boot-bloom input::-moz-range-thumb { width: 12px; height: 24px; background: var(--p); border: 3px solid var(--dark); border-radius: 0; }
+.nr .boot-screen > [data-ref="full"] { flex: none; }
 
 /* glitch-in of the blocks */
 .nr .bt { animation: nr-gin 0.34s linear 0.22s both; }
@@ -265,6 +326,7 @@
   100% { opacity: 1; transform: none; clip-path: none; }
 }
 @keyframes nr-bl { 50% { opacity: 0; } }
+@keyframes nr-fi { 0% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes nr-roll { from { transform: translateY(-160px); } to { transform: translateY(calc(100vh + 20px)); } }
 @keyframes nr-shake {
   0%, 100% { transform: translateX(0); }

@@ -17,6 +17,7 @@ import {
 } from '../core/newrun';
 import { loadRun, saveRun } from './runStore';
 import { applyGreyscale, greyscaleItem, mountMenu, toggleFullscreen } from './menu';
+import { mountBootScreen } from './terminal';
 
 const GAME_URL = '/';
 
@@ -42,7 +43,7 @@ const P: Record<string, string> = {
 const icon = (name: string) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">${P[name] ?? P.lock}</svg>`;
 
-// ---------- sounds (Web Audio, made in code; follows the SOUND/VOLUME setting of the game) ----------
+// ---------- sounds (Web Audio, made in code; follows the SOUND/VOLUME setting of the game + the boot screen's SOUND) ----------
 class Sfx {
   private ac: AudioContext | null = null;
   private master: GainNode | null = null;
@@ -55,6 +56,10 @@ class Sfx {
     } catch {
       /* defaults */
     }
+  }
+  setOn(on: boolean): void {
+    this.on = on;
+    if (!on && this.ac && this.ac.state === 'running') void this.ac.suspend();
   }
   private audio(): AudioContext | null {
     if (!this.on) return null;
@@ -118,7 +123,7 @@ class Sfx {
     src.start(t);
     src.stop(t + dur + 0.02);
   }
-  play(name: 'hover' | 'click' | 'add' | 'sub' | 'confirm' | 'done' | 'error' | 'off'): void {
+  play(name: 'hover' | 'click' | 'add' | 'sub' | 'confirm' | 'done' | 'error' | 'boot' | 'off'): void {
     switch (name) {
       case 'hover':
         this.noise(0.012, 0.06, { bp: 2600, q: 2 });
@@ -153,6 +158,11 @@ class Sfx {
         this.tone(117, 0.18, { vol: 0.03, delay: 0.16 });
         this.noise(0.32, 0.05, { bp: 1200, q: 0.5 });
         break;
+      case 'boot': // tube warm-up thump + rising whine
+        this.tone(60, 0.22, { type: 'sine', vol: 0.12 });
+        this.noise(0.05, 0.14, { bp: 900, q: 1 });
+        this.tone(140, 0.45, { type: 'sawtooth', vol: 0.02, slide: 1500, delay: 0.04 });
+        break;
       case 'off':
         this.tone(1300, 0.4, { type: 'sawtooth', vol: 0.025, slide: 60 });
         this.noise(0.08, 0.12, { bp: 700, q: 1 });
@@ -171,19 +181,22 @@ type ErrState =
 
 export function mountNewRun(screen: HTMLElement, hud: HTMLElement): void {
   const sfx = new Sfx();
-  let s: NewRunSettings = { ...defaultSettings(), captainName: sanitizeName(loadRun().captainName) };
+  const fresh = (): NewRunSettings => ({ ...defaultSettings(), captainName: sanitizeName(loadRun().captainName) });
+  let s: NewRunSettings = fresh();
   let dHover: string | null = null;
   let mHover: string | null = null;
   let lastMod: string | null = null;
   let err: ErrState = null;
-  let started = false;
+  let started = true; // true while the screen is not live (boot screen / switching off): blocks all input
   let errTimer = 0;
+  let offTimers: number[] = [];
   const max = NEW_RUN.name_max_length;
 
   const root = document.createElement('div');
   root.id = 'game'; // greyscale check targets #game
   root.className = 'nr';
   root.innerHTML = `
+    <div class="nr-scroll" data-ref="scroll">
     <div class="nr-crt">
       <div class="nr-wrap">
         <div class="nr-row top bt2 d38">
@@ -216,11 +229,14 @@ export function mountNewRun(screen: HTMLElement, hud: HTMLElement): void {
         </div>
       </div>
     </div>
+    </div>
     <div class="nr-fx" aria-hidden="true">
       <div class="lines"></div>
       <svg class="grain" xmlns="http://www.w3.org/2000/svg">
-        <filter id="nr-gr"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" /></filter>
-        <filter id="nr-du"><feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="3" seed="3" /></filter>
+        <filter id="nr-gr" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" result="n" />
+          <feColorMatrix in="n" type="matrix" values="0 0 0 0 .8  0 0 0 0 .85  0 0 0 0 .8  0 0 0 1.6 -1.18" /></filter>
+        <filter id="nr-du" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="3" seed="3" result="m" />
+          <feColorMatrix in="m" type="matrix" values="0 0 0 0 .75  0 0 0 0 .8  0 0 0 0 .75  0 0 0 1.2 -.62" /></filter>
         <rect width="100%" height="100%" filter="url(#nr-gr)" opacity="0.35" />
         <rect width="100%" height="100%" filter="url(#nr-du)" opacity="0.12" />
       </svg>
@@ -235,6 +251,7 @@ export function mountNewRun(screen: HTMLElement, hud: HTMLElement): void {
   const shipIn = $<HTMLInputElement>('ship');
   const capIn = $<HTMLInputElement>('captain');
   const startBtn = $<HTMLButtonElement>('start');
+  const actions = $('actions');
   shipIn.value = s.shipName;
   capIn.value = s.captainName;
 
@@ -377,27 +394,57 @@ export function mountNewRun(screen: HTMLElement, hud: HTMLElement): void {
     sfx.play('confirm');
     $('actions').innerHTML = `<div class="nr-init g">&gt; INITIALIZING RUN<span class="nr-blink">_</span></div>`;
     window.setTimeout(() => sfx.play('done'), 550);
-    powerOff(1100, 1600);
+    powerOff(1100, 1600, () => location.assign(GAME_URL));
   }
   function back() {
     if (started) return;
     started = true;
+    clearErr();
+    (document.activeElement as HTMLElement | null)?.blur?.();
     sfx.play('click');
-    powerOff(120, 620);
+    powerOff(120, 620, () => boot.show('REBOOT')); // screen dark → options + REBOOT (the page stays)
   }
-  function powerOff(offAt: number, goAt: number) {
-    window.setTimeout(() => {
-      crt.classList.add('off');
-      sfx.play('off');
-    }, offAt);
-    window.setTimeout(() => $('dot').classList.add('on'), offAt + 420);
-    window.setTimeout(() => location.assign(GAME_URL), goAt);
+  function powerOff(offAt: number, darkAt: number, then: () => void) {
+    offTimers.forEach((t) => window.clearTimeout(t));
+    offTimers = [
+      window.setTimeout(() => {
+        crt.classList.add('off');
+        sfx.play('off');
+      }, offAt),
+      window.setTimeout(() => {
+        root.classList.remove('live'); // roll band stops, afterglow dot
+        $('dot').classList.remove('on');
+        void $('dot').offsetWidth;
+        $('dot').classList.add('on');
+        then();
+      }, darkAt),
+    ];
+  }
+  /** POWER ON / REBOOT: fresh screen, CRT-on + glitch-in (the animations restart when the screen is shown again). */
+  function powerOn() {
+    offTimers.forEach((t) => window.clearTimeout(t));
+    window.clearTimeout(errTimer);
+    s = fresh();
+    dHover = mHover = lastMod = null;
+    err = null;
+    shipIn.value = s.shipName;
+    capIn.value = s.captainName;
+    actions.replaceChildren(startBtn);
+    crt.classList.remove('off');
+    $('dot').classList.remove('on');
+    $('scroll').scrollTop = 0;
+    boot.hide();
+    root.classList.add('live');
+    started = false;
+    sfx.play('boot');
+    render();
   }
   startBtn.addEventListener('click', start);
   $('back').addEventListener('click', back);
   let tabbing = false; // keyboard navigation in use (TAB) – then ENTER presses the focused button
   window.addEventListener('pointerdown', () => (tabbing = false));
   window.addEventListener('keydown', (e) => {
+    if (!root.classList.contains('live')) return; // boot screen: keys keep their normal meaning
     if (e.key === 'Escape') {
       e.preventDefault();
       back();
@@ -474,6 +521,28 @@ export function mountNewRun(screen: HTMLElement, hud: HTMLElement): void {
     greyscaleItem(),
     { label: 'FULLSCREEN', onClick: () => void toggleFullscreen() },
   ]);
+  // boot screen (POWER ON / REBOOT + OPTIONS: SOUND, GLASS, BLOOM, FULLSCREEN) – shared with the other terminal pages
+  const boot = mountBootScreen(root, root, powerOn, (on) => {
+    sfx.setOn(on);
+    if (on) sfx.play('click');
+  });
+  // as in the mockup: SOUND + GLASS in one row, BLOOM, then FULLSCREEN on its own (lit while full screen)
+  const bootEl = root.querySelector<HTMLElement>('.boot-screen')!;
+  const full = bootEl.querySelector<HTMLElement>('[data-ref="full"]');
+  const bloomRow = bootEl.querySelector<HTMLElement>('.boot-bloom');
+  if (full && bloomRow) {
+    bloomRow.after(full);
+    const fsPaint = () => {
+      const on = !!document.fullscreenElement;
+      full.textContent = on ? 'EXIT FULLSCREEN' : 'FULLSCREEN';
+      full.classList.toggle('on', on);
+    };
+    document.addEventListener('fullscreenchange', fsPaint);
+    fsPaint();
+  }
+  bootEl.querySelector('input[type="range"]')?.setAttribute('aria-label', 'BLOOM');
+  boot.show('POWER ON');
+
   applyGreyscale();
   render();
 }
