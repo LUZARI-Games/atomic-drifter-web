@@ -1,7 +1,7 @@
 {
   "builds": {
-    "normal": { "name": "NORMAL", "size_m": 1.3, "shoulders": 1.0 },
-    "tank": { "name": "TANK", "size_m": 1.55, "shoulders": 1.3 }
+    "normal": { "name": "NORMAL", "size_m": 1.3, "shoulders": 1.0, "torso": { "shoulders": 1.0, "waist": 0.85 } },
+    "tank": { "name": "TANK", "size_m": 1.55, "shoulders": 1.3, "torso": { "shoulders": 1.6, "waist": 0.5 } }
   },
   "origins": {
     "raider": {

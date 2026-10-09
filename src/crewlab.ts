@@ -5,7 +5,7 @@ import { CREW_LOOKS, loopPose, parseCrewLook, turnTowards, type CrewLook } from 
 import type { Point } from './core/types';
 import LAB from './data/crew_lab.json';
 import { drawCrew } from './render/crew';
-import { drawCrewIso, isoFloor } from './render/crew_iso';
+import { drawCrewIso, ISO_VIEWS, isoFloor } from './render/crew_iso';
 import { drawCrewV2 } from './render/crew_v2';
 import { COLORS, FONT_FAMILY, FONT_SIZES, WORLD } from './render/palette';
 import { attachPanZoom } from './render/panzoom';
@@ -16,10 +16,11 @@ const PX_PER_M = 36; // roughly the in-game zoom on a phone
 const TILE = 2 * PX_PER_M; // planner tiles are 2 m
 const WALK_SPEED = 1.4; // m/s
 const TURN_SPEED = 9; // rad/s
-const CELL_W = 500;
-const CELL_H = 354;
-const CLOSE = { w: 100, h: 120, y: 62, xs: [8, 118, 228, 338] }; // close-ups: OLD | NEW | NEW + GEAR | ISO
-const WALK = { y: 210, xs: [8, 170, 332] }; // walking at in-game size: OLD | NEW + GEAR | ISO
+const CELL_W = 660;
+const CELL_H = 380; // 60° deck is taller than the 45° one
+const CLOSE = { w: 100, h: 120, y: 62, xs: [8, 118, 228, 338, 448] }; // close-ups: OLD | NEW | NEW + GEAR | ISO 45° | ISO 60°
+const WALK = { y: 210, xs: [8, 170, 332, 494] }; // walking at in-game size: OLD | NEW + GEAR | ISO 45° | ISO 60°
+const ISO = [ISO_VIEWS[45], ISO_VIEWS[60]];
 const ISO_CLOSE_PX_PER_M = 60;
 const ISO_HEADROOM = 42; // px above the squashed ISO floor for heads
 const GAP = 15;
@@ -51,8 +52,8 @@ class CrewLabScene extends Phaser.Scene {
       small(8, 0, l.name, '#1aff80');
       const o = CREW_LOOKS.origins[l.origin];
       small(8, 18, o.hostile ? 'HOSTILE' : 'FRIENDLY', o.hostile ? '#ffb43a' : '#0d6b3a');
-      ['OLD', 'NEW', 'NEW + GEAR', 'ISO 45°'].forEach((t, k) => small(CLOSE.xs[k]!, CLOSE.y - 18, t));
-      ['IN-GAME: OLD', 'NEW + GEAR', 'ISO 45°'].forEach((t, k) => small(WALK.xs[k]!, WALK.y - 18, t));
+      ['OLD', 'NEW', 'NEW + GEAR', 'ISO 45°', 'ISO 60°'].forEach((t, k) => small(CLOSE.xs[k]!, CLOSE.y - 18, t));
+      ['IN-GAME: OLD', 'NEW + GEAR', 'ISO 45°', 'ISO 60°'].forEach((t, k) => small(WALK.xs[k]!, WALK.y - 18, t));
     });
 
     const rows = Math.ceil(looks.length / cols);
@@ -89,16 +90,17 @@ class CrewLabScene extends Phaser.Scene {
       WALK.xs.forEach((wx, k) => {
         const dx = x + wx;
         const dy = y + WALK.y;
-        if (k === 2) {
+        if (k >= 2) {
+          const view = ISO[k - 2]!;
           // ISO: same 4x4 m deck, squashed by the 45° view; heads may rise above it
           const fy = dy + ISO_HEADROOM;
           g.fillStyle(WORLD.floor, 1);
-          g.fillPoints(isoFloor(dx, fy, 0, 0, 4, 4, PX_PER_M), true);
+          g.fillPoints(isoFloor(view, dx, fy, 0, 0, 4, 4, PX_PER_M), true);
           g.lineStyle(1, WORLD.floorSeam, 1);
-          for (let a = 0; a < 2; a++) for (let m = 0; m < 2; m++) g.strokePoints(isoFloor(dx, fy, a * 2 + 0.08, m * 2 + 0.08, 1.84, 1.84, PX_PER_M), true);
+          for (let a = 0; a < 2; a++) for (let m = 0; m < 2; m++) g.strokePoints(isoFloor(view, dx, fy, a * 2 + 0.08, m * 2 + 0.08, 1.84, 1.84, PX_PER_M), true);
           const [fx, fz] = [pose.pos[0], pose.pos[1]];
-          const p = isoFloor(dx, fy, fx, fz, 0, 0, PX_PER_M)[0]!;
-          drawCrewIso(g, l, p.x, p.y, PX_PER_M, f, walked, hostile);
+          const p = isoFloor(view, dx, fy, fx, fz, 0, 0, PX_PER_M)[0]!;
+          drawCrewIso(g, view, l, p.x, p.y, PX_PER_M, f, walked, hostile);
           return;
         }
         g.fillStyle(WORLD.floor, 1);
@@ -120,7 +122,7 @@ class CrewLabScene extends Phaser.Scene {
         const mx = x + cx + CLOSE.w / 2;
         const my = y + CLOSE.y + CLOSE.h / 2;
         if (k === 0) drawCrew(g, l, mx, my, cr, f);
-        else if (k === 3) drawCrewIso(g, l, mx, y + CLOSE.y + CLOSE.h * 0.8, ISO_CLOSE_PX_PER_M, f, walked, hostile);
+        else if (k >= 3) drawCrewIso(g, ISO[k - 3]!, l, mx, y + CLOSE.y + CLOSE.h * 0.8, ISO_CLOSE_PX_PER_M, f, walked, hostile);
         else drawCrewV2(g, k === 1 ? bare : l, mx, my, cr, f, hostile);
       });
     });

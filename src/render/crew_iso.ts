@@ -3,12 +3,13 @@
 // parts are drawn back to front. Top faces get a lighter shade so the figure reads as standing upright.
 import Phaser from 'phaser';
 import { CREW_GEAR, CREW_LOOKS, type CrewLook } from '../core/crew';
-import { convexHull, depth, makeView, project, type Vec2, type Vec3 } from '../core/projection';
+import { convexHull, depth, makeView, project, type Vec2, type Vec3, type View } from '../core/projection';
 import { COLORS, WORLD } from './palette';
 
 type G = Phaser.GameObjects.Graphics;
 
-export const ISO_VIEW = makeView();
+/** The two test angles in the Crew Lab. */
+export const ISO_VIEWS = { 45: makeView(45), 60: makeView(60) } as const;
 
 const hex = (c: string) => parseInt(c.replace('#', ''), 16);
 const shade = (c: number, pct: number) =>
@@ -19,10 +20,10 @@ const METAL_DARK = hex(CREW_GEAR.material_dark);
 const RING = 12; // samples per circle
 
 /** Floor rectangle (meters) as a screen polygon – for deck tiles under the walkers. */
-export function isoFloor(x: number, y: number, ox: number, oy: number, w: number, h: number, pxPerM: number): Phaser.Math.Vector2[] {
+export function isoFloor(v: View, x: number, y: number, ox: number, oy: number, w: number, h: number, pxPerM: number): Phaser.Math.Vector2[] {
   const pts: Vec3[] = [[ox, oy, 0], [ox + w, oy, 0], [ox + w, oy + h, 0], [ox, oy + h, 0]];
   return pts.map((p) => {
-    const [sx, sy] = project(ISO_VIEW, p);
+    const [sx, sy] = project(v, p);
     return new Phaser.Math.Vector2(x + sx * pxPerM, y + sy * pxPerM);
   });
 }
@@ -31,8 +32,7 @@ export function isoFloor(x: number, y: number, ox: number, oy: number, w: number
  * Draw one crew member standing at screen point (x, y) (= feet on the floor).
  * `pxPerM` = zoom, `facing` = floor angle (0 = +x/right, PI/2 = towards the viewer), `step` = walk cycle in meters walked.
  */
-export function drawCrewIso(g: G, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean): void {
-  const v = ISO_VIEW;
+export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean): void {
   const color = hex(CREW_LOOKS.origins[look.origin].color);
   const skin = hex(CREW_LOOKS.skin_tones[look.skin]!);
   const hair = hex(CREW_LOOKS.hair_colors[look.hair]!);
@@ -42,7 +42,8 @@ export function drawCrewIso(g: G, look: CrewLook, x: number, y: number, pxPerM: 
 
   // body proportions (meters)
   const k = tank ? 1.1 : 1; // tanks are taller and broader
-  const W = 0.2 * CREW_LOOKS.builds[look.build].shoulders * (female ? 0.9 : 1); // shoulder half-width
+  const torso = CREW_LOOKS.builds[look.build].torso; // tanks: very wide shoulders, narrow waist = V shape
+  const W = 0.2 * torso.shoulders * (female ? 0.9 : 1); // shoulder half-width
   const D = tank ? 0.15 : 0.12; // torso half-depth
   const hip = 0.85 * k;
   const shoulder = 1.4 * k;
@@ -103,13 +104,13 @@ export function drawCrewIso(g: G, look: CrewLook, x: number, y: number, pxPerM: 
       }
       fill(convexHull(pts), col);
     }, bias);
-  /** Upright elliptic column (torso) with a lighter top face. */
-  const column = (rf: number, rs: number, z0: number, z1: number, col: number) =>
+  /** Upright elliptic column (torso), side radius `rs0` at the bottom widening to `rs1` at the top, lighter top face. */
+  const column = (rf: number, rs0: number, rs1: number, z0: number, z1: number, col: number) =>
     add([0, 0, (z0 + z1) / 2], () => {
-      const ring = (z: number): Vec3[] =>
+      const ring = (z: number, rs: number): Vec3[] =>
         Array.from({ length: 16 }, (_, i) => [Math.cos((i / 16) * 2 * Math.PI) * rf, Math.sin((i / 16) * 2 * Math.PI) * rs, z]);
-      fill(convexHull([...ring(z0), ...ring(z1)].map(S)), col);
-      fill(ring(z1).map(S), shade(col, -12));
+      fill(convexHull([...ring(z0, rs0), ...ring(z1, rs1)].map(S)), col);
+      fill(ring(z1, rs1).map(S), shade(col, -12));
     });
   /** Box from local min to max corner with a lighter top face. */
   const box = (a: Vec3, b: Vec3, col: number, bias = 0) =>
@@ -135,11 +136,12 @@ export function drawCrewIso(g: G, look: CrewLook, x: number, y: number, pxPerM: 
   const legR = tank ? 0.085 : 0.07;
   for (const side of [-1, 1]) {
     const f = swing * side;
-    capsule([f * 0.5, side * W * 0.45, hip], [f, side * W * 0.45, legR], legR, shade(color, 35));
+    const hipW = Math.max(W * torso.waist * 0.6, legR * 1.1);
+    capsule([f * 0.5, side * hipW, hip], [f, side * hipW, legR], legR, shade(color, 35));
   }
 
   // --- torso + arms + hands ---
-  column(D, W, hip - 0.05 * k, shoulder, color);
+  column(D, W * torso.waist, W, hip - 0.05 * k, shoulder, color);
   const armR = tank ? 0.075 : 0.06;
   for (const side of [-1, 1]) {
     const f = -swing * side;

@@ -42,7 +42,7 @@ export function drawCrewV2(g: G, look: CrewLook, x: number, y: number, s: number
   };
   const box = (x0: number, y0: number, x1: number, y1: number): V[] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
 
-  const W = 0.62 * CREW_LOOKS.builds[look.build].shoulders * (female ? 0.88 : 1); // shoulder half-width
+  const W = 0.62 * CREW_LOOKS.builds[look.build].torso.shoulders * (female ? 0.88 : 1); // shoulder half-width (tanks: V shape)
   const D = tank ? 0.36 : 0.3; // torso half-depth
 
   // --- friend / foe ring under the feet ---
