@@ -6,7 +6,9 @@ import { COLORS, FONT_FAMILY } from './render/palette';
 import { ShipScene } from './render/ShipScene';
 import { HazeScene, WastelandScene } from './render/wasteland';
 import { mountHud } from './ui/hud';
+import { statusFromRun } from './core/run';
 import { parseShip } from './core/ship';
+import { loadRun } from './ui/runStore';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
 import { applyTestScene, testSceneFromUrl, testShip } from './ui/testScene';
 import { Sound } from './ui/sound';
@@ -19,7 +21,8 @@ async function boot(): Promise<void> {
   const sceneShip = scene?.ship ? parseShip(testShip(scene.ship)).ship : null;
   const loaded = sceneShip ? { ship: sceneShip, source: 'demo' as const, problems: [] } : loadShip(!scene); // scenes use the demo ship
   // the planner export carries no crew yet -> random crew from the Crew Lab types
-  let start = { ...createGameState(loaded.ship), crew: generateCrew(loaded.ship) };
+  // ship status (hull, shields, scrap …) comes from the saved run (New Run / Ship Upgrades / Salvage)
+  let start = { ...createGameState(loaded.ship), crew: generateCrew(loaded.ship), status: statusFromRun(loadRun()) };
   if (scene) start = applyTestScene(start, scene);
   const store = new Store(start);
   const sound = new Sound();
