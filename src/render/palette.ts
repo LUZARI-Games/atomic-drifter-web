@@ -28,6 +28,22 @@ export const WORLD = {
   select: 0xe6d98a, // selection outline (pale lamp yellow)
 } as const;
 
+/**
+ * Planner system colour -> world paint: same hue as in the Ship Planner, but faded, dirty and dark
+ * (mixed into rusty olive) so it sits in the grimdark Fallout 3 look instead of glowing like neon.
+ */
+export function worldPaint(hex: string): number {
+  const c = parseInt(hex.replace('#', ''), 16);
+  const base = 0x4a4234; // grimy olive-brown the paint is mixed into
+  const mix = (sh: number) => {
+    const v = (c >> sh) & 0xff;
+    const b = (base >> sh) & 0xff;
+    return Math.round((v * PAINT_STRENGTH + b * (1 - PAINT_STRENGTH)) * 0.92);
+  };
+  return (mix(16) << 16) | (mix(8) << 8) | mix(0);
+}
+const PAINT_STRENGTH = 0.42; // 1 = raw planner neon, 0 = no colour at all
+
 export const FONT_FAMILY = '"Share Tech Mono", monospace';
 export const FONT_SIZES = { large: 24, medium: 18, small: 15 } as const;
 

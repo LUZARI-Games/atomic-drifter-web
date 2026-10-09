@@ -9,7 +9,7 @@ import { systemColor } from '../core/systems';
 import type { Store } from '../core/store';
 import type { GameState, Point } from '../core/types';
 import { drawSystemIcon } from './icons';
-import { FONT_FAMILY, FONT_SIZES, GAME_HEIGHT, GAME_WIDTH, WORLD } from './palette';
+import { FONT_FAMILY, FONT_SIZES, GAME_HEIGHT, GAME_WIDTH, WORLD, worldPaint } from './palette';
 
 // Free play area between the HTML top bar and info line (game units).
 const AREA = { x: 50, y: 110, w: GAME_WIDTH - 100, h: GAME_HEIGHT - 220 };
@@ -130,10 +130,10 @@ export class ShipScene extends Phaser.Scene {
       g.strokePoints(this.poly(this.shrink(t.polygon, t.center, 0.1)), true);
     }
 
-    // System blocks: one continuous shape per system in its planner colour, darker rim, symbol in the middle
+    // System blocks: one continuous shape per system in its faded planner colour, darker rim, symbol in the middle
     for (const b of this.blocks) {
-      const fill = Phaser.Display.Color.HexStringToColor(systemColor(ship.rooms.find((r) => r.id === b.room))).color;
-      const rim = Phaser.Display.Color.ValueToColor(fill).darken(55).color;
+      const fill = worldPaint(systemColor(ship.rooms.find((r) => r.id === b.room)));
+      const rim = Phaser.Display.Color.ValueToColor(fill).darken(18).color;
       g.fillStyle(rim, 1);
       for (const p of blockPolygons(b, BLOCK_GAP_M)) g.fillPoints(this.poly(p), true);
       g.fillStyle(fill, 1);

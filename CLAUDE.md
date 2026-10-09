@@ -30,7 +30,7 @@ never restate the owner's tasks back to them.
   Setting: post-nuclear Earth (Fallout-like); ships are patched-up pre-war **airships** flying low over the wasteland –
   hull with a rounded-pointed nose at the bow (right), propellers + tail fins at the stern (left). Never space/rockets.
   Each system's machine tiles form ONE continuous block (gap to the walls, darker rim, dark system symbol),
-  filled with the **same colour as in the Ship Planner** (`src/data/systems.json`, `src/core/systems.ts`) – `src/core/hull.ts`.
+  filled with the **Ship Planner colour, faded into Fallout paint** (`worldPaint` in palette.ts; no neon) (`src/data/systems.json`, `src/core/systems.ts`) – `src/core/hull.ts`.
   Grimdark, desaturated Fallout 3 tones from `WORLD` in `src/render/palette.ts` (olive-grey steel, rust, dim lamp-yellow).
   No green glow and no scanlines on the world. Selection = pale lamp-yellow outline.
 
