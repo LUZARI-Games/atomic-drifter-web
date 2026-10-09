@@ -9,10 +9,10 @@ import { systemColor } from '../core/systems';
 import type { Store } from '../core/store';
 import type { GameState, Point } from '../core/types';
 import { drawSystemIcon } from './icons';
-import { FONT_FAMILY, FONT_SIZES, GAME_HEIGHT, GAME_WIDTH, WORLD, worldPaint } from './palette';
+import { FONT_FAMILY, FONT_SIZES, WORLD, worldPaint } from './palette';
 
-// Free play area between the HTML top bar and info line (game units).
-const AREA = { x: 50, y: 110, w: GAME_WIDTH - 100, h: GAME_HEIGHT - 220 };
+// Canvas = the free space between the HTML top bar and info line (Scale.RESIZE, 1 game unit = 1 CSS px).
+const MARGIN = 16; // px kept free around the ship
 const MAX_SCALE = 80; // px per meter
 const BLOCK_GAP_M = 0.32; // gap between a system block and the walls
 const BLOCK_RIM_M = 0.09; // dark rim around a system block
@@ -20,12 +20,32 @@ const ICON_RADIUS_M = 0.5; // every system icon has the same size (fits a 1-tile
 
 type V = Phaser.Math.Vector2;
 
+/** Bounding box of the whole airship (hull, fins, propellers) in ship meters. */
+export function hullBounds(h: HullShape): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  const r = h.propRadius;
+  const all: Point[] = [
+    ...h.outline,
+    ...h.fins.flat(),
+    ...h.propellers.flatMap(([x, z]) => [[x - r, z + r], [x + r, z + r]] as Point[]),
+  ];
+  const xs = all.map((p) => p[0]);
+  const zs = all.map((p) => p[1]);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) };
+}
+
+/** Ship length / width on screen (bow pointing right), used to size the scrollable stage in portrait. */
+export function hullAspect(h: HullShape): number {
+  const b = hullBounds(h);
+  return (b.maxZ - b.minZ) / (b.maxX - b.minX);
+}
+
 export class ShipScene extends Phaser.Scene {
   private gfx!: Phaser.GameObjects.Graphics;
   private scaleM = 1;
   private origin = { x: 0, y: 0 };
   private hull!: HullShape;
   private blocks: SystemBlock[] = [];
+  private labels: Phaser.GameObjects.Text[] = [];
   private unsubscribe: (() => void) | null = null;
 
   constructor(private readonly store: Store<GameState>) {
@@ -53,33 +73,40 @@ export class ShipScene extends Phaser.Scene {
     this.hull = airshipHull(ship);
     this.blocks = systemBlocks(ship);
 
-    // fit the whole airship (hull, fins, propellers) into the play area
-    const r = this.hull.propRadius;
-    const all: Point[] = [
-      ...this.hull.outline,
-      ...this.hull.fins.flat(),
-      ...this.hull.propellers.flatMap(([x, z]) => [[x - r, z + r], [x + r, z + r]] as Point[]),
-    ];
-    const xs = all.map((p) => p[0]);
-    const zs = all.map((p) => p[1]);
-    const minX = Math.min(...xs), maxX = Math.max(...xs), minZ = Math.min(...zs), maxZ = Math.max(...zs);
-    this.scaleM = Math.min(AREA.w / (maxZ - minZ), AREA.h / (maxX - minX), MAX_SCALE);
-    this.origin = {
-      x: AREA.x + AREA.w / 2 + ((minZ + maxZ) / 2) * this.scaleM,
-      y: AREA.y + AREA.h / 2 - ((minX + maxX) / 2) * this.scaleM,
-    };
-
     this.gfx = this.add.graphics();
-    this.createLabels();
 
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+    // A tap selects; a drag is the page scrolling sideways (portrait) and must not select anything.
+    this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (p.wasCanceled || p.getDistance() > 12) return;
       const pt = this.toShip(p.worldX, p.worldY);
       this.store.update((s) => tapPoint(s, pt));
+    });
+
+    this.layout();
+    this.scale.on(Phaser.Scale.Events.RESIZE, () => {
+      this.layout();
+      this.draw();
     });
 
     this.unsubscribe = this.store.subscribe(() => this.draw());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsubscribe?.());
     this.draw();
+  }
+
+  /** Fit the whole airship into the current canvas size. */
+  private layout(): void {
+    const { width, height } = this.scale.gameSize;
+    const { minX, maxX, minZ, maxZ } = hullBounds(this.hull);
+    const w = Math.max(1, width - 2 * MARGIN);
+    const h = Math.max(1, height - 2 * MARGIN);
+    this.scaleM = Math.min(w / (maxZ - minZ), h / (maxX - minX), MAX_SCALE);
+    this.origin = {
+      x: width / 2 + ((minZ + maxZ) / 2) * this.scaleM,
+      y: height / 2 - ((minX + maxX) / 2) * this.scaleM,
+    };
+    for (const l of this.labels) l.destroy();
+    this.labels = [];
+    this.createLabels();
   }
 
   /** Stencil paint on the free deck of each system room. Hidden when it does not fit. */
@@ -111,6 +138,7 @@ export class ShipScene extends Phaser.Scene {
         label = make(FONT_SIZES.small, 1);
       }
       if (label.width > roomW * 0.9) label.setVisible(false); // too narrow: the info line names it on tap
+      this.labels.push(label);
     }
   }
 

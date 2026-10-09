@@ -31,6 +31,17 @@ html, body {
   position: fixed;
   inset: 0;
 }
+/* Start page: ship view between the bars; scrolls sideways in portrait (see main.ts). */
+#game:has(#stage) {
+  top: var(--bar-top, 0px);
+  bottom: var(--bar-bottom, 0px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--green-dim) transparent;
+}
+#stage { height: 100%; min-width: 100%; }
 
 /* HTML overlay above the canvas; only real controls receive input. */
 #hud {
@@ -76,6 +87,16 @@ html, body {
   text-decoration: none;
 }
 @media (max-width: 1000px) { .brand { display: none; } }
+
+/* Portrait phone: title on its own line, compact buttons below it. */
+@media (orientation: portrait) {
+  .topbar { flex-wrap: wrap; gap: 6px; padding: 8px 12px; padding-top: max(8px, env(safe-area-inset-top)); }
+  .title { flex-basis: 100%; font-size: var(--fs-m); letter-spacing: 2px; }
+  .actions { flex-wrap: wrap; gap: 6px; }
+  .btn { padding: 4px 8px; letter-spacing: 1px; }
+  [data-action="fullscreen"] { display: none; } /* it locks landscape – not wanted in portrait */
+  .infoline { padding: 8px 12px; padding-bottom: max(8px, env(safe-area-inset-bottom)); font-size: var(--fs-s); }
+}
 
 .btn:active { background: rgba(26, 255, 128, 0.18); }
 

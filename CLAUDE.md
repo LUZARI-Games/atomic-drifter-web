@@ -4,7 +4,7 @@
 Purpose: find out which items, crew, systems and synergies are fun. The final game will be rebuilt in Godot/Unreal,
 so **rules and data must stay engine-neutral**. Visuals = basic shapes.
 
-The owner works from an Android phone and is not a programmer: keep explanations short, test on a 16:9 landscape phone.
+The owner works from an Android phone and is not a programmer: keep explanations short, test on a phone in portrait AND 16:9 landscape.
 Replies: always in English (even when the owner writes German), short and to the point, bullet lists for multiple points,
 never restate the owner's tasks back to them.
 
@@ -40,7 +40,9 @@ never restate the owner's tasks back to them.
 - Font: Share Tech Mono. Sizes **24 / 18 / 15 px only** (game units for Phaser, CSS px for HTML).
 - Clickable elements: 3 px frame. CRT overlay = static scanlines + vignette, **no flicker**.
 - All in-game text in English, uppercase for labels.
-- Landscape 16:9, logical resolution 1280×720, Phaser `Scale.FIT`. Touch first (tap, long-press), no hover-only features.
+- Start page (`index.html`): Phaser `Scale.RESIZE` between the HTML bars (1 game unit = 1 CSS px). Portrait: the stage is
+  wider than the screen and scrolls sideways (`src/main.ts`); taps select on pointer-up only, so swiping never selects.
+- Crew Lab: landscape 16:9, logical resolution 1280×720, Phaser `Scale.FIT`. Touch first (tap, long-press), no hover-only features.
 
 ## Commands
 - `npm run dev` – local dev server
@@ -49,6 +51,8 @@ never restate the owner's tasks back to them.
 - Deploy: Cloudflare Workers Builds runs `npm run build` + `npx wrangler deploy` on every push to `main` (see README).
 
 ## Workflow
+- The owner works from several sessions (phone cloud session + PC). Start every session with `git pull`.
+- Owner wants changes live right away: commit and push straight to `main` (auto deploy) after checks pass.
 - Small steps; after each change: `npm run typecheck && npm test && npm run build`.
 - Handoff specs live in `docs/handoffs/`.
 - Multiplayer (later): Cloudflare Durable Objects, server-authoritative; clients only send commands.

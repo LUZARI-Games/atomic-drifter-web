@@ -19,13 +19,25 @@ export function mountHud(root: HTMLElement, store: Store<GameState>, opts: HudOp
       <span class="title"><span class="brand">ATOMIC DRIFTER // </span>${shipName}</span>
       <nav class="actions">
         ${opts.source === 'planner' ? '<button class="btn" type="button" data-action="demo">[ DEMO SHIP ]</button>' : ''}
+        <a class="btn" href="/crew-lab/">[ CREW LAB ]</a>
         <a class="btn" href="/planner/">[ PLANNER ]</a>
         <button class="btn" type="button" data-action="fullscreen">[ FULLSCREEN ]</button>
       </nav>
     </header>
     <footer class="infoline"><span class="prompt">&gt;</span> <span data-ref="info"></span><span class="cursor">_</span></footer>
-    <div class="rotate-hint">ROTATE DEVICE TO LANDSCAPE</div>
   `;
+
+  // The ship view sits between the two bars: publish their heights as CSS variables.
+  const top = root.querySelector<HTMLElement>('.topbar')!;
+  const bottom = root.querySelector<HTMLElement>('.infoline')!;
+  const measure = () => {
+    document.documentElement.style.setProperty('--bar-top', `${top.offsetHeight}px`);
+    document.documentElement.style.setProperty('--bar-bottom', `${bottom.offsetHeight}px`);
+  };
+  const ro = new ResizeObserver(measure);
+  ro.observe(top);
+  ro.observe(bottom);
+  measure();
 
   const info = root.querySelector<HTMLElement>('[data-ref="info"]')!;
   const idle = opts.problems.length
