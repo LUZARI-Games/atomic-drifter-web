@@ -53,6 +53,10 @@ export function convexHull(points: Point[]): Point[] {
  * and a blunt rounded stern (+z) carrying two propellers and two tail fins.
  */
 export function airshipHull(ship: Ship, margin = 0.6): HullShape {
+  // balconies hang OUT of the hull: the body is built around the enclosed deck only
+  const balcony = new Set(ship.rooms.filter((r) => r.kind === 'balcony').map((r) => r.id));
+  const inner = ship.tiles.filter((t) => !t.room || !balcony.has(t.room));
+  if (inner.length && inner.length < ship.tiles.length) ship = { ...ship, tiles: inner };
   const b = shipBounds(ship);
   const xc = (b.minX + b.maxX) / 2;
   const halfW = (b.maxX - b.minX) / 2 + margin;

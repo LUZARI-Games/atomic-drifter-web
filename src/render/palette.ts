@@ -29,6 +29,22 @@ export const WORLD = {
   console: 0x5a5a4b, // console desk (worn steel)
   consoleKeys: 0x24251f, // keyboard plate
   consoleKey: 0xb4aa86, // key caps (same worn paint as the floor stencils)
+  grate: 0x3b3b32, // balcony floor: open steel grating
+  grateLine: 0x26261f,
+  underside: 0x22231d, // edge / underside of a balcony platform
+  hazard2: 0xb08a2e, // faded yellow of hazard stripes at a dock
+} as const;
+
+/** Vehicles docked at balconies: patched-up pre-war machines in rust and olive drab. */
+export const VEHICLE = {
+  rust: 0x6e4a2e,
+  rustLight: 0x8a5e3a,
+  olive: 0x4f5236,
+  oliveLight: 0x666a46,
+  tyre: 0x171713,
+  chrome: 0x8a8672,
+  seat: 0x2c2219,
+  glass: 0x1e2523,
 } as const;
 
 /**

@@ -2936,6 +2936,14 @@ function godotShip() {
     walls_info: 'kind: interior | hull | railing. Segments a -> b; door gaps are already cut out.',
     doors_info: 'kind: door | airlock. center [x, z]; axis = world axis the door runs along (x or z); the panel slides into the wall along that axis.',
     console_info: 'rooms[].console: null or { tile: [x, z] centre of the floor tile where crew stands, facing: [x, z] unit direction to the machinery (the keyboard sits on the machinery edge) }.',
+    // [website] vehicles docked outside at balcony railings (bike / sidecar / car), so the game can draw them
+    vehicles_info: 'vehicles[]: type bike | sidecar | car, seats, tiles (centre + polygon, 1 tile = 1 seat), exits / walls = edge segments a -> b. An exit on a railing = the dock.',
+    vehicles: [...S.vehicles.values()].map(v => {
+      const edge = ([X, Y]) => X % 2 === 0 ? { a: W(X / 2, (Y - 1) / 2), b: W(X / 2, (Y + 1) / 2) } : { a: W((X - 1) / 2, Y / 2), b: W((X + 1) / 2, Y / 2) };
+      return { type: v.type, seats: VEH[v.type].seats, docked: vehDocked(v),
+        tiles: v.cells.map(([X, Y]) => { const x = (X - 1) / 2, y = (Y - 1) / 2; return { center: W(x + .5, y + .5), polygon: [W(x, y), W(x + 1, y), W(x + 1, y + 1), W(x, y + 1)] }; }),
+        exits: v.exits.map(edge), walls: v.walls.map(edge) };
+    }),
     rooms, tiles, walls, doors } };
 }
 function exportGodot(all, copyOnly) {

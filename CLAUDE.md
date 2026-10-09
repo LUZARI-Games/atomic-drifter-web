@@ -63,6 +63,10 @@ never restate the owner's tasks back to them.
   system's paint, fixed to the block front facing that tile, lower than the block, overhanging the tile ~0.28 m
   (`consoleDesk` in core/ship3d.ts; drawn by ship_view in game + Ship Lab).
   Planner export: `rooms[].console = { tile, facing } | null` – older exports without it still load.
+- Balconies + vehicles (`src/core/exterior.ts`): the hull is built around the enclosed deck only, so balconies hang out
+  of it (steel grating floor, visible platform edge + brackets underneath). Railings = posts + top/middle rail, see-through.
+  A railing edge that carries a vehicle exit is a dock: the railing opens into a gate (2 posts). Vehicles (bike / sidecar /
+  car) come from the planner export `vehicles[]` and are drawn from boxes, lying along the dock edge, outside.
   The main game view (`ShipScene`) uses the same renderer at ISO 60/45 (owner's choice).
 
 ## Design rules (terminal UI)

@@ -42,6 +42,15 @@ export interface ShipDoor {
   rooms: (string | null)[];
 }
 
+/** A vehicle docked outside at a balcony railing (planner export). 1 tile = 1 seat. */
+export interface ShipVehicle {
+  type: string; // bike | sidecar | car
+  seats: number;
+  tiles: { center: Point; polygon: Point[] }[];
+  /** Edges crew can leave through; an exit lying on a railing is the dock. */
+  exits: { a: Point; b: Point }[];
+}
+
 export interface Ship {
   format: 'atomic-drifter-ship-godot';
   version: number;
@@ -53,6 +62,8 @@ export interface Ship {
   tiles: ShipTile[];
   walls: ShipWall[];
   doors: ShipDoor[];
+  /** Optional (newer planner exports). */
+  vehicles?: ShipVehicle[];
 }
 
 export interface GameState {

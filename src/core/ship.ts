@@ -1,5 +1,5 @@
 // Ship loading + geometry. Pure TypeScript – no Phaser, no DOM.
-import type { Point, Ship, ShipConsole, ShipRoom, ShipTile } from './types';
+import type { Point, Ship, ShipConsole, ShipRoom, ShipTile, ShipVehicle } from './types';
 
 export const SHIP_FORMAT = 'atomic-drifter-ship-godot';
 
@@ -25,6 +25,7 @@ export function parseShip(data: unknown): { ship: Ship | null; problems: string[
     .map((r) => ({ ...r, console: parseConsole(r.console) }));
   const walls = (Array.isArray(d.walls) ? d.walls : []).filter((w) => isPoint(w.a) && isPoint(w.b));
   const doors = (Array.isArray(d.doors) ? d.doors : []).filter((o) => isPoint(o.center));
+  const vehicles = parseVehicles((d as { vehicles?: unknown }).vehicles);
 
   return {
     ship: {
@@ -35,12 +36,27 @@ export function parseShip(data: unknown): { ship: Ship | null; problems: string[
       tiles,
       walls,
       doors,
+      vehicles,
     },
     problems,
   };
 }
 
 /** Even-odd point-in-polygon test. */
+/** Vehicles from the export; damaged entries are skipped, older exports simply have none. */
+export function parseVehicles(raw: unknown): ShipVehicle[] {
+  if (!Array.isArray(raw)) return [];
+  const seg = (e: unknown) => { const o = e as { a?: unknown; b?: unknown } | null; return !!o && isPoint(o.a) && isPoint(o.b); };
+  return raw.flatMap((v): ShipVehicle[] => {
+    const o = v as Partial<ShipVehicle> | null;
+    if (!o || typeof o.type !== 'string' || !Array.isArray(o.tiles) || !o.tiles.length) return [];
+    const tiles = o.tiles.filter((t) => t && isPoint(t.center) && Array.isArray(t.polygon) && t.polygon.length >= 3 && t.polygon.every(isPoint));
+    if (!tiles.length) return [];
+    const exits = (Array.isArray(o.exits) ? o.exits : []).filter(seg);
+    return [{ type: o.type, seats: typeof o.seats === 'number' ? o.seats : tiles.length, tiles, exits }];
+  });
+}
+
 /** A console spot from the export, or null when missing / damaged (older exports have none). */
 export function parseConsole(c: unknown): ShipConsole | null {
   const o = c as Partial<ShipConsole> | null;

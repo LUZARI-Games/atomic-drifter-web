@@ -27,6 +27,7 @@ and the export format `atomic-drifter-ship-godot` v1. If the format changes, `sr
 - No door / airlock on a console tile (`isConsoleTile`, `edgeState().onConsole`): the door tool refuses it, the random
   generator never places one there.
 - Godot export: `rooms[].console = { tile: [x, z], facing: [x, z] } | null` (+ `console_info`), read by `src/core/ship.ts`.
+- Godot export: `vehicles[] = { type, seats, docked, tiles[{center, polygon}], exits[{a, b}], walls[{a, b}] }` (+ `vehicles_info`).
 
 ## Things to know
 - Ships and loaded Unreal tables are stored **per browser**. Ships saved in the artifact are not on the website automatically:

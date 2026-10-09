@@ -8,10 +8,11 @@ import { depth, drawOrder, project, turn, unprojectFloor, type FloorBox, type Ve
 import { roomFloorCenter } from '../core/ship';
 import { consoleDesk, doorLeaves, doorThreshold, SHIP_HEIGHTS, shipSolids, wallHeight, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
-import type { Point, Ship } from '../core/types';
+import type { Point, Ship, ShipVehicle } from '../core/types';
 import { drawCrewIso } from './crew_iso';
 import { drawSystemIcon } from './icons';
-import { FONT_FAMILY, FONT_SIZES, WORLD, worldPaint } from './palette';
+import { FONT_FAMILY, FONT_SIZES, VEHICLE, WORLD, worldPaint } from './palette';
+import { balconyRoomIds, dockGate, isDock, railingParts } from '../core/exterior';
 
 type G = Phaser.GameObjects.Graphics;
 
@@ -68,7 +69,8 @@ export class ShipView {
     const hull = airshipHull(this.ship);
     const pts: Vec3[] = [];
     const r = hull.propRadius;
-    for (const p of [...hull.outline, ...hull.fins.flat(), ...hull.propellers.flatMap(([x, z]) => [[x - r, z + r], [x + r, z + r]] as Point[])]) {
+    const outside = [...this.ship.tiles.flatMap((t) => t.polygon), ...(this.ship.vehicles ?? []).flatMap((v) => v.tiles.flatMap((t) => t.polygon))];
+    for (const p of [...hull.outline, ...hull.fins.flat(), ...hull.propellers.flatMap(([x, z]) => [[x - r, z + r], [x + r, z + r]] as Point[]), ...outside]) {
       pts.push(W(p, 0), W(p, -SHIP_HEIGHTS.hull_depth_m), W(p, SHIP_HEIGHTS.door_frame_height_m));
     }
     const s = pts.map((p) => project(this.view, p));
@@ -106,8 +108,22 @@ export class ShipView {
       return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
     };
     // long walls and big blocks are drawn in short pieces, so crew in front of one end is never painted over
+    // balcony railings: see-through posts + rails; where a vehicle docks the railing opens into a gate
+    for (const w of this.ship.walls) {
+      if (w.kind !== 'railing') continue;
+      const parts = isDock(this.ship, w) ? dockGate(w) : railingParts(w);
+      for (const s of parts) {
+        if (s.segment) for (const p of wallPieces(s)) items.push({ key: this.sortKey(p.footprint, 0), box: box(p.footprint), draw: () => this.drawWallPiece(objects, s, p) });
+        else items.push({ key: this.sortKey(s.footprint, 0), box: box(s.footprint), draw: () => this.drawSolid(objects, s) });
+      }
+    }
+    for (const v of this.ship.vehicles ?? []) {
+      const fp = v.tiles.flatMap((t) => t.polygon);
+      items.push({ key: this.sortKey(fp, 0), box: box(fp), draw: () => this.drawVehicle(objects, v) });
+    }
     for (const s of shipSolids(this.ship)) {
       if (s.kind === 'console') continue; // drawn below with its keyboard, after its system block
+      if (s.kind === 'railing') continue; // drawn above as posts + rails
       if (s.segment) {
         for (const p of wallPieces(s)) items.push({ key: this.sortKey(p.footprint, 0), box: box(p.footprint), draw: () => this.drawWallPiece(objects, s, p) });
       } else {
@@ -224,7 +240,13 @@ export class ShipView {
 
   private drawDeck(g: G): void {
     const px = this.pxPerM;
+    const balcony = balconyRoomIds(this.ship);
+    this.drawBalconyUndersides(g, balcony);
     for (const t of this.ship.tiles) {
+      if (t.room && balcony.has(t.room)) {
+        this.drawGrating(g, t.polygon);
+        continue;
+      }
       g.fillStyle(WORLD.floor, 1);
       g.fillPoints(t.polygon.map((p) => this.S(W(p))), true);
       const inner = t.polygon.map(([x, z]): Point => {
@@ -252,6 +274,117 @@ export class ShipView {
         }
       }
     }
+  }
+
+  /** Open steel grating: dark plate with a fine grid – you can tell it is outside, hanging over the void. */
+  private drawGrating(g: G, poly: Point[]): void {
+    g.fillStyle(WORLD.grate, 1);
+    g.fillPoints(poly.map((p) => this.S(W(p))), true);
+    const xs = poly.map((p) => p[0]);
+    const zs = poly.map((p) => p[1]);
+    const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+    g.lineStyle(Math.max(1, this.pxPerM * 0.03), WORLD.grateLine, 1);
+    for (let x = x0 + 0.25; x < x1; x += 0.25) { const a = this.S(W([x, z0])); const b = this.S(W([x, z1])); g.lineBetween(a.x, a.y, b.x, b.y); }
+    for (let z = z0 + 0.25; z < z1; z += 0.25) { const a = this.S(W([x0, z])); const b = this.S(W([x1, z])); g.lineBetween(a.x, a.y, b.x, b.y); }
+    g.lineStyle(Math.max(1, this.pxPerM * 0.05), WORLD.hullEdge, 0.8);
+    g.strokePoints(poly.map((p) => this.S(W(p))), true);
+  }
+
+  /** Platform edge (0.3 m thick) + two brackets under each outer balcony edge facing the viewer. */
+  private drawBalconyUndersides(g: G, balcony: Set<string>): void {
+    if (this.view.cos < 0.01) return;
+    const tiles = this.ship.tiles.filter((t) => t.room && balcony.has(t.room));
+    const count = new Map<string, number>();
+    const k = (a: Point, b: Point) => [a, b].map((p) => `${Math.round(p[0] * 1000)},${Math.round(p[1] * 1000)}`).sort().join('|');
+    for (const t of this.ship.tiles) for (let i = 0; i < t.polygon.length; i++) {
+      const key = k(t.polygon[i]!, t.polygon[(i + 1) % t.polygon.length]!);
+      count.set(key, (count.get(key) ?? 0) + 1);
+    }
+    const th = 0.3;
+    for (const t of tiles) {
+      const c = W(t.center);
+      for (let i = 0; i < t.polygon.length; i++) {
+        const a = t.polygon[i]!;
+        const b = t.polygon[(i + 1) % t.polygon.length]!;
+        if (count.get(k(a, b))! > 1) continue; // shared with another tile: not an outer edge
+        const wa = W(a);
+        const wb = W(b);
+        const ny = this.outwardY(wa, wb, c[0], c[1]);
+        if (ny <= 0.01) continue;
+        // brackets: from the edge down-inwards to the hull
+        g.lineStyle(Math.max(2, this.pxPerM * 0.07), WORLD.underside, 1);
+        for (const f of [0.2, 0.8]) {
+          const e: Vec3 = [wa[0] + (wb[0] - wa[0]) * f, wa[1] + (wb[1] - wa[1]) * f, -th];
+          const inward: Vec3 = [e[0] + (c[0] - e[0]) * 0.9, e[1] + (c[1] - e[1]) * 0.9, -th - 1.1];
+          const p = this.S(e);
+          const q = this.S(inward);
+          g.lineBetween(p.x, p.y, q.x, q.y);
+        }
+        g.fillStyle(shade(WORLD.underside, 10 * (1 - ny)), 1);
+        g.fillPoints([[wa[0], wa[1], 0], [wb[0], wb[1], 0], [wb[0], wb[1], -th], [wa[0], wa[1], -th]].map((p) => this.S(p as Vec3)), true);
+      }
+    }
+  }
+
+  /**
+   * A docked vehicle, built from simple boxes: bike / sidecar / car. It lies along the railing it is docked to,
+   * on the outer side of it.
+   */
+  private drawVehicle(g: G, v: ShipVehicle): void {
+    const n = v.tiles.length;
+    const c: Point = [v.tiles.reduce((s, t) => s + t.center[0], 0) / n, v.tiles.reduce((s, t) => s + t.center[1], 0) / n];
+    // u = along the dock edge (driving direction), w = away from the ship
+    const dock = v.exits.find((e) => isDock(this.ship, { kind: 'railing', a: e.a, b: e.b }));
+    let u: Point = [0, 1];
+    if (dock) {
+      const l = Math.hypot(dock.b[0] - dock.a[0], dock.b[1] - dock.a[1]) || 1;
+      u = [(dock.b[0] - dock.a[0]) / l, (dock.b[1] - dock.a[1]) / l];
+    }
+    let w: Point = [-u[1], u[0]];
+    if (dock) {
+      const m: Point = [(dock.a[0] + dock.b[0]) / 2, (dock.a[1] + dock.b[1]) / 2];
+      if ((c[0] - m[0]) * w[0] + (c[1] - m[1]) * w[1] < 0) w = [-w[0], -w[1]];
+    }
+    const at = (o: Point, du: number, dw: number): Point => [o[0] + u[0] * du + w[0] * dw, o[1] + u[1] * du + w[1] * dw];
+    const parts: { fp: Point[]; z0: number; z1: number; top: number; side: number }[] = [];
+    const box = (o: Point, du0: number, du1: number, dw0: number, dw1: number, z0: number, z1: number, col: number) =>
+      parts.push({ fp: [at(o, du0, dw0), at(o, du1, dw0), at(o, du1, dw1), at(o, du0, dw1)], z0, z1, top: col, side: shade(col, 30) });
+    const bike = (o: Point) => {
+      box(o, -0.85, -0.45, -0.06, 0.06, 0, 0.55, VEHICLE.tyre); // rear wheel
+      box(o, 0.45, 0.85, -0.06, 0.06, 0, 0.55, VEHICLE.tyre); // front wheel
+      box(o, -0.55, 0.5, -0.12, 0.12, 0.3, 0.6, VEHICLE.rust); // frame + engine
+      box(o, -0.05, 0.4, -0.16, 0.16, 0.55, 0.78, VEHICLE.rustLight); // fuel tank
+      box(o, -0.5, -0.05, -0.13, 0.13, 0.6, 0.72, VEHICLE.seat); // seat
+      box(o, 0.55, 0.62, -0.38, 0.38, 0.88, 0.95, VEHICLE.chrome); // handlebar
+      box(o, 0.62, 0.72, -0.08, 0.08, 0.6, 0.75, VEHICLE.chrome); // headlight
+    };
+    if (v.type === 'car') {
+      box(c, -1.7, -1.1, -0.95, -0.7, 0, 0.6, VEHICLE.tyre);
+      box(c, 1.1, 1.7, -0.95, -0.7, 0, 0.6, VEHICLE.tyre);
+      box(c, -1.7, -1.1, 0.7, 0.95, 0, 0.6, VEHICLE.tyre);
+      box(c, 1.1, 1.7, 0.7, 0.95, 0, 0.6, VEHICLE.tyre);
+      box(c, -1.9, 1.9, -0.85, 0.85, 0.3, 0.95, VEHICLE.olive); // body
+      box(c, -0.9, 0.7, -0.7, 0.7, 0.95, 1.45, VEHICLE.oliveLight); // cabin
+      box(c, -0.75, 0.55, -0.6, 0.6, 1.45, 1.47, VEHICLE.glass); // roof hatch
+    } else if (v.type === 'sidecar' && n >= 2) {
+      // bike on the tile nearer the ship, the tub beside it on the outer tile
+      const sorted = [...v.tiles].sort((p, q) => (p.center[0] - c[0]) * w[0] + (p.center[1] - c[1]) * w[1] - ((q.center[0] - c[0]) * w[0] + (q.center[1] - c[1]) * w[1]));
+      const bc = sorted[0]!.center;
+      bike(bc);
+      // the tub rides right beside the bike, on the side of the second tile
+      const o = sorted[sorted.length - 1]!.center;
+      const l = Math.hypot(o[0] - bc[0], o[1] - bc[1]) || 1;
+      const t: Point = [bc[0] + ((o[0] - bc[0]) / l) * 0.85, bc[1] + ((o[1] - bc[1]) / l) * 0.85];
+      box(t, -0.3, 0.1, 0.25, 0.45, 0, 0.45, VEHICLE.tyre); // tub wheel
+      box(t, -0.7, 0.6, -0.4, 0.4, 0.22, 0.72, VEHICLE.olive); // tub
+      box(t, -0.45, 0.2, -0.25, 0.25, 0.72, 0.74, VEHICLE.seat); // seat opening
+      box(t, -0.9, 0.3, -0.9, -0.82, 0.4, 0.48, VEHICLE.chrome); // strut to the bike
+    } else {
+      bike(c);
+    }
+    // back to front within the vehicle
+    parts.sort((p, q) => Math.max(...p.fp.map((x) => depth(this.view, W(x, p.z1)))) - Math.max(...q.fp.map((x) => depth(this.view, W(x, q.z1)))));
+    for (const p of parts) this.prism(g, p.fp, p.z0, p.z1, p.top, p.side);
   }
 
   /** Stencil paint on the free deck of each system room, squashed like the floor. */
