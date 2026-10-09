@@ -29,6 +29,10 @@ never restate the owner's tasks back to them.
 - **Game world** (the ship in Phaser) – **ISO 60/45**: orthographic view looking down 60°, turned 45° (`GAME_VIEW` in
   `src/render/ShipScene.ts`, drawn by `src/render/ship_view.ts`). Still flat 2D shapes, no perspective, no 3D engine.
   Half walls (1 m) so you can see into the rooms; selection outline is drawn on top of the walls.
+  Flight: parallax wasteland (`src/render/wasteland.ts`, colours `WASTE` in palette.ts) – Fallout 3 Capital Wasteland
+  (cracked dirt, broken highways, roofless concrete ruins, pylons, dead trees, craters, murky puddles, smog, ship shadow).
+  Scenes bottom→top: WastelandScene → ShipScene → HazeScene; nearer layers = bigger scale = faster. The ship bobs gently.
+  Ground stays darker / calmer than the ship so the ship always reads first.
   Setting: post-nuclear Earth (Fallout-like); ships are patched-up pre-war **airships** flying low over the wasteland –
   hull with a rounded-pointed nose at the bow (right), propellers + tail fins at the stern (left). Never space/rockets.
   Each system's machine tiles form ONE continuous block (gap to the walls, darker rim, dark system symbol),

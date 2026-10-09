@@ -32,6 +32,33 @@ export const WORLD = {
 } as const;
 
 /**
+ * The wasteland far below the airship (parallax flight, wasteland.ts): Fallout 3 Capital Wasteland –
+ * dusty olive-brown dirt, grey concrete ruins, black window holes, murky irradiated puddles, yellow-brown smog.
+ * Darker than the ship so the ship always stands out.
+ */
+export const WASTE = {
+  ground: 0x24231b, // base dirt
+  dust: 0x34321f, // lighter dust patches
+  dirtDark: 0x1c1b15,
+  crack: 0x15140f,
+  crater: 0x1a1913,
+  craterRim: 0x3a3726,
+  road: 0x2b2b25, // broken highway asphalt
+  roadPaint: 0x5a5236, // faded lane paint
+  puddle: 0x2c3626, // murky irradiated water (muted, no glow)
+  rubble: 0x2f2d25,
+  ruinFront: 0x3a3a33, // concrete wall facing the viewer
+  ruinSide: 0x2c2c26, // concrete wall in shade
+  window: 0x121210,
+  rebar: 0x4a3426,
+  tree: 0x2e261c,
+  pylon: 0x45443a,
+  shadow: 0x000000,
+  smog: 0x6a6046, // yellow-brown smog
+  haze: 0x8a8166,
+} as const;
+
+/**
  * Planner system colour -> world paint: same hue as in the Ship Planner, but faded, dirty and dark
  * (mixed into rusty olive) so it sits in the grimdark Fallout 3 look instead of glowing like neon.
  */
