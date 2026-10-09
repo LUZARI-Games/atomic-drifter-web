@@ -1,0 +1,61 @@
+{
+  "_info": "Ship Upgrades screen. Source: ftl.fandom.com system pages. MED BAY + DRONES costs are placeholders. cost[i] = scrap to reach level i+1 (cost[0] = level 1, already owned at start). effects[i] = what level i+1 does. buy_max = highest level you can buy; levels above it are only reached by manning the console. Reactor: bar n costs group_costs[floor((n-1) / group_size)].",
+  "starting_scrap": 250,
+  "systems": [
+    {
+      "id": "engine", "type": "main", "max": 8, "buy_max": 8, "start": 2,
+      "cost": [0, 10, 15, 30, 40, 60, 80, 120],
+      "effects": ["EVASION 5% · FTL 67.9 S", "EVASION 10% · FTL 53.1 S", "EVASION 15% · FTL 43.6 S", "EVASION 20% · FTL 36.9 S", "EVASION 25% · FTL 32.1 S", "EVASION 28% · FTL 28.3 S", "EVASION 31% · FTL 25.4 S", "EVASION 35% · FTL 23.0 S"],
+      "note": "EVASION WITH MANNED COCKPIT · FTL CHARGE UNMANNED"
+    },
+    {
+      "id": "crewteleporter", "type": "main", "max": 3, "buy_max": 3, "start": 1,
+      "cost": [90, 30, 60],
+      "effects": ["COOLDOWN 20 S", "COOLDOWN 15 S", "COOLDOWN 10 S"],
+      "note": "INSTANT COOLDOWN OUTSIDE COMBAT"
+    },
+    {
+      "id": "medbay", "type": "main", "max": 3, "buy_max": 3, "start": 1,
+      "cost": [60, 35, 45],
+      "effects": ["BASE HEAL SPEED (= SUFFOCATION RATE)", "FASTER HEALING", "MAXIMUM HEALING SPEED"],
+      "note": "HEALS CREW INSIDE THE MED BAY"
+    },
+    {
+      "id": "weapons", "type": "main", "max": 8, "buy_max": 8, "start": 3,
+      "cost": [0, 40, 25, 35, 50, 75, 90, 100],
+      "effects": ["WEAPON POWER 1", "WEAPON POWER 2", "WEAPON POWER 3", "WEAPON POWER 4", "WEAPON POWER 5", "WEAPON POWER 6", "WEAPON POWER 7", "WEAPON POWER 8"],
+      "note": "POWER SHARED ACROSS WEAPON SLOTS"
+    },
+    {
+      "id": "shields", "type": "main", "max": 8, "buy_max": 8, "start": 2,
+      "cost": [0, 125, 20, 30, 40, 60, 80, 100],
+      "effects": ["NO SHIELD LAYER", "1 SHIELD LAYER", "1 LAYER (NO NEW LAYER)", "2 SHIELD LAYERS", "2 LAYERS (NO NEW LAYER)", "3 SHIELD LAYERS", "3 LAYERS (NO NEW LAYER)", "4 SHIELD LAYERS"],
+      "note": "EACH LAYER BLOCKS ONE SHOT, THEN RECHARGES"
+    },
+    {
+      "id": "drones", "type": "main", "max": 8, "buy_max": 8, "start": 2,
+      "cost": [60, 60, 30, 35, 40, 50, 60, 70],
+      "effects": ["DRONE POWER 1", "DRONE POWER 2", "DRONE POWER 3", "DRONE POWER 4", "DRONE POWER 5", "DRONE POWER 6", "DRONE POWER 7", "DRONE POWER 8"],
+      "note": "MORE POWER = MORE DRONES ACTIVE AT ONCE"
+    },
+    {
+      "id": "doors", "type": "sub", "max": 4, "buy_max": 3, "start": 1,
+      "cost": [60, 35, 50, 0],
+      "effects": ["STANDARD DOORS · REMOTE OPEN/CLOSE", "BLAST DOORS · SLOW FIRE + BOARDERS", "IMPROVED BLAST DOORS", "SUPER BLAST DOORS"],
+      "note": "LVL 4 ONLY BY MANNING A LVL 3 CONSOLE"
+    },
+    {
+      "id": "cockpit", "type": "sub", "max": 3, "buy_max": 3, "start": 1,
+      "cost": [0, 20, 50],
+      "effects": ["UNMANNED: 0% EVASION KEPT", "AUTOPILOT: 50% EVASION KEPT", "AUTOPILOT: 80% EVASION KEPT"],
+      "note": "MANNED COCKPIT ALWAYS GIVES FULL EVASION"
+    },
+    {
+      "id": "sensor", "type": "sub", "max": 4, "buy_max": 3, "start": 1,
+      "cost": [40, 25, 40, 0],
+      "effects": ["SEE ALL ROOMS ON YOUR SHIP", "+ SEE ENEMY SHIP INTERIOR", "+ ENEMY WEAPON CHARGE", "+ ENEMY SYSTEM LVL, POWER, REPAIRS"],
+      "note": "MANNING ADDS +1 LVL · LVL 4 ONLY WHEN MANNED"
+    }
+  ],
+  "reactor": { "id": "reactor", "start": 20, "max": 25, "group_size": 5, "group_costs": [30, 20, 25, 30, 35] }
+}
