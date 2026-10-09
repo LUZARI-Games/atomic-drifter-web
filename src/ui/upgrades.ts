@@ -2,6 +2,8 @@
 // Rules: src/core/upgrades.ts · data: src/data/upgrades.json · look: src/ui/upgrades.css.
 // Wide screens: the 1600×900 mockup layout, scaled to fit. Phones (portrait): cards 3 per row in a scroll view,
 // the details panel opens under the selected card's row, the action bar sticks to the bottom.
+// The page starts switched off: boot screen (POWER ON + OPTIONS, src/ui/terminal.ts). After CONFIRM (or ESC) the CRT
+// switches off and the boot screen offers REBOOT (reloads the saved run) and BACK TO GAME.
 import type { RunState } from '../core/run';
 import {
   REACTOR,
@@ -31,6 +33,7 @@ import {
   type UpgradeSystem,
 } from '../core/upgrades';
 import { loadRun, saveRun } from './runStore';
+import { loadOptions, mountBootScreen, type BootScreen } from './terminal';
 
 // ---------- icons (24×24, stroke = currentColor) ----------
 const ICON: Record<string, string> = {
@@ -53,6 +56,134 @@ const ICON: Record<string, string> = {
 const icon = (name: string, size = 24, cls = 'ico') =>
   `<svg class="${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">${ICON[name] ?? ''}</svg>`;
 
+// ---------- sounds (mockup: Web Audio through a tiny lo-fi "Pip-Boy speaker" chain) ----------
+type Sfx = 'hover' | 'click' | 'add' | 'sub' | 'confirm' | 'tick' | 'done' | 'error' | 'boot';
+let muted = false;
+let ac: AudioContext | null = null;
+let master: GainNode | null = null;
+function audio(): AudioContext | null {
+  if (!ac) {
+    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AC) return null;
+    ac = new AC();
+    master = ac.createGain();
+    master.gain.value = 0.6;
+    const shaper = ac.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let k = 0; k < curve.length; k++) curve[k] = Math.tanh(2.2 * ((k * 2) / curve.length - 1));
+    shaper.curve = curve;
+    const hp = ac.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 280;
+    const lp = ac.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 3600;
+    lp.Q.value = 0.8;
+    master.connect(shaper);
+    shaper.connect(hp);
+    hp.connect(lp);
+    lp.connect(ac.destination);
+  }
+  if (ac.state === 'suspended') void ac.resume();
+  return ac;
+}
+function tone(freq: number, dur: number, o: { type?: OscillatorType; vol?: number; slide?: number; delay?: number } = {}): void {
+  const a = audio();
+  if (!a || !master) return;
+  const t = a.currentTime + (o.delay ?? 0);
+  const osc = a.createOscillator();
+  const g = a.createGain();
+  osc.type = o.type ?? 'square';
+  osc.frequency.setValueAtTime(freq, t);
+  if (o.slide) osc.frequency.exponentialRampToValueAtTime(o.slide, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(o.vol ?? 0.06, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g);
+  g.connect(master);
+  osc.start(t);
+  osc.stop(t + dur + 0.03);
+}
+function noise(dur: number, vol: number, o: { bp?: number; q?: number; delay?: number } = {}): void {
+  const a = audio();
+  if (!a || !master) return;
+  const t = a.currentTime + (o.delay ?? 0);
+  const len = Math.max(1, Math.floor(a.sampleRate * dur));
+  const buf = a.createBuffer(1, len, a.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let k = 0; k < len; k++) data[k] = Math.random() * 2 - 1;
+  const src = a.createBufferSource();
+  src.buffer = buf;
+  const flt = a.createBiquadFilter();
+  if (o.bp) {
+    flt.type = 'bandpass';
+    flt.frequency.value = o.bp;
+    flt.Q.value = o.q ?? 1;
+  } else {
+    flt.type = 'highpass';
+    flt.frequency.value = 1500;
+  }
+  const g = a.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(flt);
+  flt.connect(g);
+  g.connect(master);
+  src.start(t);
+  src.stop(t + dur + 0.02);
+}
+function sfx(name: Sfx, a = 0, b = 1): void {
+  if (muted) return;
+  if (!ac && name === 'hover') return; // no audio before the first tap (browser rule)
+  switch (name) {
+    case 'hover':
+      noise(0.012, 0.06, { bp: 2600, q: 2 });
+      tone(1150, 0.018, { vol: 0.012 });
+      break;
+    case 'click':
+      noise(0.02, 0.1, { bp: 1800, q: 1.5 });
+      tone(70, 0.05, { type: 'sine', vol: 0.08 });
+      break;
+    case 'add':
+      noise(0.012, 0.08, { bp: 3000, q: 2 });
+      tone(880, 0.045, { vol: 0.04, delay: 0.008 });
+      break;
+    case 'sub':
+      noise(0.012, 0.08, { bp: 2100, q: 2 });
+      tone(560, 0.05, { vol: 0.04, delay: 0.008 });
+      break;
+    case 'confirm':
+      noise(0.06, 0.16, { bp: 900, q: 1 });
+      tone(55, 0.2, { type: 'sine', vol: 0.12 });
+      tone(180, 0.45, { type: 'sawtooth', vol: 0.025, slide: 900, delay: 0.05 });
+      break;
+    case 'tick': {
+      noise(0.025, 0.14, { bp: 2000, q: 1.2 });
+      tone(80, 0.07, { type: 'sine', vol: 0.1 });
+      tone(Math.min(600 * Math.pow(2, a / 12), 1600), 0.06, { vol: 0.035, delay: 0.012 });
+      for (let k = 0; k < 2 + b; k++) noise(0.004, 0.09, { bp: 4000, q: 3, delay: 0.02 + Math.random() * 0.09 });
+      break;
+    }
+    case 'done':
+      for (const [f, d] of [[1046, 0], [1046, 0.09], [1568, 0.18]] as const) tone(f, 0.07, { vol: 0.045, delay: d });
+      noise(0.35, 0.04, { bp: 1500, q: 0.6, delay: 0.25 });
+      tone(523, 0.5, { type: 'triangle', vol: 0.035, delay: 0.27 });
+      break;
+    case 'error':
+      tone(110, 0.13, { vol: 0.07 });
+      tone(117, 0.13, { vol: 0.03 });
+      tone(110, 0.18, { vol: 0.07, delay: 0.16 });
+      tone(117, 0.18, { vol: 0.03, delay: 0.16 });
+      noise(0.32, 0.05, { bp: 1200, q: 0.5 });
+      break;
+    case 'boot':
+      tone(60, 0.22, { type: 'sine', vol: 0.12 });
+      noise(0.05, 0.14, { bp: 900, q: 1 });
+      tone(140, 0.45, { type: 'sawtooth', vol: 0.02, slide: 1500, delay: 0.04 });
+      break;
+  }
+}
+
 const STEP_MS = 300;
 const ERR_MS = 1300;
 const PIPS = 8;
@@ -66,6 +197,9 @@ let denyTimer = 0;
 let installing = false;
 let doneMsg = '';
 let narrow = false;
+let off = true; // CRT switched off: boot screen shown
+let shutting = false;
+let tick = 0;
 
 // ---------- dom refs ----------
 interface CardRefs {
@@ -92,6 +226,8 @@ let undoBtn: HTMLButtonElement;
 let confirmBtn: HTMLButtonElement;
 let barMid: HTMLElement;
 let errScreen: HTMLElement;
+let crt: HTMLElement;
+let boot: BootScreen;
 
 const $ = <T extends HTMLElement = HTMLElement>(parent: ParentNode, sel: string) => parent.querySelector(sel) as T;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -132,7 +268,10 @@ function buildCard(sys: UpgradeSystem): HTMLElement {
     select(sys.id);
   });
   el.addEventListener('pointerenter', (e) => {
-    if (e.pointerType === 'mouse' && !narrow) select(sys.id);
+    if (e.pointerType === 'mouse' && !narrow) {
+      if (selected !== sys.id && !off) sfx('hover');
+      select(sys.id);
+    }
   });
   el.addEventListener('focus', () => select(sys.id));
   el.addEventListener('contextmenu', (e) => {
@@ -147,8 +286,9 @@ function buildCard(sys: UpgradeSystem): HTMLElement {
 function build(screen: HTMLElement): void {
   root = document.createElement('div');
   root.id = 'game';
-  root.className = 'upg booting';
+  root.className = 'upg off';
   root.innerHTML = `
+   <div class="upg-crt">
     <div class="upg-stage">
       <div class="upg-scroll">
         <div class="upg-title g">SHIP UPGRADES</div>
@@ -180,8 +320,28 @@ function build(screen: HTMLElement): void {
         <button class="upg-confirm" type="button"></button>
       </div>
     </div>
+   </div>
     <div class="upg-errscreen"></div>
-    <div class="upg-glass"><div class="upg-roll"></div></div>
+    <div class="upg-glass">
+      <div class="upg-lines"></div>
+      <div class="upg-roll"></div>
+      <svg class="upg-grain" aria-hidden="true">
+        <defs>
+          <filter id="upgGrain" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7" result="n"></feTurbulence>
+            <feColorMatrix in="n" type="matrix" values="0 0 0 0 .8  0 0 0 0 .85  0 0 0 0 .8  0 0 0 1.6 -1.18"></feColorMatrix>
+          </filter>
+          <filter id="upgDust" x="0" y="0" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency=".006" numOctaves="3" seed="3" result="m"></feTurbulence>
+            <feColorMatrix in="m" type="matrix" values="0 0 0 0 .75  0 0 0 0 .8  0 0 0 0 .75  0 0 0 1.2 -.62"></feColorMatrix>
+          </filter>
+        </defs>
+        <rect width="100%" height="100%" filter="url(#upgGrain)" opacity=".35"></rect>
+        <rect width="100%" height="100%" filter="url(#upgDust)" opacity=".12"></rect>
+      </svg>
+      <div class="upg-glare"></div>
+      <div class="upg-rim"></div>
+    </div>
     <div class="upg-dot"></div>`;
   screen.appendChild(root);
 
@@ -198,6 +358,7 @@ function build(screen: HTMLElement): void {
   confirmBtn = $<HTMLButtonElement>(bar, '.upg-confirm');
   barMid = $(bar, '.upg-mid');
   errScreen = $(root, '.upg-errscreen');
+  crt = $(root, '.upg-crt');
 
   const mainGrid = $(root, '.upg-main .upg-grid');
   const subGrid = $(root, '.upg-subs .upg-grid');
@@ -216,7 +377,10 @@ function build(screen: HTMLElement): void {
     if (!(e.target as HTMLElement).closest('button')) select('reactor');
   });
   reactorPanel.addEventListener('pointerenter', (e) => {
-    if (e.pointerType === 'mouse' && !narrow) select('reactor');
+    if (e.pointerType === 'mouse' && !narrow) {
+      if (selected !== 'reactor' && !off) sfx('hover');
+      select('reactor');
+    }
   });
   reactorPanel.addEventListener('contextmenu', (e) => {
     e.preventDefault();
@@ -228,7 +392,8 @@ function build(screen: HTMLElement): void {
   confirmBtn.addEventListener('click', confirm);
 
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') location.href = '/';
+    if (off || shutting) return;
+    if (e.key === 'Escape') shutDown(0);
     else if (e.key === 'z' || e.key === 'Z') undo();
     else if (e.key === 'Enter') {
       e.preventDefault();
@@ -237,8 +402,24 @@ function build(screen: HTMLElement): void {
   });
   window.addEventListener('resize', layout);
   root.addEventListener('animationend', (e) => {
-    if (e.target === root && e.animationName === 'upg-crton') root.classList.remove('booting');
+    if (e.target === crt && e.animationName === 'upg-crton') root.classList.remove('booting');
   });
+
+  // switched-off phase: POWER ON / REBOOT + OPTIONS (shared terminal boot screen)
+  muted = !loadOptions().sound;
+  boot = mountBootScreen(crt, crt, powerOn, (on) => {
+    muted = !on;
+    if (on) sfx('click');
+  });
+  // mockup order: FULLSCREEN gets its own row under the BLOOM slider
+  const full = crt.querySelector('.boot-screen [data-ref="full"]');
+  if (full) crt.querySelector('.boot-screen .boot-bloom')?.after(full);
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'upg-back';
+  back.textContent = '[ BACK TO GAME ]';
+  back.addEventListener('click', () => (location.href = '/'));
+  boot.extra.appendChild(back);
 }
 
 // ---------- layout (wide = scaled mockup, narrow = phone flow) ----------
@@ -289,6 +470,7 @@ function select(id: string): void {
 }
 
 function showDeny(d: Deny): void {
+  sfx('error');
   deny = d;
   window.clearTimeout(denyTimer);
   denyTimer = window.setTimeout(() => {
@@ -304,7 +486,7 @@ function showDeny(d: Deny): void {
 }
 
 function buy(id: string): void {
-  if (installing) return;
+  if (installing || off) return;
   if (selected !== id) {
     selected = id;
     if (narrow) placeDetail();
@@ -312,29 +494,35 @@ function buy(id: string): void {
   const res = id === 'reactor' ? queueBar(run, pending) : queueLevel(run, pending, id);
   if (!res.ok) return showDeny(res.deny);
   pending = res.pending;
+  sfx('add');
   if (deny?.target === id) deny = null;
   render();
 }
 
 function remove(id: string): void {
-  if (installing) return;
+  if (installing || off) return;
+  const before = pendingCount(pending);
   pending = id === 'reactor' ? removeBar(pending) : removeLevel(pending, id);
+  if (pendingCount(pending) < before) sfx('sub');
   render();
 }
 
 function undo(): void {
-  if (installing) return;
+  if (installing || off) return;
+  sfx(pendingCount(pending) ? 'sub' : 'click');
   pending = emptyPending();
   deny = null;
   render();
 }
 
 function confirm(): void {
-  if (installing) return;
+  if (installing || off) return;
   const res = confirmUpgrades(run, pending);
   if (!res.ok) return showDeny(res.deny);
   saveRun(res.run); // saved right away; the steps below are only the show
+  sfx('confirm');
   installing = true;
+  tick = 0;
   deny = null;
   root.classList.add('installing');
   const paid = res.paid;
@@ -342,15 +530,16 @@ function confirm(): void {
     if (pendingCount(pending) === 0) {
       installing = true;
       doneMsg = `> UPGRADES INSTALLED · −${paid} SCRAP`;
+      sfx('done');
       render();
       root.classList.remove('installing');
-      window.setTimeout(() => root.classList.add('crtoff'), 1000);
-      window.setTimeout(() => (location.href = '/'), 1700);
+      shutDown(1000); // let the result land, then the terminal switches off
       return;
     }
     const s = installStep(run, pending);
     run = s.run;
     pending = s.pending;
+    sfx('tick', tick++, s.installed.length);
     render();
     for (const id of s.installed) popInstalled(id);
     retrigger($(barMid, '.upg-now') ?? barMid, 'cnt');
@@ -377,6 +566,47 @@ function popInstalled(id: string): void {
   retrigger(c.el, 'flash');
   c.float.textContent = UPGRADE_SYSTEMS.find((s) => s.id === id)?.type === 'main' ? '+1 POWER' : '+1 LEVEL';
   retrigger(c.float, 'go');
+}
+
+// ---------- power: CRT off → boot screen (REBOOT); POWER ON / REBOOT → fresh boot from the saved run ----------
+function shutDown(delay: number): void {
+  if (off || shutting) return;
+  shutting = true;
+  window.setTimeout(() => {
+    root.classList.remove('booting');
+    root.classList.add('crtoff');
+    window.setTimeout(() => {
+      shutting = false;
+      off = true;
+      installing = false;
+      root.classList.remove('crtoff', 'installing');
+      root.classList.add('off', 'dark');
+      boot.show('REBOOT');
+    }, 500);
+  }, delay);
+}
+
+function powerOn(): void {
+  if (!off) return;
+  const go = () => {
+    run = loadRun();
+    pending = emptyPending();
+    deny = null;
+    doneMsg = '';
+    installing = false;
+    selected = 'shields';
+    off = false;
+    root.classList.remove('off', 'dark', 'crtoff');
+    retrigger(root, 'booting');
+    scroller.scrollTop = 0;
+    layout();
+    placeDetail();
+    render();
+    sfx('boot');
+  };
+  const a = muted ? null : audio(); // unlock audio from this tap so the boot sound is heard
+  if (a && a.state !== 'running') a.resume().then(go, go);
+  else go();
 }
 
 // ---------- render ----------
