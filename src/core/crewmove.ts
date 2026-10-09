@@ -2,6 +2,7 @@
 // opening doors while someone walks through. Pure functions (state) => state – engine-neutral.
 import LAB from '../data/crew_lab.json';
 import MOVE from '../data/crew_move.json';
+import START from '../data/run_start.json';
 import { CREW_GEAR, CREW_LOOKS, equip, parseCrewLook, type CrewLook, type GearId } from './crew';
 import { seatPose } from './exterior';
 import { buildNav, findPath, nodeAt, type NavGraph } from './nav';
@@ -78,7 +79,11 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
     };
     const node = starts[i]!;
     const desk = consoleOf(ship, node);
-    crew.push({ id: look.id, name: look.name, look, node, dest: node, pos: spot(ship, crew, node, look.id), path: [], heading: desk ? headingOf(desk) : r() * Math.PI * 2, walked: 0 });
+    crew.push({
+      id: look.id, name: look.name, look, node, dest: node, pos: spot(ship, crew, node, look.id), path: [],
+      heading: desk ? headingOf(desk) : r() * Math.PI * 2, walked: 0,
+      hp: START.crew_hp, hpMax: START.crew_hp, captain: i === 0, // the first one is the player's captain
+    });
   }
   return crew;
 }

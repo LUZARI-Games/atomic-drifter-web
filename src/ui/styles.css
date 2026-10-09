@@ -100,3 +100,55 @@ html, body {
   background: var(--bg); border: 3px solid var(--green); padding: 8px; pointer-events: auto;
 }
 .share-box textarea { flex: 1; background: var(--bg); color: var(--green); border: 0; font-family: var(--font); font-size: var(--fs-s); }
+
+/* ===== Top-left status HUD (ship status + crew portraits) ===== */
+.g { text-shadow: 0 0 6px color-mix(in srgb, var(--green) 65%, transparent); }
+.pn {
+  position: relative;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--green) 28%, transparent);
+  background: rgba(2, 10, 6, 0.72);
+}
+.pn::before, .pn::after {
+  content: ""; position: absolute; width: 8px; height: 8px; border-color: var(--green); border-style: solid; pointer-events: none;
+}
+.pn::before { left: -1px; top: -1px; border-width: 2px 0 0 2px; }
+.pn::after { right: -1px; bottom: -1px; border-width: 0 2px 2px 0; }
+.status-hud {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(8px, env(safe-area-inset-left));
+  max-width: calc(100% - 150px); /* keep clear of [ MENU ] */
+  display: flex; flex-direction: column; gap: 6px;
+  pointer-events: none;
+}
+.status-hud .sh-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.status-hud .pn { padding: 4px 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.sh-stat { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-s); }
+.sh-stat b { font-weight: normal; letter-spacing: 1px; }
+.ico { width: 18px; height: 18px; flex: none; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--green) 60%, transparent)); }
+.sh-hull { display: inline-flex; gap: 2px; }
+.sh-hull i { width: 5px; height: 14px; border: 1px solid var(--green-dim); box-sizing: border-box; }
+.sh-hull i.on { background: var(--green); border-color: var(--green); box-shadow: 0 0 4px color-mix(in srgb, var(--green) 60%, transparent); }
+.sh-hull.warn i.on { background: var(--amber); border-color: var(--amber); }
+.sh-hull.bad i.on { background: var(--red); border-color: var(--red); }
+.sh-shield { display: inline-flex; flex-direction: column; gap: 2px; }
+.sh-shield .pips { display: inline-flex; gap: 3px; }
+.sh-shield .pips i { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #3fa7e0; box-sizing: border-box; }
+.sh-shield .pips i.on { background: #3fa7e0; box-shadow: 0 0 5px #3fa7e0; }
+.sh-shield .charge { height: 2px; background: rgba(63, 167, 224, 0.25); }
+.sh-shield .charge i { display: block; height: 100%; background: #3fa7e0; }
+.sh-crew { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px; pointer-events: auto; }
+.sh-face {
+  padding: 0 !important; display: flex !important; flex-direction: column; align-items: stretch !important; gap: 0 !important; width: 52px;
+  color: var(--green); font-family: var(--font); cursor: pointer; border-width: 1px;
+}
+.sh-face.captain { width: 72px; }
+.sh-face.sel { border: 3px solid var(--green); box-shadow: 0 0 10px color-mix(in srgb, var(--green) 50%, transparent); }
+.sh-face .face { width: 100%; aspect-ratio: 1; display: block; }
+.sh-face .nm { font-size: 11px; letter-spacing: 1px; text-align: center; padding: 1px 0; overflow: hidden; white-space: nowrap; }
+.sh-face .hp { height: 4px; background: rgba(26, 255, 128, 0.15); }
+.sh-face .hp i { display: block; height: 100%; background: var(--green); }
+.sh-face .hp.warn i { background: var(--amber); }
+.sh-face .hp.bad i { background: var(--red); }
+.sh-face .badge { position: absolute; right: 3px; top: 3px; width: 10px; height: 10px; border: 1px solid #000; }

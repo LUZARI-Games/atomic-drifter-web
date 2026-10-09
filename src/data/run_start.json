@@ -1,0 +1,12 @@
+{
+  "_info": "Ship status at the start of a run (test values until the run setup / economy is built).",
+  "hull": 20,
+  "hull_max": 20,
+  "shield_layers": 1,
+  "shield_max": 4,
+  "evasion": 0.1,
+  "ammo": 10,
+  "ammo_max": 10,
+  "scrap": 1000,
+  "crew_hp": 100
+}

@@ -1,4 +1,5 @@
 // Engine-neutral data types.
+import type { ShipStatus } from './status';
 import type { CrewLook } from './crew';
 // Ships use the planner's Godot export format "atomic-drifter-ship-godot" v1 unchanged:
 // meters, bow = -Z, starboard = +X, origin = ship centre. Points are [x, z].
@@ -82,6 +83,9 @@ export interface CrewMember {
   heading: number; // walking direction in ship space: atan2(dz, dx)
   walked: number; // meters walked in total (drives the walk cycle)
   moved?: number; // meters walked on the current way (speeds up after the start)
+  hp: number;
+  hpMax: number;
+  captain?: boolean; // the player's own character (first, big portrait)
 }
 
 export interface GameState {
@@ -91,4 +95,6 @@ export interface GameState {
   openDoors: number[];
   crew: CrewMember[];
   selectedCrewId: string | null;
+  /** Hull, shields, evasion, ammo, scrap (HUD). */
+  status: ShipStatus;
 }

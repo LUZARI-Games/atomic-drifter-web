@@ -10,6 +10,7 @@ import { parseShip } from './core/ship';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
 import { applyTestScene, testSceneFromUrl, testShip } from './ui/testScene';
 import { Sound } from './ui/sound';
+import { mountStatusHud } from './ui/statusHud';
 import './ui/styles.css';
 
 async function boot(): Promise<void> {
@@ -23,6 +24,7 @@ async function boot(): Promise<void> {
   const store = new Store(start);
   const sound = new Sound();
 
+  mountStatusHud(document.getElementById('hud')!, store);
   mountHud(document.getElementById('hud')!, store, {
     source: loaded.source,
     extraItems: sound.menuItems(),
