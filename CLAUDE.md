@@ -49,10 +49,13 @@ never restate the owner's tasks back to them.
   or TEST IN GAME, else the demo ship) in three views: TOP-DOWN (2D), ISO 60/45 (down 60°, turned 45°), ISO 45/45.
   Orthographic, flat 2D. Views = `makeView(pitch, yaw)`; the ship's own `wall_height` from the export wins;
   draw order via `drawOrder` (core/projection.ts, with fixed pairs like symbol-after-block) – long walls / blocks are drawn
-  in 1 m / per-tile pieces. Shading in ship_view is proportional (dark paint never turns black). Heights in `src/data/ship_view.json` (half walls 1 m, systems 1 m, door frames 1.5 m) → `src/core/ship3d.ts`.
-  Doors = brass frame (2 posts + lintel) + floor plate; airlocks rust-orange with hazard stripes.
-- Consoles: a system's console tile is where crew stands to use it (never a door there). The keyboard desk sits ON the
-  machinery edge facing that tile and overhangs it ~0.28 m (`consoleDesk` in core/ship3d.ts; drawn in ShipScene + Ship Lab).
+  in 1 m / per-tile pieces. Shading in ship_view is proportional (dark paint never turns black). Heights in `src/data/ship_view.json` (half walls 1 m, systems 1 m, door posts 1.1 m) → `src/core/ship3d.ts`.
+  Doors = 2 slim brass posts (no top beam) + floor plate + two leaves that slide sideways into the walls (`doorLeaves`);
+  airlocks rust-orange with hazard stripes. Tap a door to open/close it (`toggleDoor`, `GameState.openDoors`);
+  ShipScene animates the slide and redraws only the standing objects (`ShipView.drawObjects`) while doors move.
+- Consoles: a system's console tile is where crew stands to use it (never a door there). The keyboard is a shelf in the
+  system's paint, fixed to the block front facing that tile, lower than the block, overhanging the tile ~0.28 m
+  (`consoleDesk` in core/ship3d.ts; drawn by ship_view in game + Ship Lab).
   Planner export: `rooms[].console = { tile, facing } | null` – older exports without it still load.
   The main game view (`ShipScene`) uses the same renderer at ISO 60/45 (owner's choice).
 

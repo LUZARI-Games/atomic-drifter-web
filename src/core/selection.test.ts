@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import demo from '../data/demo_ship.json';
-import { clearSelection, createGameState, getSelectedRoom, selectRoom, tapPoint } from './selection';
+import { clearSelection, createGameState, doorAt, getSelectedRoom, selectRoom, tapPoint, toggleDoor } from './selection';
 import { parseShip, pointInPolygon, roomAtPoint, roomCenter, roomOutline, shipBounds } from './ship';
 import { Store } from './store';
 import type { Point } from './types';
@@ -63,5 +63,28 @@ describe('room selection', () => {
     store.update((s) => selectRoom(s, 'engines'));
     store.update((s) => selectRoom(s, 'nope'));
     expect(calls).toBe(1);
+  });
+});
+
+describe('doors', () => {
+  it('a tap on a door opens it, a second tap closes it, the room selection stays', () => {
+    const d = ship.doors[0]!;
+    let s = selectRoom(createGameState(ship), 'engines');
+    s = tapPoint(s, d.center);
+    expect(s.openDoors).toEqual([0]);
+    expect(s.selectedRoomId).toBe('engines');
+    s = tapPoint(s, [d.center[0] + 0.2, d.center[1]]);
+    expect(s.openDoors).toEqual([]);
+  });
+
+  it('finds the nearest door only close to it', () => {
+    const d = ship.doors[1]!;
+    expect(doorAt(ship, d.center)).toBe(1);
+    expect(doorAt(ship, [d.center[0] + 3, d.center[1] + 3])).toBe(-1);
+  });
+
+  it('ignores unknown door numbers', () => {
+    const s = createGameState(ship);
+    expect(toggleDoor(s, 99)).toBe(s);
   });
 });

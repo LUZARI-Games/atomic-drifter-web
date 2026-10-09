@@ -5,7 +5,7 @@ import type { Point, Ship, ShipConsole, ShipDoor, ShipWall } from './types';
 
 export const SHIP_HEIGHTS = VIEW;
 
-export type SolidKind = 'wall' | 'railing' | 'door_post' | 'door_lintel' | 'console';
+export type SolidKind = 'wall' | 'railing' | 'door_post' | 'door_panel' | 'console';
 
 export interface Solid {
   kind: SolidKind;
@@ -72,7 +72,7 @@ export function doorEnds(d: ShipDoor): [Point, Point] {
     : [[d.center[0], d.center[1] - h], [d.center[0], d.center[1] + h]];
 }
 
-/** Door frame: a post at each end of the opening + a lintel on top, taller than the half walls. */
+/** Door frame: one slim post at each end of the opening, a little taller than the half walls (no top beam). */
 export function doorFrame(d: ShipDoor): Solid[] {
   const [a, b] = doorEnds(d);
   const depth = VIEW.wall_thickness_m.hull / 2 + 0.04;
@@ -83,7 +83,25 @@ export function doorFrame(d: ShipDoor): Solid[] {
   return [
     { kind: 'door_post', footprint: segmentBox(at(a, -post / 2), at(a, post / 2), depth), z0: 0, z1: top, door: d.kind },
     { kind: 'door_post', footprint: segmentBox(at(b, -post / 2), at(b, post / 2), depth), z0: 0, z1: top, door: d.kind },
-    { kind: 'door_lintel', footprint: segmentBox(a, b, depth * 0.8), z0: top - post, z1: top, door: d.kind },
+  ];
+}
+
+/**
+ * The two door leaves, sliding sideways into the walls. `open` 0 = closed (leaves meet in the middle),
+ * 1 = fully open (both leaves inside the walls, nothing left in the opening).
+ */
+export function doorLeaves(d: ShipDoor, open: number, height: number = VIEW.wall_height_m): Solid[] {
+  const o = Math.min(1, Math.max(0, open));
+  const [a, b] = doorEnds(d);
+  const half = (d.width / 2) * (1 - o);
+  if (half < 0.01) return [];
+  const dir: Point = [(b[0] - a[0]) / d.width, (b[1] - a[1]) / d.width];
+  const at = (p: Point, s: number): Point => [p[0] + dir[0] * s, p[1] + dir[1] * s];
+  const t = VIEW.door_panel_thickness_m / 2;
+  const h = height * 0.96;
+  return [
+    { kind: 'door_panel', footprint: segmentBox(a, at(a, half), t), z0: 0, z1: h, door: d.kind },
+    { kind: 'door_panel', footprint: segmentBox(at(b, -half), b, t), z0: 0, z1: h, door: d.kind },
   ];
 }
 
@@ -99,20 +117,20 @@ export function shipSolids(ship: Ship): Solid[] {
 }
 
 /**
- * Console desk (the "keyboard"): sits ON the machinery at the edge facing the console tile and overhangs that floor
- * tile only a little – the tile itself stays free floor where crew stands. Returns the desk footprint plus the strip
- * on its top where the keys are (on the crew side).
+ * Console (the "keyboard"): a shelf in the system's colour fixed to the FRONT of the machinery block, facing the console
+ * tile. It fills the gap between block and tile edge and overhangs the tile a little; lower than the block so it reads
+ * as part of it. Returns its footprint and the key plate on its top.
  */
 export function consoleDesk(c: ShipConsole, tileSize = 2): { footprint: Point[]; keys: Point[]; height: number } {
   const [fx, fz] = c.facing;
   const edge: Point = [c.tile[0] + fx * (tileSize / 2), c.tile[1] + fz * (tileSize / 2)];
   const at = (along: number, across: number): Point => [edge[0] + fx * along - fz * across, edge[1] + fz * along + fx * across];
   const over = 0.28; // overhang over the floor tile
-  const into = 0.5; // depth onto the machinery (block starts 0.32 m in; symbol starts 0.5 m in, so it stays free)
-  const half = 0.5; // half length of the desk
+  const into = 0.32; // up to the block face (blocks keep a 0.32 m gap to the tile edge)
+  const half = 0.5; // half length of the shelf
   return {
     footprint: [at(-over, -half), at(into, -half), at(into, half), at(-over, half)],
-    keys: [at(-over + 0.07, -half + 0.08), at(0.22, -half + 0.08), at(0.22, half - 0.08), at(-over + 0.07, half - 0.08)],
+    keys: [at(-over + 0.07, -half + 0.08), at(into - 0.1, -half + 0.08), at(into - 0.1, half - 0.08), at(-over + 0.07, half - 0.08)],
     height: VIEW.console_height_m,
   };
 }

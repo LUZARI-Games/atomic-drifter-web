@@ -58,4 +58,6 @@ export interface Ship {
 export interface GameState {
   ship: Ship;
   selectedRoomId: string | null;
+  /** Indices into ship.doors that are open. */
+  openDoors: number[];
 }

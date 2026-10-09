@@ -14,11 +14,15 @@ import { ShipView } from './ship_view';
 /** The game's camera angle (degrees). */
 export const GAME_VIEW = { pitch: 60, yaw: 45 } as const;
 const PX_PER_M = 40;
+const DOOR_SPEED = 2.2; // door openings per second (0 -> 1 takes ~0.45 s)
 
 export class ShipScene extends Phaser.Scene {
   private view!: ShipView;
   private tint!: Phaser.GameObjects.Graphics;
   private outline!: Phaser.GameObjects.Graphics;
+  private objects!: Phaser.GameObjects.Graphics;
+  /** How far each door is open right now (0…1) – animation only; the real state is store.openDoors. */
+  private doorOpen: number[] = [];
   private unsubscribe: (() => void) | null = null;
 
   constructor(private readonly store: Store<GameState>) {
@@ -32,9 +36,11 @@ export class ShipScene extends Phaser.Scene {
 
     const deck = this.add.graphics();
     this.tint = this.add.graphics().setDepth(0.5); // floor tint: on the deck, under walls and machinery
-    const objects = this.add.graphics().setDepth(1);
+    this.objects = this.add.graphics().setDepth(1);
+    this.doorOpen = ship.doors.map((_, i) => (this.store.get().openDoors.includes(i) ? 1 : 0));
     this.outline = this.add.graphics().setDepth(2); // outline on top of the walls, so the half walls never hide it
-    this.view.draw(this, deck, objects, -b.x, -b.y, []);
+    this.view.drawStatic(this, deck, -b.x, -b.y);
+    this.view.drawObjects(this.objects, [], (i) => this.doorOpen[i] ?? 0);
 
     const area = new Phaser.Geom.Rectangle(0, 0, b.width, b.height);
     attachPanZoom(this, {
@@ -45,6 +51,22 @@ export class ShipScene extends Phaser.Scene {
     this.unsubscribe = this.store.subscribe(() => this.drawSelection());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.unsubscribe?.());
     this.drawSelection();
+  }
+
+  /** Slide doors towards their open/closed state; redraw the standing objects only while something moves. */
+  override update(_time: number, delta: number): void {
+    const open = this.store.get().openDoors;
+    const step = (DOOR_SPEED * delta) / 1000;
+    let moved = false;
+    this.doorOpen = this.doorOpen.map((v, i) => {
+      const target = open.includes(i) ? 1 : 0;
+      if (v === target) return v;
+      moved = true;
+      return target > v ? Math.min(target, v + step) : Math.max(target, v - step);
+    });
+    if (!moved) return;
+    this.objects.clear();
+    this.view.drawObjects(this.objects, [], (i) => this.doorOpen[i] ?? 0);
   }
 
   /** Selected room: faint lamp-light tint on its floor + crisp outline along the top of its walls. */

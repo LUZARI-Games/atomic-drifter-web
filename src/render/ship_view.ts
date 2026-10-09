@@ -6,7 +6,7 @@ import type { CrewLook } from '../core/crew';
 import { airshipHull, blockPolygons, systemBlocks } from '../core/hull';
 import { depth, drawOrder, project, turn, unprojectFloor, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
 import { roomFloorCenter } from '../core/ship';
-import { consoleDesk, doorThreshold, SHIP_HEIGHTS, shipSolids, wallPieces, type Solid } from '../core/ship3d';
+import { consoleDesk, doorLeaves, doorThreshold, SHIP_HEIGHTS, shipSolids, wallHeight, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
 import type { Point, Ship } from '../core/types';
 import { drawCrewIso } from './crew_iso';
@@ -77,15 +77,26 @@ export class ShipView {
     return new Phaser.Geom.Rectangle(Math.min(...xs), Math.min(...ys), Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
   }
 
-  /** Draw the ship with its origin at (ox, oy). Deck goes to `deck`, everything standing to `objects`, labels in between. */
-  draw(scene: Phaser.Scene, deck: G, objects: G, ox: number, oy: number, crew: CrewOnDeck[]): void {
+  /** Draw the ship with its origin at (ox, oy): deck to `deck`, labels above it, everything standing to `objects`. */
+  draw(scene: Phaser.Scene, deck: G, objects: G, ox: number, oy: number, crew: CrewOnDeck[], doorOpen: (i: number) => number = () => 0): void {
+    this.drawStatic(scene, deck, ox, oy);
+    this.drawObjects(objects, crew, doorOpen);
+  }
+
+  /** Hull, deck plates, door plates and floor labels – drawn once. */
+  drawStatic(scene: Phaser.Scene, deck: G, ox: number, oy: number): void {
     this.ox = ox;
     this.oy = oy;
     this.drawHull(deck);
     this.drawDeck(deck);
     this.drawLabels(scene);
+  }
 
-    // standing things, back to front
+  /**
+   * Everything standing (walls, door frames + leaves, system blocks, consoles, crew), back to front.
+   * Call again (after objects.clear()) whenever doors move. `doorOpen(i)` = 0 closed … 1 open for ship.doors[i].
+   */
+  drawObjects(objects: G, crew: CrewOnDeck[], doorOpen: (i: number) => number = () => 0): void {
     const items: { key: number; box: FloorBox; draw: () => void }[] = [];
     const mustFollow: [number, number][] = []; // [first, then] – e.g. a system symbol after its own block
     const box = (footprint: Point[]): FloorBox => {
@@ -103,6 +114,11 @@ export class ShipView {
         items.push({ key: this.sortKey(s.footprint, s.z0), box: box(s.footprint), draw: () => this.drawSolid(objects, s) });
       }
     }
+    // door leaves: slide sideways into the walls as the door opens
+    const wh = wallHeight(this.ship);
+    this.ship.doors.forEach((d, i) => {
+      for (const leaf of doorLeaves(d, doorOpen(i), wh)) items.push({ key: this.sortKey(leaf.footprint, 0), box: box(leaf.footprint), draw: () => this.drawSolid(objects, leaf) });
+    });
     for (const b of systemBlocks(this.ship)) {
       const polys = blockPolygons(b, BLOCK_GAP_M);
       const outer = this.outerEdges(polys);
@@ -126,7 +142,7 @@ export class ShipView {
         const desk = consoleDesk(con, this.ship.tile_size);
         const deskIdx = items.length;
         for (const p of pieces) mustFollow.push([p, deskIdx]);
-        items.push({ key: this.sortKey(desk.footprint, 0) + 0.0006, box: box(desk.footprint), draw: () => this.drawConsole(objects, desk) });
+        items.push({ key: this.sortKey(desk.footprint, 0) + 0.0006, box: box(desk.footprint), draw: () => this.drawConsole(objects, desk, this.blockFill(b.room)) });
       }
     }
     for (const c of crew) {
@@ -315,10 +331,15 @@ export class ShipView {
       case 'railing':
         this.prism(g, s.footprint, s.z0, s.z1, WORLD.hullEdge, shade(WORLD.hullEdge, 30));
         break;
-      case 'door_post':
-      case 'door_lintel': {
+      case 'door_post': {
         const col = s.door === 'airlock' ? WORLD.airlock : FRAME;
         this.prism(g, s.footprint, s.z0, s.z1, shade(col, -8), shade(col, 28), shade(col, 45));
+        break;
+      }
+      case 'door_panel': {
+        // sliding leaf: darker than the frame so the frame posts stay readable; airlocks rust-orange
+        const col = s.door === 'airlock' ? shade(WORLD.airlock, 15) : WORLD.door;
+        this.prism(g, s.footprint, s.z0, s.z1, shade(col, -10), shade(col, 22), shade(col, 45));
         break;
       }
     }
@@ -366,11 +387,11 @@ export class ShipView {
     }
   }
 
-  /** Console desk ("keyboard") with a key plate on the crew side. */
-  private drawConsole(g: G, desk: ReturnType<typeof consoleDesk>): void {
-    this.prism(g, desk.footprint, 0, desk.height, WORLD.console, shade(WORLD.console, 35), shade(WORLD.console, 50));
+  /** Console ("keyboard") shelf on the block front, in the system's paint, with a dark key plate. */
+  private drawConsole(g: G, desk: ReturnType<typeof consoleDesk>, fill: number): void {
+    this.prism(g, desk.footprint, 0, desk.height, shade(fill, 8), shade(fill, 30), shade(fill, 45));
     const h = desk.height;
-    g.fillStyle(WORLD.consoleKeys, 1);
+    g.fillStyle(shade(fill, 62), 1);
     g.fillPoints(desk.keys.map((p) => this.S(W(p, h))), true);
     // 2 rows x 5 keys; corners 0/3 = crew side, 1/2 = machinery side
     const [k0, k1, k2, k3] = desk.keys as [Point, Point, Point, Point];
