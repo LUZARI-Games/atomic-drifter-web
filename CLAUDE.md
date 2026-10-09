@@ -36,12 +36,19 @@ never restate the owner's tasks back to them.
   scale with k; pan/zoom follow the ship camera. `FAR_IS_SLOWER` flips the speed order if the owner wants it reversed.
   Scenes bottom→top: WastelandScene → ShipScene → HazeScene. The ship bobs gently. Everything stays greyer than the ship.
   Setting: post-nuclear Earth (Fallout-like); ships are patched-up pre-war **airships** flying low over the wasteland –
-  hull with a rounded-pointed nose at the bow (right), propellers + tail fins at the stern (left). Never space/rockets.
+  hull with a rounded-pointed nose at the bow (right), tail fins at the stern (left). Never space/rockets.
+  Atomic technology: airships, cars and bikes run on atomic reactors and float on levitation drives (nozzles pointing
+  down, pushing like jets). Airship: 4 levitation drives (2 per side, on arms, kept clear of balconies), 2 big atomic
+  thrusters behind the stern (forward drive), reactor housing on the stern cap (`airshipHull` in core/hull.ts).
+  Car: hovers, no wheels, 4 drives at the corners, reactor glows through the grille. Bike: hover bike, 2 drives
+  (front/back), reactor core where the tank was; sidecar pod has its own small drive. Vehicles bob at the dock.
+  Reactors + drives pulse together in atomic green (`ATOMIC` in palette.ts, `PULSE_S`), redrawn per frame by
+  `ShipView.drawEnergy` / `drawVehicleEnergy` (thrust columns with small steering wobble, exhaust, halo, glowing rims).
   Each system's machine tiles form ONE continuous block (gap to the walls, darker rim, dark system symbol),
   filled with the **Ship Planner colour, faded into Fallout paint** (`worldPaint` in palette.ts; no neon) (`src/data/systems.json`, `src/core/systems.ts`) – `src/core/hull.ts`.
   No room names on the floor – the system icon on the block is enough.
   Grimdark, desaturated Fallout 3 tones from `WORLD` in `src/render/palette.ts` (olive-grey steel, rust, dim lamp-yellow).
-  No green glow and no scanlines on the world. Selection = pale lamp-yellow outline.
+  No phosphor-green UI glow and no scanlines on the world – the only glow there is atomic energy (see above). Selection = pale lamp-yellow outline.
   Contrast rule (checked with GREYSCALE): dark world outside → bright, desaturated Vault-like interior (light concrete
   floor, blue-grey steel half walls with bright tops, dark stencil labels) → crew darker + more saturated on top, with a
   team-coloured outline (green = own crew, amber = hostile) and thin dark inner edges (`drawCrewIso`).

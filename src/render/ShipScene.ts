@@ -57,6 +57,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private doorTarget: number[] = [];
   private stepCount = new Map<string, number>();
   private overlay!: Phaser.GameObjects.Graphics; // health bars, damaged systems
+  private energy!: Phaser.GameObjects.Graphics; // pulsing atomic glow of the airship
   private marks = new Map<string, Phaser.GameObjects.Text>(); // speech marks above heads
   private lastHp = new Map<string, number>();
   private hurtAt = new Map<string, number>();
@@ -84,6 +85,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.doorOpen = ship.doors.map((_, i) => (this.store.get().openDoors.includes(i) ? 1 : 0));
     this.outline = this.add.graphics().setDepth(3); // outline on top of the walls, so the half walls never hide it
     this.overlay = this.add.graphics().setDepth(3.2);
+    this.energy = this.add.graphics().setDepth(0.6); // hull reactor, thrusters, levitation drives (outside the deck)
     this.view.drawStatic(this, deck, -b.x, -b.y);
     // walls, blocks, vehicles … drawn once (depth 1..2); crew + moving doors are redrawn and slotted in between
     this.layer = this.view.mountObjects(this, 1, 2, (i) => this.doorOpen[i] ?? 0);
@@ -191,6 +193,9 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       this.lastIdle = now;
     }
     this.drawOverlay(now / 1000);
+    this.energy.clear();
+    this.view.drawEnergy(this.energy, now / 1000);
+    this.layer.animate(now / 1000);
     this.dirty = false;
   }
 

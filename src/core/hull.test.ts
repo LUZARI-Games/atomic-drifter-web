@@ -21,14 +21,17 @@ describe('hull geometry', () => {
     expect(tilesOutline([sq(0, 0), sq(2, 0)]).length).toBe(6);
   });
 
-  it('hull covers the whole enclosed deck (balconies hang out), nose at the bow (-z), propellers at the stern (+z)', () => {
+  it('hull covers the whole enclosed deck (balconies hang out), nose at the bow (-z), thrusters at the stern (+z), lifters out of both sides', () => {
     const hull = airshipHull(ship);
     for (const t of ship.tiles.filter((x) => x.room !== 'deck')) for (const p of t.polygon) expect(pointInPolygon(p, hull.outline)).toBe(true);
     expect(pointInPolygon([4, 1], hull.outline)).toBe(false); // the balcony's outer edge is outside the hull
     const b = shipBounds(ship);
     const zs = hull.outline.map((p) => p[1]);
     expect(Math.min(...zs) < b.minZ - 2).toBe(true); // nose sticks out in front
-    for (const [, z] of hull.propellers) expect(z > b.maxZ).toBe(true);
+    for (const t of hull.thrusters) expect(t.at[1] > b.maxZ).toBe(true);
+    expect(hull.lifters).toHaveLength(4);
+    for (const l of hull.lifters) expect(pointInPolygon(l.at, hull.outline)).toBe(false); // they stick out of the hull
+    expect(new Set(hull.lifters.map((l) => Math.sign(l.at[0] - (b.minX + b.maxX) / 2))).size).toBe(2); // both sides
   });
 });
 

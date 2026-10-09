@@ -50,6 +50,15 @@ export const VEHICLE = {
   glass: 0x1e2523,
 } as const;
 
+/** Atomic energy (reactors, levitation drives, thrusters): radioactive green glow, pulsing. */
+export const ATOMIC = {
+  core: 0xd8ff7a, // white-hot centre
+  glow: 0x8aff3c, // the green glow
+  halo: 0x4fd12a, // outer halo (drawn transparent)
+  housing: 0x3a3d33, // dark steel nozzle / reactor housing
+  housingLight: 0x5c6050,
+} as const;
+
 /**
  * Flight over the wasteland (wasteland.ts), Fallout 3 mood: a dirty yellow-grey fog sea hides the ground,
  * grey concrete high-rises and rusty towers poke out of it, muted cloud decks drift between them and the ship.

@@ -4,13 +4,13 @@
 import Phaser from 'phaser';
 import type { CrewLook } from '../core/crew';
 import { airshipHull, blockPolygons, systemBlocks } from '../core/hull';
-import { depth, drawOrder, isBehind, project, turn, unprojectFloor, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
+import { convexHull, depth, drawOrder, isBehind, project, turn, unprojectFloor, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
 import { consoleDesk, doorLeaves, doorThreshold, SHIP_HEIGHTS, shipSolids, wallHeight, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
 import type { Point, Ship, ShipVehicle } from '../core/types';
 import { drawCrewIso, type IdlePose, type SitPose } from './crew_iso';
 import { drawSystemIcon } from './icons';
-import { VEHICLE, WORLD, worldPaint } from './palette';
+import { ATOMIC, VEHICLE, WORLD, worldPaint } from './palette';
 import { balconyRoomIds, dockArms, railingParts, SEATS, vehicleFrame } from '../core/exterior';
 
 type G = Phaser.GameObjects.Graphics;
@@ -20,6 +20,8 @@ type Item = { key: number; box: FloorBox; draw: (g: G) => void };
 export interface ObjectLayer {
   redrawDoors(): void;
   setCrew(crew: CrewOnDeck[]): void;
+  /** Per frame: vehicles hover (bob) and their atomic drives / reactors pulse. */
+  animate(t: number): void;
 }
 
 const edgeKey = (a: Point, b: Point) =>
@@ -27,6 +29,11 @@ const edgeKey = (a: Point, b: Point) =>
 type V2 = Phaser.Math.Vector2;
 
 const BLOCK_GAP_M = 0.32; // gap between a system block and the walls
+const THRUSTER_Z = -0.45; // thruster axis height (m, below the deck edge)
+const LIFTER_Z = -0.5; // levitation drive nozzle height
+const PULSE_S = 1.7; // one atomic pulse (reactors + drives breathe together)
+/** Circle of `n` points around `c` (ship meters). */
+const ring = (c: Point, r: number, n = 16): Point[] => Array.from({ length: n }, (_, i) => [c[0] + Math.cos((i / n) * 2 * Math.PI) * r, c[1] + Math.sin((i / n) * 2 * Math.PI) * r]);
 const ICON_RADIUS_M = 0.5;
 const FRAME = 0x9a8650; // brass door frame – brighter than the walls so doors stand out
 /** Darker (pct > 0) or lighter (pct < 0) by a share of the colour itself, so dark paint never turns pure black. */
@@ -92,9 +99,9 @@ export class ShipView {
   bounds(): Phaser.Geom.Rectangle {
     const hull = airshipHull(this.ship);
     const pts: Vec3[] = [];
-    const r = hull.propRadius;
     const outside = [...this.ship.tiles.flatMap((t) => t.polygon), ...(this.ship.vehicles ?? []).flatMap((v) => v.tiles.flatMap((t) => t.polygon))];
-    for (const p of [...hull.outline, ...hull.fins.flat(), ...hull.propellers.flatMap(([x, z]) => [[x - r, z + r], [x + r, z + r]] as Point[]), ...outside]) {
+    const drives = [...hull.thrusters.map((t) => [t.at[0], t.at[1] + t.radius * 3] as Point), ...hull.lifters.flatMap((l) => [[l.at[0] - l.radius, l.at[1]], [l.at[0] + l.radius, l.at[1]]] as Point[])];
+    for (const p of [...hull.outline, ...hull.fins.flat(), ...drives, ...outside]) {
       pts.push(W(p, 0), W(p, -SHIP_HEIGHTS.hull_depth_m), W(p, SHIP_HEIGHTS.door_frame_height_m));
     }
     const s = pts.map((p) => project(this.view, p));
@@ -205,7 +212,10 @@ export class ShipView {
       items.push(it);
     }
     const order = drawOrder(this.view, items.map((i) => i.box), items.map((i) => i.key), mustFollow);
+    for (const v of this.ship.vehicles ?? []) this.drawVehicleEnergy(objects, v, 0.4, true);
     for (const i of order) items[i]!.draw(objects);
+    for (const v of this.ship.vehicles ?? []) this.drawVehicleEnergy(objects, v, 0.4, false);
+    this.drawEnergy(objects, 0.4);
   }
 
   private crewItem(c: CrewOnDeck): Item {
@@ -237,7 +247,25 @@ export class ShipView {
       return g;
     });
     const crewGfx: G[] = [];
+    // atomic glow per vehicle: under it (drive nozzles) and over it (reactor), redrawn every frame
+    const vehicles = this.ship.vehicles ?? [];
+    const glowUnder = vehicles.map((_, vi) => scene.add.graphics().setDepth(depthAt(posOf.get(vehicleItem[vi]!)! - 0.4)));
+    const glowOver = vehicles.map((_, vi) => scene.add.graphics().setDepth(depthAt(posOf.get(vehicleItem[vi]!)! + 0.4)));
     return {
+      animate: (t: number) => {
+        vehicles.forEach((v, vi) => {
+          if (this.seated.has(vi) && v.type !== 'car') {
+            gfx[vehicleItem[vi]!]!.clear();
+            items[vehicleItem[vi]!]!.draw(gfx[vehicleItem[vi]!]!);
+          }
+          const bob = Math.sin(t * 1.9 + vi * 1.3) * 0.06 * this.pxPerM; // hovering at the dock
+          for (const g of [gfx[vehicleItem[vi]!]!, glowUnder[vi]!, glowOver[vi]!]) g.y = bob;
+          glowUnder[vi]!.clear();
+          glowOver[vi]!.clear();
+          this.drawVehicleEnergy(glowUnder[vi]!, v, t, true);
+          this.drawVehicleEnergy(glowOver[vi]!, v, t, false, !this.seated.has(vi));
+        });
+      },
       redrawDoors: () => {
         for (const i of doorItem) {
           gfx[i]!.clear();
@@ -275,28 +303,103 @@ export class ShipView {
     return Math.max(...footprint.map((p) => depth(this.view, W(p)))) + z0 * 0.001;
   }
 
+  /** Horizontal cylinder along the ship's z axis (thruster body): from z-offset `dz0`=0 at `c` to `len` (negative = forward). */
+  private cylinderZ(g: G, c: Point, r: number, h: number, len: number, side: number, rim: number): void {
+    const disc = (dz: number): Vec3[] => Array.from({ length: 16 }, (_, i) => {
+      const a = (i / 16) * 2 * Math.PI;
+      return W([c[0] + Math.cos(a) * r, c[1] + dz], h + Math.sin(a) * r);
+    });
+    const pts = [...disc(0), ...disc(len)].map((p) => { const q = this.S(p); return [q.x, q.y] as Vec2; });
+    g.fillStyle(side, 1);
+    g.fillPoints(convexHull(pts).map(([x, y]) => new Phaser.Math.Vector2(x, y)), true);
+    g.lineStyle(Math.max(2, this.pxPerM * 0.05), rim, 1);
+    g.strokePoints(disc(0).map((p) => this.S(p)), true);
+  }
+
+  /**
+   * Atomic energy, redrawn every frame (cheap): pulsing glow in the hull's reactor, thruster nozzles + exhaust,
+   * levitation nozzles + their downward shimmer. `t` = seconds. Vehicles have their own glow (drawVehicleEnergy).
+   */
+  drawEnergy(g: G, t: number): void {
+    const h = airshipHull(this.ship);
+    const p = 0.5 + 0.5 * Math.sin((t / PULSE_S) * Math.PI * 2); // shared pulse 0…1
+    // reactor: glowing core in the housing
+    this.glowDisc(g, h.reactor.at, h.reactor.radius * 0.6, 0.36, p);
+    // thrusters: glowing nozzle ring facing aft + exhaust that breathes with the pulse
+    for (const [i, th] of h.thrusters.entries()) {
+      const flick = 0.85 + 0.15 * Math.sin(t * 13 + i * 2);
+      for (let k = 6; k >= 0; k--) {
+        const f = k / 6;
+        const len = th.radius * (1.2 + 1.6 * p) * f;
+        const r = th.radius * (0.8 - 0.55 * f);
+        const pts = Array.from({ length: 16 }, (_, j) => {
+          const a = (j / 16) * 2 * Math.PI;
+          return this.S(W([th.at[0] + Math.cos(a) * r, th.at[1] + len], THRUSTER_Z + Math.sin(a) * r));
+        });
+        g.fillStyle(k === 0 ? ATOMIC.core : ATOMIC.glow, (k === 0 ? 0.9 : 0.22 * (1 - f) + 0.05) * flick);
+        g.fillPoints(pts, true);
+      }
+    }
+    // levitation drives: thrust column down (with small steering wobble), halo, housing, glowing rim on top
+    for (const [i, l] of h.lifters.entries()) {
+      const wob: Point = [Math.sin(t * 1.3 + i * 1.7) * 0.06, Math.cos(t * 1.1 + i * 2.3) * 0.06];
+      this.driveGlow(g, l.at, l.radius, LIFTER_Z - 0.35, LIFTER_Z + 0.12, p, wob, 0.32);
+    }
+  }
+
+  /**
+   * One levitation drive seen from above: a breathing thrust column below the nozzle (it swivels a little: `wob`),
+   * a halo around the housing, the housing, then a glowing rim + hot vent on its top.
+   */
+  private driveGlow(g: G, at: Point, r: number, zBottom: number, zTop: number, p: number, wob: Point, step: number, housing = true): void {
+    for (let k = 5; k >= 1; k--) {
+      const z = zBottom - k * step * (0.8 + 0.4 * p);
+      g.fillStyle(ATOMIC.glow, 0.13 * (1 - k / 6) * (0.6 + 0.4 * p));
+      g.fillPoints(ring([at[0] + wob[0] * k, at[1] + wob[1] * k], r * (0.75 + k * 0.1), 14).map((q) => this.S(W(q, z))), true);
+    }
+    g.fillStyle(ATOMIC.halo, 0.22 + 0.22 * p);
+    g.fillPoints(ring(at, r * (1.35 + 0.2 * p), 16).map((q) => this.S(W(q, zBottom))), true);
+    if (housing) this.prism(g, ring(at, r, 14), zBottom, zTop, ATOMIC.housingLight, ATOMIC.housing);
+    const top = (rr: number) => ring(at, rr, 16).map((q) => this.S(W(q, zTop)));
+    g.lineStyle(Math.max(2, this.pxPerM * r * 0.28), ATOMIC.glow, 0.65 + 0.35 * p);
+    g.strokePoints(top(r * 0.72), true);
+    g.fillStyle(ATOMIC.core, 0.45 + 0.45 * p);
+    g.fillPoints(top(r * 0.28), true);
+  }
+
+  /** Round glow: halo + green ring + hot core, all breathing with pulse `p`. */
+  private glowDisc(g: G, c: Point, r: number, z: number, p: number): void {
+    const at = (rr: number) => ring(c, rr, 16).map((q) => this.S(W(q, z)));
+    g.fillStyle(ATOMIC.halo, 0.18 + 0.2 * p);
+    g.fillPoints(at(r * (1.35 + 0.25 * p)), true);
+    g.fillStyle(ATOMIC.glow, 0.75 + 0.25 * p);
+    g.fillPoints(at(r), true);
+    g.fillStyle(ATOMIC.core, 0.6 + 0.4 * p);
+    g.fillPoints(at(r * 0.45), true);
+  }
+
   private drawHull(g: G): void {
     const h = airshipHull(this.ship);
     const px = this.pxPerM;
 
-    // propellers lie flat behind the stern
-    for (const p of h.propellers) {
-      const c = W(p, 0);
-      const r = h.propRadius;
-      const disc = Array.from({ length: 24 }, (_, i): Vec3 => [c[0] + Math.cos((i / 24) * 2 * Math.PI) * r, c[1] + Math.sin((i / 24) * 2 * Math.PI) * r, 0]);
-      g.lineStyle(Math.max(3, px * 0.18), WORLD.wall, 1);
-      const a = this.S(c);
-      const b = this.S([c[0] - r - 0.9, c[1], 0]);
-      g.lineBetween(a.x, a.y, b.x, b.y);
-      g.fillStyle(WORLD.wallTop, 0.12);
-      g.fillPoints(disc.map((q) => this.S(q)), true);
-      g.lineStyle(Math.max(3, px * 0.14), WORLD.hullEdge, 1);
-      for (const s of [1, -1]) {
-        const p1 = this.S([c[0] - r * 0.25 * s, c[1] - r * 0.95, 0]);
-        const p2 = this.S([c[0] + r * 0.25 * s, c[1] + r * 0.95, 0]);
-        g.lineBetween(p1.x, p1.y, p2.x, p2.y);
-      }
+    // thrusters: two big atomic nozzles on struts behind the stern, pointing aft (glow drawn by drawEnergy)
+    for (const t of h.thrusters) {
+      const z = THRUSTER_Z;
+      g.lineStyle(Math.max(4, px * 0.22), ATOMIC.housing, 1);
+      const r0 = this.S(W(t.root, z));
+      const r1 = this.S(W(t.at, z));
+      g.lineBetween(r0.x, r0.y, r1.x, r1.y);
+      this.cylinderZ(g, t.at, t.radius, z, -t.radius * 1.6, ATOMIC.housing, ATOMIC.housingLight);
     }
+    // levitation drives: an arm out of the hull side, a short nozzle housing pointing down
+    for (const l of h.lifters) {
+      g.lineStyle(Math.max(4, px * 0.2), ATOMIC.housing, 1);
+      const a = this.S(W(l.mount, LIFTER_Z));
+      const c = this.S(W(l.at, LIFTER_Z));
+      g.lineBetween(a.x, a.y, c.x, c.y); // (the nozzle housing itself is drawn with its glow in drawEnergy)
+    }
+    // reactor housing on the stern cap
+    this.prism(g, ring(h.reactor.at, h.reactor.radius, 16), 0, 0.35, ATOMIC.housingLight, ATOMIC.housing, shade(ATOMIC.housingLight, -25));
 
     // tail fins
     for (const f of h.fins) {
@@ -420,6 +523,69 @@ export class ShipView {
     }
   }
 
+  /** Where a vehicle's atomic drives (round nozzles under the body) and its reactor glow sit (ship meters). */
+  private vehicleDrives(v: ShipVehicle): { pods: { at: Point; r: number; group: 'bike' | 'pod' | 'car' }[]; cores: { at: Point; r: number; z: number }[]; grille: Vec3[] | null } {
+    const { center: c, u, w } = vehicleFrame(this.ship, v);
+    const at = (o: Point, du: number, dw: number): Point => [o[0] + u[0] * du + w[0] * dw, o[1] + u[1] * du + w[1] * dw];
+    if (v.type === 'car') {
+      const pods = [-1.3, 1.3].flatMap((du) => [-1, 1].map((dw) => ({ at: at(c, du, dw * 1.1), r: 0.24, group: 'car' as const })));
+      // reactor under the hood, glowing through the grille in the front face
+      const g = (dw: number, z: number): Vec3 => { const p = at(c, 1.91, dw); return W(p, z); };
+      return { pods, cores: [], grille: [g(-0.5, 0.45), g(0.5, 0.45), g(0.5, 0.78), g(-0.5, 0.78)] };
+    }
+    let bc = c;
+    const pods: { at: Point; r: number; group: 'bike' | 'pod' | 'car' }[] = [];
+    if (v.type === 'sidecar' && v.tiles.length >= 2) {
+      const along = (p: Point) => (p[0] - c[0]) * w[0] + (p[1] - c[1]) * w[1];
+      const sorted = [...v.tiles].sort((p, q) => along(p.center) - along(q.center));
+      bc = sorted[0]!.center;
+      const o = sorted[sorted.length - 1]!.center;
+      const l = Math.hypot(o[0] - bc[0], o[1] - bc[1]) || 1;
+      const t: Point = [bc[0] + ((o[0] - bc[0]) / l) * SEATS.podOffset, bc[1] + ((o[1] - bc[1]) / l) * SEATS.podOffset];
+      pods.push({ at: at(t, 0, 0.62), r: 0.17, group: 'pod' });
+    }
+    pods.push({ at: at(bc, -0.68, 0), r: 0.22, group: 'bike' }, { at: at(bc, 0.66, 0), r: 0.2, group: 'bike' });
+    return { pods, cores: [{ at: at(bc, 0.17, 0), r: 0.13, z: 0.79 }], grille: null };
+  }
+
+  /**
+   * A vehicle's atomic glow at time `t`: `under` = the nozzle glow + shimmer below the drives (drawn before the
+   * vehicle), otherwise the reactor glow on top (bike core / car grille). Pulses with the ship (same rhythm).
+   */
+  drawVehicleEnergy(g: G, v: ShipVehicle, t: number, under: boolean, tops = true): void {
+    const d = this.vehicleDrives(v);
+    const p = 0.5 + 0.5 * Math.sin((t / PULSE_S) * Math.PI * 2);
+    if (under) {
+      // thrust column + halo under each drive (the housing is part of the vehicle picture)
+      for (const [i, pod] of d.pods.entries()) {
+        const wob: Point = [Math.sin(t * 1.5 + i * 1.9) * 0.03, Math.cos(t * 1.2 + i * 2.1) * 0.03];
+        this.driveGlow(g, pod.at, pod.r, 0.04, 0.3, p, wob, 0.16, false);
+      }
+      return;
+    }
+    if (!tops) return; // someone sits on it: the vehicle draws its glow itself, under the rider (drawVehicle)
+    // glowing rim + vent on top of each drive housing
+    for (const pod of d.pods) {
+      const top = (rr: number) => ring(pod.at, rr, 14).map((q) => this.S(W(q, 0.3)));
+      g.lineStyle(Math.max(2, this.pxPerM * pod.r * 0.28), ATOMIC.glow, 0.65 + 0.35 * p);
+      g.strokePoints(top(pod.r * 0.72), true);
+      g.fillStyle(ATOMIC.core, 0.45 + 0.45 * p);
+      g.fillPoints(top(pod.r * 0.28), true);
+    }
+    for (const core of d.cores) this.glowDisc(g, core.at, core.r, core.z, p);
+    if (d.grille) {
+      const pts = d.grille.map((q) => this.S(q));
+      g.fillStyle(ATOMIC.halo, 0.25 + 0.25 * p);
+      g.fillPoints(pts, true);
+      g.lineStyle(Math.max(1, this.pxPerM * 0.04), ATOMIC.core, 0.5 + 0.5 * p);
+      for (let k = 1; k < 4; k++) {
+        const a = pts[0]!.clone().lerp(pts[3]!, k / 4);
+        const b = pts[1]!.clone().lerp(pts[2]!, k / 4);
+        g.lineBetween(a.x, a.y, b.x, b.y);
+      }
+    }
+  }
+
   /**
    * A docked vehicle, built from simple shapes: bike / bike with an egg-shaped sidecar pod / open car you can look into.
    * It lies along the railing it is docked to, on the outer side of it.
@@ -446,18 +612,21 @@ export class ShipView {
       });
       parts.push({ fp, z0, z1, top: col, side: shade(col, 30), layer: 2, pod, group });
     };
+    // atomic drives (no wheels): round nozzle housings under the body; the glow is drawn by drawVehicleEnergy
+    const drives = this.vehicleDrives(v);
+    for (const d of drives.pods) parts.push({ fp: ring(d.at, d.r, 12), z0: 0.04, z1: 0.3, top: ATOMIC.housingLight, side: ATOMIC.housing, layer: 0, group: d.group });
     const bike = (o: Point) => {
-      box(o, -0.85, -0.45, -0.06, 0.06, 0, 0.55, VEHICLE.tyre); // rear wheel
-      box(o, 0.45, 0.85, -0.06, 0.06, 0, 0.55, VEHICLE.tyre); // front wheel
-      box(o, -0.55, 0.5, -0.12, 0.12, 0.3, 0.6, VEHICLE.rust); // frame + engine
-      box(o, -0.05, 0.4, -0.16, 0.16, 0.55, 0.78, VEHICLE.rustLight); // fuel tank
+      box(o, -0.55, 0.5, -0.12, 0.12, 0.3, 0.6, VEHICLE.rust); // frame
+      box(o, -0.75, -0.5, -0.05, 0.05, 0.12, 0.34, VEHICLE.rust); // rear drive strut
+      box(o, 0.48, 0.72, -0.05, 0.05, 0.12, 0.6, VEHICLE.rust); // front drive fork
+      box(o, -0.05, 0.4, -0.16, 0.16, 0.55, 0.78, ATOMIC.housing); // atomic reactor (where the fuel tank was)
       box(o, -0.5, -0.05, -0.13, 0.13, 0.6, 0.72, VEHICLE.seat); // seat
       box(o, 0.55, 0.62, -0.38, 0.38, 0.88, 0.95, VEHICLE.chrome); // handlebar
       box(o, 0.62, 0.72, -0.08, 0.08, 0.6, 0.75, VEHICLE.chrome); // headlight
     };
     if (v.type === 'car') {
       // open-top while docked (a roof could close when it flies off): floor, low sides, hood, trunk, two rows of seats
-      for (const [du0, du1] of [[-1.7, -1.1], [1.1, 1.7]]) for (const [dw0, dw1] of [[-0.95, -0.7], [0.7, 0.95]]) box(c, du0!, du1!, dw0!, dw1!, 0, 0.6, VEHICLE.tyre, 0);
+      for (const du of [-1.3, 1.3]) for (const dw of [-1, 1]) box(c, du - 0.1, du + 0.1, dw * 0.8, dw * 1.0, 0.2, 0.36, ATOMIC.housing, 0); // drive arms
       box(c, -1.9, 1.9, -0.85, 0.85, 0.3, 0.42, shade(VEHICLE.olive, 35), 1); // floor pan
       box(c, 1.05, 1.9, -0.85, 0.85, 0.3, 0.9, VEHICLE.olive, 2, true); // hood
       box(c, -1.9, -1.35, -0.85, 0.85, 0.3, 0.85, VEHICLE.olive, 2, true); // trunk
@@ -482,7 +651,7 @@ export class ShipView {
       const t: Point = [bc[0] + ((o[0] - bc[0]) / l) * SEATS.podOffset, bc[1] + ((o[1] - bc[1]) / l) * SEATS.podOffset];
       for (const du of [-0.45, 0.25]) box(bc, du, du + 0.05, 0.12, SEATS.podOffset - 0.35, 0.38, 0.46, VEHICLE.chrome); // struts to the bike
       group = 'pod';
-      box(t, -0.35, 0.15, 0.3, 0.44, 0, 0.45, VEHICLE.tyre); // pod wheel
+      box(t, -0.08, 0.08, 0.3, 0.52, 0.18, 0.32, ATOMIC.housing); // arm of the pod's drive
       egg(t, 0.75, 0.45, 0.2, 0.72, VEHICLE.olive, true); // egg-shaped pod
       egg(at(t, -0.12, 0), 0.4, 0.27, 0.72, 0.73, VEHICLE.seat); // open cockpit of the pod
       box(t, -0.45, -0.32, -0.2, 0.2, 0.55, 0.9, shade(VEHICLE.seat, -10)); // backrest
@@ -517,6 +686,7 @@ export class ShipView {
             // rider: far leg + arm behind the bike, body + near leg + arm in front of it
             for (const cr of people) person(cr, 'far');
             for (const p of sorted(ps)) prism(p);
+            if (people.length) this.drawVehicleEnergy(g, v, performance.now() / 1000, false); // reactor glow under the rider
             for (const cr of people) person(cr, 'near');
           } else if (gr === 'pod') {
             for (const p of sorted(ps)) prism(p);

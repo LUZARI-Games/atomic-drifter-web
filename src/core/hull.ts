@@ -8,12 +8,14 @@ import type { Point, Ship, ShipTile } from './types';
 export interface HullShape {
   /** Outer hull outline (convex, clockwise or counter-clockwise), incl. rounded-pointed nose and rounded stern. */
   outline: Point[];
-  /** Centres of the stern propellers. */
-  propellers: Point[];
-  /** Propeller radius in meters. */
-  propRadius: number;
   /** Tail fins (triangles) at the stern. */
   fins: Point[][];
+  /** Two big atomic thrusters behind the stern (forward drive): nozzle centre, radius, strut root on the hull. */
+  thrusters: { at: Point; radius: number; root: Point }[];
+  /** Four levitation drives, two per side (fore + aft): nozzle centre outside the hull, mount point on the hull edge. */
+  lifters: { at: Point; radius: number; mount: Point }[];
+  /** Atomic reactor housing on the stern cap (behind the deck). */
+  reactor: { at: Point; radius: number };
 }
 
 export interface SystemBlock {
@@ -50,11 +52,13 @@ export function convexHull(points: Point[]): Point[] {
 
 /**
  * Airship hull around the deck: a smooth convex body with a margin, a rounded-pointed nose at the bow (-z)
- * and a blunt rounded stern (+z) carrying two propellers and two tail fins.
+ * and a blunt rounded stern (+z) carrying two atomic thrusters and two tail fins; four levitation drives (two per
+ * side) keep it in the air, an atomic reactor sits on the stern cap.
  */
 export function airshipHull(ship: Ship, margin = 0.6): HullShape {
   // balconies hang OUT of the hull: the body is built around the enclosed deck only
   const balcony = new Set(ship.rooms.filter((r) => r.kind === 'balcony').map((r) => r.id));
+  const outside = [...ship.tiles.filter((t) => t.room && balcony.has(t.room)).map((t) => t.polygon), ...(ship.vehicles ?? []).flatMap((v) => v.tiles.map((t) => t.polygon))];
   const inner = ship.tiles.filter((t) => !t.room || !balcony.has(t.room));
   if (inner.length && inner.length < ship.tiles.length) ship = { ...ship, tiles: inner };
   const b = shipBounds(ship);
@@ -80,10 +84,30 @@ export function airshipHull(ship: Ship, margin = 0.6): HullShape {
     pts.push([xc + halfW * u, back + sternLen * (1 - Math.abs(u) ** 4)]);
   }
 
-  // propellers sit behind the stern on short struts; small tail fins flare out at the stern corners
-  const propRadius = Math.max(0.6, Math.min(halfW * 0.28, 1.3));
-  const propZ = back + sternLen + propRadius + 0.5;
-  const propX = halfW * 0.5;
+  // thrusters sit behind the stern on short struts; small tail fins flare out at the stern corners
+  const thrustR = Math.max(0.55, Math.min(halfW * 0.24, 1.1));
+  const thrustZ = back + sternLen + thrustR * 0.8 + 0.4;
+  const thrustX = halfW * 0.5;
+  // levitation drives: on short arms out of both hull sides, at a quarter and three quarters of the deck length
+  const liftR = Math.max(0.4, Math.min(halfW * 0.16, 0.7));
+  // (moved along the hull until they are clear of balconies and docked vehicles on that side)
+  const clear = (p: Point) => !outside.some((poly) => {
+    const xs = poly.map((q) => q[0]);
+    const zs = poly.map((q) => q[1]);
+    return p[0] > Math.min(...xs) - liftR - 0.2 && p[0] < Math.max(...xs) + liftR + 0.2 && p[1] > Math.min(...zs) - liftR - 0.2 && p[1] < Math.max(...zs) + liftR + 0.2;
+  });
+  const lifters = [-1, 1].flatMap((side) =>
+    [0.25, 0.75].map((f) => {
+      const x = xc + side * (halfW + liftR + 0.35);
+      let z = b.minZ + (b.maxZ - b.minZ) * f;
+      for (let k = 0; k <= 40 && !clear([x, z]); k++) {
+        const step = (Math.ceil(k / 2) * 0.25) * (k % 2 ? -1 : 1) * (f < 0.5 ? 1 : -1);
+        const cand = b.minZ + (b.maxZ - b.minZ) * f + step;
+        if (clear([x, cand])) { z = cand; break; }
+      }
+      return { at: [x, z] as Point, radius: liftR, mount: [xc + side * halfW * 0.98, z] as Point };
+    }),
+  );
   const finOut = Math.min(Math.max(0.6, halfW * 0.18), 1.0);
   const fins: Point[][] = [-1, 1].map((s) => [
     [xc + s * halfW * 0.9, back - Math.min(1.6, len * 0.12)],
@@ -93,9 +117,10 @@ export function airshipHull(ship: Ship, margin = 0.6): HullShape {
 
   return {
     outline: convexHull(pts),
-    propellers: [[xc - propX, propZ], [xc + propX, propZ]],
-    propRadius,
     fins,
+    thrusters: [-1, 1].map((s) => ({ at: [xc + s * thrustX, thrustZ] as Point, radius: thrustR, root: [xc + s * thrustX * 0.8, back] as Point })),
+    lifters,
+    reactor: { at: [xc, back + sternLen * 0.35], radius: Math.max(0.45, Math.min(halfW * 0.18, 0.8)) },
   };
 }
 

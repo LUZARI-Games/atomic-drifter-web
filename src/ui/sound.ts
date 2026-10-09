@@ -61,7 +61,7 @@ export class Sound {
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.on ? this.volume * 0.6 : 0, this.ctx.currentTime, 0.05);
   }
 
-  /** Engine hum (two detuned low saws, throbbing with the propellers) + wind (noise swelling slowly). */
+  /** Engine hum (two detuned low saws, throbbing with the atomic drives) + wind (noise swelling slowly). */
   private ambience(): void {
     const ctx = this.ctx!;
     const hum = ctx.createGain();
