@@ -8,17 +8,25 @@
 //   DELETE /api/db/<collection>/<id>
 //   POST   /api/portraits/<id>             image body (webp / png / jpeg, ≤ 1 MB) -> { id, record }
 //   GET    /api/portrait-img/<id>          the uploaded image
+//   GET    /api/ships                      -> [{ id, name, updated }] ships saved from the planner (SAVE TO SERVER)
+//   GET    /api/ships/<id>                 the planner export (atomic-drifter-ship-godot v1)
+//   PUT    /api/ships/<id>                 store / replace a planner export
+//   DELETE /api/ships/<id>
+// Every /api response allows cross-origin use (CORS) so the Godot project (and a web export of it) can call it.
 import { DurableObject } from 'cloudflare:workers';
 import { cleanRecord, COLLECTIONS, isId, parseCrewDb, PATCHES, patchRecord, type Collection } from '../src/core/crewdb';
 import SEED from '../src/data/crew_db_seed.json';
+import { shipStoreProblem, type StoredShipMeta } from '../src/core/shipstore';
+import { parseShip } from '../src/core/ship';
 
 interface Env {
   ASSETS: { fetch(req: Request): Promise<Response> };
   CREW_DB: DurableObjectNamespace<CrewDb>;
 }
 
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, PUT, POST, DELETE, OPTIONS', 'access-control-allow-headers': 'content-type' };
 const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+  new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...CORS } });
 const fail = (status: number, error: string) => json({ error }, status);
 const IMAGE_TYPES = ['image/webp', 'image/png', 'image/jpeg'];
 const MAX_IMAGE = 1024 * 1024;
@@ -103,7 +111,33 @@ export class CrewDb extends DurableObject<Env> {
     if (what === 'portrait-img' && a && req.method === 'GET') {
       const img = isId(a) ? await this.ctx.storage.get<{ type: string; data: ArrayBuffer }>(`img:${a}`) : undefined;
       if (!img) return fail(404, 'no such image');
-      return new Response(img.data, { headers: { 'content-type': img.type, 'cache-control': 'public, max-age=300' } });
+      return new Response(img.data, { headers: { 'content-type': img.type, 'cache-control': 'public, max-age=300', ...CORS } });
+    }
+
+    if (what === 'ships' && !a && req.method === 'GET') {
+      const metas = await this.ctx.storage.list<StoredShipMeta>({ prefix: 'shipmeta:' });
+      return json([...metas.values()].sort((x, y) => x.name.localeCompare(y.name)));
+    }
+    if (what === 'ships' && a) {
+      if (!isId(a)) return fail(400, 'bad id');
+      if (req.method === 'GET') {
+        const text = await this.ctx.storage.get<string>(`shipfile:${a}`);
+        if (!text) return fail(404, 'no such ship');
+        return new Response(text, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...CORS } });
+      }
+      if (req.method === 'DELETE') {
+        await this.ctx.storage.delete([`shipfile:${a}`, `shipmeta:${a}`]);
+        return json({ id: a, deleted: true });
+      }
+      if (req.method === 'PUT') {
+        const text = await req.text();
+        const problem = shipStoreProblem(text);
+        if (problem) return fail(400, problem);
+        const meta: StoredShipMeta = { id: a, name: parseShip(JSON.parse(text)).ship!.name.toUpperCase(), updated: new Date().toISOString() };
+        await this.ctx.storage.put({ [`shipfile:${a}`]: text, [`shipmeta:${a}`]: meta });
+        return json(meta);
+      }
+      return fail(405, 'method not allowed');
     }
 
     return fail(404, 'unknown API route');
@@ -114,6 +148,7 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     if (url.pathname.startsWith('/api/')) {
+      if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
       const stub = env.CREW_DB.get(env.CREW_DB.idFromName('main'));
       return stub.fetch(req);
     }

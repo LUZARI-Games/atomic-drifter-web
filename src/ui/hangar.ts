@@ -37,6 +37,17 @@ export interface Hangar {
   deny(): void;
 }
 
+/** Ships saved on the server (planner SAVE TO SERVER); [] when the server is not reachable. */
+async function serverShips(): Promise<{ id: string; raw: unknown }[]> {
+  try {
+    const list = (await (await fetch('/api/ships', { cache: 'no-store' })).json()) as { id: string }[];
+    const files = await Promise.all(list.slice(0, 20).map(async (m) => ({ id: m.id, raw: (await (await fetch(`/api/ships/${m.id}`)).json()) as unknown })));
+    return files;
+  } catch {
+    return [];
+  }
+}
+
 export function mountHangar(root: HTMLElement): Hangar {
   let plannerRaw: unknown = null;
   try {
@@ -44,7 +55,7 @@ export function mountHangar(root: HTMLElement): Hangar {
   } catch {
     plannerRaw = null;
   }
-  const ships = hangarShips(plannerRaw);
+  let ships = hangarShips(plannerRaw);
   let index = indexOfChoice(ships, read(SHIP_CHOICE_KEY));
   const roster = rosterFrom(SEED_DB);
   const run = defaultRun();
@@ -127,6 +138,14 @@ export function mountHangar(root: HTMLElement): Hangar {
     }
   });
   show();
+  // ships saved on the server appear once they are loaded (the shown ship stays)
+  void serverShips().then((server) => {
+    if (!server.length) return;
+    const current = ships[index]!.id;
+    ships = hangarShips(plannerRaw, server);
+    index = Math.max(0, ships.findIndex((s) => s.id === current));
+    show();
+  });
 
   return {
     locked: () => ships[index]!.locked,
@@ -134,7 +153,9 @@ export function mountHangar(root: HTMLElement): Hangar {
       const h = ships[index]!;
       if (h.locked) return;
       try {
-        localStorage.setItem(SHIP_CHOICE_KEY, h.id);
+        // a server ship is handed to the game like a planner TEST IN GAME ship
+        if (h.raw) localStorage.setItem(TEST_SHIP_KEY, JSON.stringify(h.raw));
+        localStorage.setItem(SHIP_CHOICE_KEY, h.raw ? 'planner' : h.id);
       } catch {
         /* not remembered */
       }

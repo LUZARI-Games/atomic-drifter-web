@@ -27,6 +27,9 @@ describe('hangar', () => {
     expect(list.filter((s) => s.locked).every((s) => s.name === '???')).toBe(true);
     expect(hangarShips(null)[0]!.id).toBe('demo');
     expect(hangarShips({ broken: true })[0]!.id).toBe('demo');
+    const withServer = hangarShips(null, [{ id: 'frontier', raw: demo }, { id: 'bad', raw: {} }]);
+    expect(withServer.map((s) => s.id).slice(0, 2)).toEqual(['server:frontier', 'demo']);
+    expect(withServer[0]!.raw).toBe(demo);
   });
   it('flipping wraps; remembered choices never land on a locked ship', () => {
     expect(flip(5, 0, -1)).toBe(4);

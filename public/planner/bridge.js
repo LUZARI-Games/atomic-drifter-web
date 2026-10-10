@@ -76,6 +76,29 @@
     gd.click();
   }
 
+  // SAVE TO SERVER: the same Godot export, stored on the website server (/api/ships) – the web game's hangar and the
+  // Godot project list these ships. Same ship name = replaced.
+  function saveToServer() {
+    var gd = document.getElementById('gdBtn');
+    if (!gd) { toast('THIS PLANNER VERSION HAS NO GODOT EXPORT', true); return; }
+    var timer = setTimeout(function () { capture = null; toast('BUILD A SHIP FIRST (NO TILES TO EXPORT)', true); }, 1500);
+    capture = function (text) {
+      clearTimeout(timer);
+      var name = 'ship';
+      try { name = JSON.parse(text).name || 'ship'; } catch (e) { toast('SHIP EXPORT IS BROKEN', true); return; }
+      var id = String(name).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'ship';
+      toast('SAVING ' + String(name).toUpperCase() + ' …');
+      fetch('/api/ships/' + id, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: text })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (res.ok) toast('SAVED ON THE SERVER · ' + res.d.name + ' · WEB GAME + GODOT CAN LOAD IT');
+          else toast('NOT SAVED: ' + String(res.d.error || 'server error').toUpperCase(), true);
+        })
+        .catch(function () { toast('SERVER NOT REACHABLE · ONLY ON THE WEBSITE', true); });
+    };
+    gd.click();
+  }
+
   function addButtons() {
     var bar = document.createElement('div');
     // Sits on the bottom edge of the planner's drawing area (its largest canvas), so it never covers the panels.
@@ -94,7 +117,11 @@
     lab.addEventListener('click', function () { testInGame('lab'); });
     var game = document.createElement('a');
     game.href = '../'; game.textContent = 'GAME'; game.style.cssText = css + ';text-decoration:none';
-    bar.appendChild(game); bar.appendChild(lab); bar.appendChild(test);
+    var save = document.createElement('button');
+    save.type = 'button'; save.textContent = '☁ SAVE TO SERVER'; save.style.cssText = css;
+    save.title = 'Store this ship on the website server – the web game and Godot can load it';
+    save.addEventListener('click', saveToServer);
+    bar.appendChild(game); bar.appendChild(lab); bar.appendChild(save); bar.appendChild(test);
     document.body.appendChild(bar);
 
     function place() {

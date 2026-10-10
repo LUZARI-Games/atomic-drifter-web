@@ -8,19 +8,27 @@ import type { Ship } from './types';
 export type ShipChoice = 'demo' | 'planner';
 
 export interface HangarShip {
-  id: string; // 'demo' | 'planner' | 'locked_<n>'
+  id: string; // 'planner' | 'server:<id>' | 'demo' | 'locked_<n>'
   name: string; // shown name ('???' when locked)
   locked: boolean;
   ship: Ship;
+  raw?: unknown; // server ships: the planner export (handed to the game when chosen)
 }
 
 export const LOCKED_SHIPS = 4;
 
-/** All hangar ships in order: your planner ship first (if valid), the demo ship, then the locked placeholders. */
-export function hangarShips(plannerRaw: unknown | null): HangarShip[] {
+/**
+ * All hangar ships in order: your planner ship (TEST IN GAME, if valid), ships saved on the server (planner SAVE TO
+ * SERVER), the demo ship, then the locked placeholders.
+ */
+export function hangarShips(plannerRaw: unknown | null, server: { id: string; raw: unknown }[] = []): HangarShip[] {
   const out: HangarShip[] = [];
   const planner = plannerRaw ? parseShip(plannerRaw).ship : null;
   if (planner) out.push({ id: 'planner', name: planner.name.toUpperCase(), locked: false, ship: planner });
+  for (const s of server) {
+    const ship = parseShip(s.raw).ship;
+    if (ship) out.push({ id: `server:${s.id}`, name: ship.name.toUpperCase(), locked: false, ship, raw: s.raw });
+  }
   const demo = parseShip(demoShip).ship!;
   out.push({ id: 'demo', name: demo.name.toUpperCase(), locked: false, ship: demo });
   for (let i = 0; i < LOCKED_SHIPS; i++) {

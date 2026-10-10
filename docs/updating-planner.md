@@ -37,6 +37,8 @@ and the export format `atomic-drifter-ship-godot` v1. If the format changes, `sr
   database characters (captain = the starred one), enemies = one entry per enemy, `id` missing = random. `tile` = floor
   tile centre like `rooms[].console.tile`. Older exports without `crew` stay valid.
 - `window.__planner = { ship, sx, sy, godotShip }` debug hook for automated checks.
+- bridge.js: **☁ SAVE TO SERVER** button – stores the Godot export on the website server (`PUT /api/ships/<name id>`);
+  the web game hangar and the Godot project load ships from there.
 
 ## Things to know
 - Ships and loaded Unreal tables are stored **per browser**. Ships saved in the artifact are not on the website automatically:

@@ -188,7 +188,10 @@ never restate the owner's tasks back to them.
   Everyone can add / edit / delete for now (owner's choice; editor password later). Page reloads data every 20 s.
 - Server: `worker/index.ts` (Cloudflare Worker, `wrangler.jsonc` `main`) – `/api/*` goes to ONE Durable Object
   `CrewDb` (SQLite storage, created on deploy); everything else = static `dist`. Routes: GET `/api/db`, PUT/DELETE
-  `/api/db/<collection>/<id>`, POST `/api/portraits/<id>` (image ≤ 1 MB), GET `/api/portrait-img/<id>`.
+  `/api/db/<collection>/<id>`, POST `/api/portraits/<id>` (image ≤ 1 MB), GET `/api/portrait-img/<id>`,
+  ships: GET `/api/ships` (list), GET/PUT/DELETE `/api/ships/<id>` (planner export ≤ 512 KB, `src/core/shipstore.ts`).
+  All `/api` answers carry CORS headers (the Godot project uses the same API). Planner button ☁ SAVE TO SERVER
+  (bridge.js) stores the ship; the New Run hangar lists server ships (chosen one is handed to the game like TEST IN GAME).
   First use seeds itself from `src/data/crew_db_seed.json`. Claude cannot reach the live API from the cloud session:
   to change live data, add a patch to `src/data/crew_db_patches.json` (new id; 'merge' keeps the owner's other edits) –
   the server applies each patch once on its next start (`patch:<id>` key); the shipped copy (`SEED_DB`) = seed + patches. Local test: `npm run build && npx wrangler dev --local`.
