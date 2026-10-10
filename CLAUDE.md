@@ -235,6 +235,13 @@ never restate the owner's tasks back to them.
 - Menu `GREYSCALE ON/OFF` (all pages, remembered per browser): contrast check – crew and other game-relevant things
   must still stand out without colour (`applyGreyscale` in src/ui/menu.ts).
 
+## Godot port
+- `LUZARI-Games/Atomic_Drifter_Godot` is the same game in Godot 4.7 (3D in this web look). Rules there are 1:1 ports of
+  `src/core` (`game/core/*.gd`, tests `tests/core_tests.gd`): when a rule changes here, port it there too.
+- Shared data: `node scripts/sync-godot-data.mjs ../atomic_drifter_godot` copies `src/data` JSON, test ships,
+  portraits and own sounds into the Godot project. Live data (crew database, portraits, planner ships) comes from this
+  site's `/api` for both (CORS open) – edits in Godot show up here and the other way round.
+
 ## Commands
 - `npm run dev` – local dev server
 - `npm test` – unit tests
