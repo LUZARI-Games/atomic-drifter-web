@@ -30,8 +30,9 @@ and the export format `atomic-drifter-ship-godot` v1. If the format changes, `sr
   ROSTER lists characters marked CREW (portraits, grouped by faction); the Unreal DataTable buttons are hidden and the stored
   Unreal table is not loaded. Placed crew show their portrait on the grid (`drawFace`). Only works on the website.
 - **ENEMY CREW** tool (amber, key **[E]**) + **ENEMY CREW** box under the crew roster: pick a database enemy (or RANDOM
-  ENEMY), tap floor fields (up to 4 per field, the 5th tap clears it; not on machinery). Stored as
-  `tile.enemies = [characterId | null, …]` (older saves with a count still load), drawn as amber-ringed portraits.
+  ENEMY), tap floor fields: ONE enemy per field (tap the same one again = remove, another pick = replace; not on
+  machinery). A crew member and an enemy may share a field (drawn crew left, enemy right, like in the game). Stored as
+  `tile.enemies = [characterId | null]` (older saves with a count still load), drawn as amber-ringed portraits.
 - Godot export `crew[] = { side: "crew" | "enemy", tile: [x, z], id?, captain? }` (+ `crew_info`): own crew = placed
   database characters (captain = the starred one), enemies = one entry per enemy, `id` missing = random. `tile` = floor
   tile centre like `rooms[].console.tile`. Older exports without `crew` stay valid.

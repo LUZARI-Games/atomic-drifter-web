@@ -131,7 +131,8 @@ never restate the owner's tasks back to them.
 
 ## Boarding combat + moods
 - Planner crew (from the crew database, portraits grouped by faction): CREW tool [6] places own crew (each character once,
-  ☆ = captain), ENEMY CREW tool [E] places database enemies (any number, up to 4 per field, or RANDOM ENEMY). Export
+  ☆ = captain), ENEMY CREW tool [E] places database enemies (same one many times, or RANDOM ENEMY). One friend + one
+  foe per field max (like the game's one-per-side-per-tile). Export
   `crew: [{ side, tile, id?, captain? }]`. Game: `placedCrew` spawns exactly the placed own crew on their tiles (nobody
   placed → random `generateCrew`); `spawnShipEnemies` spawns each enemy as its database character (`spawnEnemy(..., id)`).
   Everyone starts without items.

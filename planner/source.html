@@ -377,7 +377,7 @@ body.m .crewlist{max-height:none}
       <div class="box crewbox foes" id="enemyBox">
         <div class="hd">ENEMY CREW<span id="enemyCount"></span></div>
         <div class="crewlist" id="enemyList"></div>
-        <div class="hint" id="enemyHint">Pick an enemy, then tap floor fields ([E] ENEMY CREW). Up to 4 per field, the 5th tap clears the field. The same enemy can be placed many times.</div>
+        <div class="hint" id="enemyHint">Pick an enemy, then tap floor fields ([E] ENEMY CREW). One enemy per field (a crew member may share it); tap the same one again to remove it. The same enemy can be placed many times.</div>
       </div>
       <div class="box">
         <div class="hd">SYSTEMS<span id="sysCount"></span></div>
@@ -532,7 +532,7 @@ const TOOLS = [
   { k: 'balcony', key: '8', name: 'BALCONY', ic: 'M3 20 H21 M3 12 H21 M5 12 V20 M9 12 V20 M13 12 V20 M17 12 V20 M21 12 V20', hint: 'TAP AN EMPTY ROOM: CLOSED ↔ BALCONY (OPEN RAILING · VEHICLES DOCK HERE)' },
   { k: 'crew', key: '6', name: 'CREW', ic: 'M9 7 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0 M5 21 C5 14 19 14 19 21', hint: 'PICK A CREW MEMBER IN THE CREW ROSTER, THEN TAP A FLOOR FIELD · TAP A PLACED ONE TO REMOVE' },
   // [website] ENEMY CREW tool: boarders for testing (tile.enemies = 1..4), exported as Godot crew[] with side 'enemy'
-  { k: 'enemy', key: 'E', name: 'ENEMY CREW', ic: 'M12 3 L22 20 H2 Z M12 9 V14 M12 16.5 V17.5', hint: 'PICK AN ENEMY IN THE ENEMY CREW LIST, THEN TAP A FLOOR FIELD (UP TO 4) · A 5TH TAP CLEARS THE FIELD' },
+  { k: 'enemy', key: 'E', name: 'ENEMY CREW', ic: 'M12 3 L22 20 H2 Z M12 9 V14 M12 16.5 V17.5', hint: 'PICK AN ENEMY IN THE ENEMY CREW LIST, THEN TAP A FLOOR FIELD · ONE ENEMY PER FIELD · TAP IT AGAIN TO REMOVE' },
   { k: 'system', key: '', hidden: true, name: 'SYSTEM', ic: '', hint: 'TAP SYSTEM BLOCKS TO GIVE THEM THIS SYSTEM' },
   { k: 'stamp', key: '', hidden: true, name: 'PLACE BLOCK', ic: '', hint: 'CLICK THE GRID · THE BLOCK SNAPS TO THE SHIP · [R] ROTATE · [ESC] CANCEL' },
   { k: 'pan', key: 'H', name: 'PAN', ic: 'M12 2 V22 M2 12 H22 M9 5 L12 2 L15 5 M9 19 L12 22 L15 19 M5 9 L2 12 L5 15 M19 9 L22 12 L19 15', hint: 'DRAG TO MOVE THE VIEW' },
@@ -707,21 +707,21 @@ function crewTap(t) {
   commit();
   status(`${crewLabel(id)} ${oldK ? 'MOVED' : 'PLACED'}${replaced ? ` · ${crewLabel(replaced)} IS FREE AGAIN` : ''}${next ? ` · NEXT: ${crewLabel(next)}` : roster.rows.length ? ' · ALL CREW PLACED' : ''}`);
 }
-// [website] ENEMY CREW: tile.enemies = [characterId | null, ...] (1..4 per floor field; null = random enemy;
-// older saves stored a count). Tap adds the picked enemy, the 5th tap clears the field.
-const ENEMY_MAX = 4, ENEMY_COL = '#FFB43A', RANDOM_ENEMY = '__random';
+// [website] ENEMY CREW: tile.enemies = [characterId | null] (ONE enemy per floor field, like one own crew member;
+// a friend and a foe may share a field; null = random enemy; older saves stored a count). Tap places the picked enemy,
+// tapping the same one again removes it, another pick replaces it.
+const ENEMY_MAX = 1, ENEMY_COL = '#FFB43A', RANDOM_ENEMY = '__random';
 let armedEnemy = null;
-const enemyList = t => Array.isArray(t.enemies) ? t.enemies : t.enemies > 0 ? Array.from({ length: Math.min(4, t.enemies) }, () => null) : [];
+const enemyList = t => (Array.isArray(t.enemies) ? t.enemies : t.enemies > 0 ? [null] : []).slice(0, ENEMY_MAX);
 const enemyName = id => (id && CREWDB.chars[id] ? CREWDB.chars[id].name : 'RANDOM ENEMY');
 function enemyTap(t) {
   if (!t) { error('TAP A FIELD INSIDE THE SHIP'); return; }
   if (isMach(t)) { error('ENEMIES STAND ON FLOOR, NOT ON MACHINERY'); return; }
-  const list = enemyList(t);
-  if (list.length >= ENEMY_MAX) { delete t.enemies; commit(); status('ENEMIES REMOVED FROM THIS FIELD'); return; }
-  const id = armedEnemy && armedEnemy !== RANDOM_ENEMY ? armedEnemy : null;
-  t.enemies = [...list, id]; commit();
+  const list = enemyList(t), id = armedEnemy && armedEnemy !== RANDOM_ENEMY ? armedEnemy : null;
+  if (list.length && list[0] === id) { delete t.enemies; commit(); status(`${enemyName(id)} REMOVED`); return; }
+  t.enemies = [id]; commit();
   const all = [...S.tiles.values()].reduce((m, x) => m + enemyList(x).length, 0);
-  status(`${enemyName(id)} PLACED · ${t.enemies.length} / ${ENEMY_MAX} ON THIS FIELD · ${all} ON BOARD${t.enemies.length === ENEMY_MAX ? ' · TAP AGAIN TO CLEAR' : ''}`);
+  status(`${enemyName(id)} ${list.length ? `REPLACES ${enemyName(list[0])}` : 'PLACED'} · ${all} ON BOARD · TAP AGAIN TO REMOVE`);
 }
 function renderEnemies() {
   const list = $('enemyList'); if (!list) return;
@@ -744,8 +744,9 @@ function drawEnemies(s) {
     const ids = enemyList(t), n = ids.length; if (!n) continue;
     const [x, y] = unkey(k), cx = sx(x + .5), cy = sy(y + .5);
     // 1 = centre · 2 = diagonal · 3/4 = corners of a 2x2 grid
-    const o = s * .22, spots = n === 1 ? [[0, 0]] : n === 2 ? [[-o, -o], [o, o]] : n === 3 ? [[-o, -o], [o, -o], [0, o]] : [[-o, -o], [o, -o], [-o, o], [o, o]];
-    const rr = Math.max(4, n === 1 ? s * .26 : s * .17);
+    const shared = !!(t.crew && (showCrew || tool === 'crew')); // [website] friend + foe on one field: enemy on the right
+    const o = s * .22, spots = n === 1 ? [[shared ? o : 0, 0]] : n === 2 ? [[-o, -o], [o, o]] : n === 3 ? [[-o, -o], [o, -o], [0, o]] : [[-o, -o], [o, -o], [-o, o], [o, o]];
+    const rr = Math.max(4, n === 1 && !shared ? s * .26 : s * .2);
     ctx.save();
     spots.forEach(([dx, dy], i) => {
       if (drawFace(dbPortrait(ids[i]), cx + dx, cy + dy, rr, ENEMY_COL, Math.max(2, s * .05))) return; // [website] portrait
@@ -1557,7 +1558,7 @@ function normalize() {
   // crew only on floor
   for (const t of S.tiles.values()) if (t.crew && t.kind === 'machine') delete t.crew;
   // [website] enemies only on floor, 1..4 per field
-  for (const t of S.tiles.values()) if ('enemies' in t) { const l = enemyList(t).slice(0, 4).map(id => (typeof id === 'string' && /^[a-z0-9_]{1,60}$/.test(id) ? id : null)); if (!l.length || t.kind === 'machine') delete t.enemies; else t.enemies = l; }
+  for (const t of S.tiles.values()) if ('enemies' in t) { const l = enemyList(t).map(id => (typeof id === 'string' && /^[a-z0-9_]{1,60}$/.test(id) ? id : null)); if (!l.length || t.kind === 'machine') delete t.enemies; else t.enemies = l; }
   // machinery only on full tiles
   for (const t of S.tiles.values()) if (t.kind && t.shape !== 'full') delete t.kind;
   // doors: only where a door / airlock is still possible
@@ -1739,7 +1740,8 @@ function drawNow() {
   // crew members (spawn points), toggled with [V]: initials = assigned · dashed amber = no one assigned · red = not in the crew table
   if (showCrew || tool === 'crew') for (const [k, t] of S.tiles) if (t.crew) {
     const [x, y] = unkey(k), c = t.shape === 'full' ? [sx(x + .5), sy(y + .5)] : tilePoly(x, y, t.shape).reduce((m, p) => [m[0] + p[0] / 3, m[1] + p[1] / 3], [0, 0]);
-    const rr = Math.max(5, s * .26), id = crewIdOf(t), info = id ? crewInfo(id) : null;
+    const foe = enemyList(t).length > 0; if (foe) c[0] -= s * .22; // [website] friend + foe on one field: crew on the left
+    const rr = Math.max(5, foe ? s * .2 : s * .26), id = crewIdOf(t), info = id ? crewInfo(id) : null;
     ctx.save();
     if (!id) {
       ctx.beginPath(); ctx.arc(c[0], c[1], rr, 0, Math.PI * 2); ctx.fillStyle = C.bg; ctx.fill();
