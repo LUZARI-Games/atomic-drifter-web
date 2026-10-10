@@ -9,7 +9,8 @@
 //   POST   /api/portraits/<id>             image body (webp / png / jpeg, ≤ 1 MB) -> { id, record }
 //   GET    /api/portrait-img/<id>          the uploaded image
 import { DurableObject } from 'cloudflare:workers';
-import { cleanRecord, COLLECTIONS, isId, SEED_DB, type Collection } from '../src/core/crewdb';
+import { cleanRecord, COLLECTIONS, isId, parseCrewDb, PATCHES, patchRecord, type Collection } from '../src/core/crewdb';
+import SEED from '../src/data/crew_db_seed.json';
 
 interface Env {
   ASSETS: { fetch(req: Request): Promise<Response> };
@@ -24,14 +25,27 @@ const MAX_IMAGE = 1024 * 1024;
 const MAX_RECORD = 16 * 1024;
 
 export class CrewDb extends DurableObject<Env> {
-  /** First use: fill the database from the seed shipped with the game. */
+  private checked = false;
+  /** First use: fill the database from the seed shipped with the game; then apply every patch not applied yet. */
   private async ready(): Promise<void> {
-    if (await this.ctx.storage.get('seeded')) return;
-    const all = new Map<string, unknown>();
-    for (const col of COLLECTIONS) for (const [id, rec] of Object.entries(SEED_DB[col])) all.set(`${col}:${id}`, rec);
-    const entries = [...all.entries()];
-    for (let i = 0; i < entries.length; i += 100) await this.ctx.storage.put(Object.fromEntries(entries.slice(i, i + 100)));
-    await this.ctx.storage.put('seeded', true);
+    if (this.checked) return;
+    const storage = this.ctx.storage;
+    if (!(await storage.get('seeded'))) {
+      const seed = parseCrewDb(SEED);
+      const entries: [string, unknown][] = [];
+      for (const col of COLLECTIONS) for (const [id, rec] of Object.entries(seed[col])) entries.push([`${col}:${id}`, rec]);
+      for (let i = 0; i < entries.length; i += 100) await storage.put(Object.fromEntries(entries.slice(i, i + 100)));
+      await storage.put('seeded', true);
+    }
+    for (const p of PATCHES) {
+      if (await storage.get(`patch:${p.id}`)) continue;
+      for (const w of p.writes) {
+        const rec = patchRecord(w, await storage.get(`${w.collection}:${w.id}`));
+        if (rec) await storage.put(`${w.collection}:${w.id}`, rec);
+      }
+      await storage.put(`patch:${p.id}`, true);
+    }
+    this.checked = true;
   }
 
   override async fetch(req: Request): Promise<Response> {

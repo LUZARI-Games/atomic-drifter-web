@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import COMBAT from '../data/combat.json';
 import demo from '../data/demo_ship.json';
 import { spawnEnemy } from './combat';
-import { characterHp, cleanRecord, parseCrewDb, rosterFrom, SEED_DB, toId } from './crewdb';
+import { applyPatches, characterHp, cleanRecord, parseCrewDb, PATCHES, rosterFrom, SEED_DB, toId } from './crewdb';
 import { generateCrew } from './crewmove';
 import { createGameState } from './selection';
 import { parseShip } from './ship';
@@ -28,6 +28,27 @@ describe('crew database records', () => {
     const db = parseCrewDb({ characters: { ok: { name: 'A' }, 'BAD ID': { name: 'B' }, empty: {} }, factions: 'nope' });
     expect(Object.keys(db.characters)).toEqual(['ok']);
     expect(db.factions).toEqual({});
+  });
+
+  it('patches: merge changes only the given fields, set creates; missing records are not merged into existence', () => {
+    const base = parseCrewDb({ characters: { a: { name: 'A', build: 'tank', notes: 'keep' } } });
+    const out = applyPatches(base, [{ id: 'p1', writes: [
+      { op: 'merge', collection: 'characters', id: 'a', data: { faction: 'raider' } },
+      { op: 'merge', collection: 'characters', id: 'ghost', data: { name: 'G' } },
+      { op: 'set', collection: 'factions', id: 'subjects', data: { name: 'Subjects', color: '#7a4a8c' } },
+    ] }]);
+    expect(out.characters.a).toMatchObject({ faction: 'raider', build: 'tank', notes: 'keep' });
+    expect(out.characters.ghost).toBeUndefined();
+    expect(out.factions.subjects?.name).toBe('SUBJECTS');
+  });
+
+  it("the owner's faction pass is in the shipped data (Oswald, Clementine, Tesla Traders, Subjects)", () => {
+    expect(SEED_DB.characters.super_mutant_leader).toMatchObject({ name: 'OSWALD', faction: 'subjects' });
+    expect(SEED_DB.characters.female_fighter?.name).toBe('CLEMENTINE');
+    expect(SEED_DB.characters.daisy?.faction).toBe('tesla_traders');
+    expect(SEED_DB.characters.enemy_tank?.faction).toBe('sentinel');
+    expect(SEED_DB.characters.bolt).toMatchObject({ faction: 'ironmall', build: 'tank' });
+    expect(PATCHES.every((p) => p.writes.every((w) => w.op === 'set' || SEED_DB[w.collection][w.id]))).toBe(true);
   });
 
   it('the shipped seed has characters, factions and portraits', () => {

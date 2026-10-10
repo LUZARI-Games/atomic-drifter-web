@@ -2,6 +2,7 @@
 // the game at start. Pure rules: record validation shared by server + page, and the roster the game draws crew from.
 // Engine-neutral: plain data in, plain data out.
 import COMBAT from '../data/combat.json';
+import PATCH_DATA from '../data/crew_db_patches.json';
 import SEED from '../data/crew_db_seed.json';
 
 export type Side = 'crew' | 'enemy';
@@ -94,8 +95,40 @@ export function parseCrewDb(raw: unknown): CrewDb {
   return db;
 }
 
-/** The database the game ships with (used until the live one answers). */
-export const SEED_DB: CrewDb = parseCrewDb(SEED);
+/** One-time update of the live database (`crew_db_patches.json`): 'set' replaces a record, 'merge' changes fields. */
+export interface PatchWrite {
+  op: 'set' | 'merge';
+  collection: Collection;
+  id: string;
+  data: Record<string, unknown>;
+}
+export interface Patch {
+  id: string;
+  writes: PatchWrite[];
+}
+export const PATCHES: Patch[] = (PATCH_DATA.patches as unknown as Patch[]).filter((p) => isId(p.id));
+
+/** The record after one patch write (current = undefined when missing); null = nothing to write. */
+export function patchRecord(w: PatchWrite, current: unknown): CharacterRecord | FactionRecord | PortraitRecord | null {
+  if (!COLLECTIONS.includes(w.collection) || !isId(w.id)) return null;
+  if (w.op === 'merge') return current && typeof current === 'object' ? cleanRecord(w.collection, { ...current, ...w.data }) : null;
+  return cleanRecord(w.collection, w.data);
+}
+
+/** A database with the given patches applied (pure; used for the shipped copy – the server applies them itself). */
+export function applyPatches(db: CrewDb, patches: Patch[]): CrewDb {
+  const out: CrewDb = { characters: { ...db.characters }, factions: { ...db.factions }, portraits: { ...db.portraits } };
+  for (const p of patches) {
+    for (const w of p.writes) {
+      const rec = patchRecord(w, out[w.collection]?.[w.id]);
+      if (rec) (out[w.collection] as Record<string, unknown>)[w.id] = rec;
+    }
+  }
+  return out;
+}
+
+/** The database the game ships with (used until the live one answers): seed + all patches. */
+export const SEED_DB: CrewDb = applyPatches(parseCrewDb(SEED), PATCHES);
 
 /** Default HP by side + build (combat.json), unless the record sets its own. */
 export function characterHp(c: Pick<CharacterRecord, 'side' | 'build' | 'hp'>): number {

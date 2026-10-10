@@ -164,7 +164,9 @@ never restate the owner's tasks back to them.
 - Server: `worker/index.ts` (Cloudflare Worker, `wrangler.jsonc` `main`) – `/api/*` goes to ONE Durable Object
   `CrewDb` (SQLite storage, created on deploy); everything else = static `dist`. Routes: GET `/api/db`, PUT/DELETE
   `/api/db/<collection>/<id>`, POST `/api/portraits/<id>` (image ≤ 1 MB), GET `/api/portrait-img/<id>`.
-  First use seeds itself from `src/data/crew_db_seed.json`. Local test: `npm run build && npx wrangler dev --local`.
+  First use seeds itself from `src/data/crew_db_seed.json`. Claude cannot reach the live API from the cloud session:
+  to change live data, add a patch to `src/data/crew_db_patches.json` (new id; 'merge' keeps the owner's other edits) –
+  the server applies each patch once on its next start (`patch:<id>` key); the shipped copy (`SEED_DB`) = seed + patches. Local test: `npm run build && npx wrangler dev --local`.
 - Rules in `src/core/crewdb.ts` (shared by server, page and game): `cleanRecord`/`parseCrewDb` (validation),
   `rosterFrom` → `GameState.roster`. The game loads the live DB at start (`src/ui/crewDbApi.ts`, 2.5 s timeout, falls
   back to the seed): captain = character with the power-armour portrait, own crew + boarders drawn from it (name,

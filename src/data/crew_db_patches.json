@@ -1,0 +1,33 @@
+{
+ "_info": "One-time updates for the live crew database (applied once each by the server, in order; 'merge' changes only the given fields, so other edits made on the website stay). Add a new entry with a new id for every change Claude makes to the live data.",
+ "patches": [
+  {
+   "id": "2026_10_10_factions",
+   "writes": [
+    { "op": "set", "collection": "factions", "id": "tesla_traders", "data": { "name": "TESLA TRADERS", "color": "#c9a227", "notes": "Merchants with their own ship. Daisy is the friendly face that sells; the captain stands behind her – spoil it with Daisy and you deal with him (bad mood, can turn into a fight)." } },
+    { "op": "set", "collection": "factions", "id": "subjects", "data": { "name": "SUBJECTS", "color": "#7a4a8c", "notes": "Super mutants. Scientists have slavers kidnap people and mutate them in the name of evolution and progress. More resistant to the environment, but disfigured and often mentally impaired." } },
+    { "op": "merge", "collection": "factions", "id": "sentinel", "data": { "notes": "Fanatics (Brotherhood of Steel counterpart): they seize pre-war technology, forbid anything usable for war and subjugate everyone else 'for humanity's sake'. Whoever uses such tech anyway becomes their enemy." } },
+    { "op": "merge", "collection": "characters", "id": "chuck", "data": { "faction": "raider", "notes": "Leader of the raiders. Normal build – needs armour on his look later." } },
+    { "op": "merge", "collection": "characters", "id": "cole_ransom", "data": { "faction": "deserter", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "crazy_pete", "data": { "faction": "deserter", "notes": "NPC you can meet – gives you things." } },
+    { "op": "merge", "collection": "characters", "id": "daisy", "data": { "faction": "tesla_traders", "notes": "Shopkeeper of the Tesla Traders – the pretty face that sells." } },
+    { "op": "merge", "collection": "characters", "id": "dr_mitchell", "data": { "faction": "ironmall" } },
+    { "op": "merge", "collection": "characters", "id": "evelyn", "data": { "faction": "deserter", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "female_fighter", "data": { "name": "CLEMENTINE", "faction": "deserter", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "hunter", "data": { "faction": "deserter", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "kaan", "data": { "faction": "ironmall", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "madam_betty", "data": { "faction": "ironmall", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "neh", "data": { "faction": "subjects", "notes": "Super mutant." } },
+    { "op": "merge", "collection": "characters", "id": "reginald", "data": { "faction": "ironmall", "notes": "Faction for now – check in game." } },
+    { "op": "merge", "collection": "characters", "id": "samantha", "data": { "faction": "ironmall", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "enemy_captain", "data": { "faction": "sentinel", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "enemy_grunt", "data": { "faction": "sentinel", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "enemy_mechanic", "data": { "faction": "sentinel", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "enemy_scientist", "data": { "faction": "sentinel", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "enemy_tank", "data": { "faction": "sentinel", "notes": "" } },
+    { "op": "merge", "collection": "characters", "id": "super_mutant_leader", "data": { "name": "OSWALD", "faction": "subjects", "notes": "Super mutant leader." } },
+    { "op": "merge", "collection": "characters", "id": "tesla_trader_captain", "data": { "faction": "tesla_traders", "notes": "Captain of the Tesla Traders' ship, stands behind Daisy. Gets aggressive when you spoil it with her – a fight can break out." } }
+   ]
+  }
+ ]
+}
