@@ -151,6 +151,8 @@ html, body {
 .sh-face .hp i { display: block; height: 100%; background: var(--green); }
 .sh-face .hp.warn i { background: var(--amber); }
 .sh-face .hp.bad i { background: var(--red); }
+.sh-face.ko .face { filter: grayscale(1) brightness(0.45); }
+.sh-face .ko-tag { position: absolute; left: 0; right: 0; top: 30%; text-align: center; font-size: 15px; color: var(--red); text-shadow: 0 0 4px #000, 0 0 2px #000; pointer-events: none; }
 .sh-face .badge { position: absolute; right: 3px; top: 3px; width: 10px; height: 10px; border: 1px solid #000; }
 
 /* ===== Terminal boot screen (POWER ON / REBOOT + OPTIONS), shared by the terminal pages ===== */

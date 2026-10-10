@@ -7,11 +7,12 @@ import PORTRAITS from '../data/portraits.json';
 import { CREW_LOOKS, parseCrewLook, type CrewLook } from './crew';
 import { atDesk, consoleOf, freeTileNear, maxHp, moveTo, navOf, tileSpot } from './crewmove';
 import { findPath, nodeAt } from './nav';
+import { systemId } from './systems';
 import type { CrewMember, GameState, Point } from './types';
 
 
 const isEnemy = (c: CrewMember) => c.side === 'enemy';
-const alive = (c: CrewMember) => c.dying === undefined && c.hp > 0;
+const alive = (c: CrewMember) => c.dying === undefined && c.ko === undefined && c.hp > 0;
 
 /** Room a crew member stands in (deck tiles only; vehicle seats belong to no room). */
 export function roomOf(state: GameState, c: CrewMember): string | null {
@@ -42,7 +43,7 @@ export function spawnEnemy(state: GameState, p: Point, seed = state.crew.length 
     hair: Math.floor(r() * CREW_LOOKS.hair_colors.length),
     gear: [],
   };
-  const hp = maxHp(look);
+  const hp = maxHp(look, 'enemy');
   const member: CrewMember = {
     id, name: look.name, look, node, dest: node, pos: nav.nodes.get(node)!.pos, path: [], heading: r() * Math.PI * 2,
     walked: 0, hp, hpMax: hp, side: 'enemy', portrait: face?.id, idle: 0,
@@ -62,6 +63,12 @@ export function spawnShipEnemies(state: GameState): GameState {
     if (c.side === 'enemy') s = spawnEnemy(s, c.tile, 1000 + i * 7919);
   });
   return s;
+}
+
+/** A med bay room that is not wrecked (heals own crew). */
+export function isMedbay(state: GameState, room: string): boolean {
+  const r = state.ship.rooms.find((x) => x.id === room);
+  return !!r?.system && systemId(r.system) === 'medbay' && (state.systemDamage[room] ?? 0) < systemBars(state, room);
 }
 
 /** Health bars of a system room (= its power level); 0 for rooms without a system. */
@@ -129,7 +136,7 @@ export function tickCombat(state: GameState, dt: number): GameState {
     if (cooldown <= 0) {
       cooldown += COMBAT.attack_interval_s;
       hits += 1;
-      damage.set(foe.id, (damage.get(foe.id) ?? 0) + (c.look.build === 'tank' ? COMBAT.hit_damage.tank : COMBAT.hit_damage.normal));
+      damage.set(foe.id, (damage.get(foe.id) ?? 0) + COMBAT.hit_damage);
     }
     const heading = Math.atan2(foe.pos[1] - c.pos[1], foe.pos[0] - c.pos[0]);
     return { ...c, heading, idle: 0, fight: { target: foe.id, cooldown, hits } };
@@ -142,11 +149,33 @@ export function tickCombat(state: GameState, dt: number): GameState {
       const d = damage.get(c.id);
       if (!d) return c;
       const hp = Math.max(0, c.hp - d);
-      return hp > 0 ? { ...c, hp } : { ...c, hp: 0, dying: COMBAT.death_s, fight: undefined, path: [], pathEnd: undefined, dest: c.node };
+      if (hp > 0) return { ...c, hp };
+      const down = { ...c, hp: 0, fight: undefined, path: [], pathEnd: undefined, dest: c.node, idle: 0, heal: undefined };
+      // own crew are knocked out (lie there, wake up after the fight); enemies die and are removed
+      return isEnemy(c) ? { ...down, dying: COMBAT.death_s } : { ...down, ko: 0 };
     })
     .filter((c) => c.dying === undefined || c.dying > 0);
   next = { ...next, crew };
   if (next.selectedCrewId && !crew.some((c) => c.id === next.selectedCrewId && alive(c))) next = { ...next, selectedCrewId: null };
+
+  // 3b. knocked-out crew wake up once no enemy is left on board (with a share of their HP)
+  const enemiesLeft = crew.some((c) => isEnemy(c) && alive(c));
+  crew = crew.map((c) => {
+    if (c.ko === undefined) return c;
+    if (enemiesLeft) return c.ko === 0 ? c : { ...c, ko: 0 };
+    const ko = c.ko + dt;
+    return ko < COMBAT.ko_wake_after_s ? { ...c, ko } : { ...c, ko: undefined, hp: Math.max(1, Math.ceil(c.hpMax * COMBAT.ko_wake_share)), idle: 0 };
+  });
+  next = { ...next, crew };
+
+  // 3c. med bay: own crew standing in a working med bay get medbay_heal_per_s HP once per second until full
+  next = { ...next, crew: next.crew.map((c) => {
+    const room = roomOf(next, c);
+    const heals = !isEnemy(c) && standingStill(c) && c.hp < c.hpMax && !!room && isMedbay(next, room);
+    if (!heals) return c.heal === undefined ? c : { ...c, heal: undefined };
+    const t = (c.heal ?? 0) + dt;
+    return t < 1 ? { ...c, heal: t } : { ...c, heal: t - 1, hp: Math.min(c.hpMax, c.hp + COMBAT.medbay_heal_per_s) };
+  }) };
 
   // 4. sabotage / repair at the consoles (seconds per health bar from combat.json)
   const sysDamage = { ...next.systemDamage };

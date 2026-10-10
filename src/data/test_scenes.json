@@ -1,5 +1,5 @@
 {
- "_info": "Test scenes: open the game with ?test=<name>. ship = file in test_ships/ (default: demo ship). crew[i].at = ship point (deck tile or vehicle seat) for crew member i, send = then walk there, selected = select them. focus = ship point the camera centres on, zoom = times the fitted view. enemy = spawn a boarder there; origin / idle = mood tests. damage = { room: bars } preset system damage.",
+ "_info": "Test scenes: open the game with ?test=<name>. ship = file in test_ships/ (default: demo ship). crew[i].at = ship point (deck tile or vehicle seat) for crew member i, send = then walk there, selected = select them. focus = ship point the camera centres on, zoom = times the fitted view. enemy = spawn a boarder there; origin / idle = mood tests. damage = { room: bars } preset system damage. hp = start HP of that crew member.",
  "overview": {
   "crew": [],
   "focus": [
@@ -400,6 +400,68 @@
      -1
     ],
     "enemy": true
+   }
+  ],
+  "focus": [
+   1,
+   0
+  ],
+  "zoom": 2.2
+ },
+ "ko": {
+  "ship": "melee",
+  "crew": [
+   {
+    "at": [
+     3,
+     1
+    ],
+    "hp": 3
+   },
+   {
+    "at": [
+     -1,
+     -1
+    ],
+    "hp": 30
+   },
+   {
+    "at": [
+     1,
+     -1
+    ],
+    "enemy": true
+   },
+   {
+    "at": [
+     3,
+     -1
+    ],
+    "enemy": true
+   }
+  ],
+  "focus": [
+   1,
+   0
+  ],
+  "zoom": 2.2
+ },
+ "medbay": {
+  "ship": "medbay",
+  "crew": [
+   {
+    "at": [
+     1,
+     1
+    ],
+    "hp": 3
+   },
+   {
+    "at": [
+     3,
+     -1
+    ],
+    "hp": 10
    }
   ],
   "focus": [

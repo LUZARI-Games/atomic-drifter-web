@@ -27,6 +27,7 @@ export interface ShipSounds {
   step(): void;
   hit?(): void;
   die?(): void;
+  heal?(): void;
 }
 const SILENT: ShipSounds = { select() {}, deselect() {}, send() {}, door() {}, step() {} };
 const TEXT_STYLE = { fontFamily: FONT_FAMILY, fontSize: '15px', resolution: 3 };
@@ -63,6 +64,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private lastHp = new Map<string, number>();
   private hurtAt = new Map<string, number>();
   private floats: { text: Phaser.GameObjects.Text; born: number }[] = [];
+  private pluses: { x: number; y: number; born: number }[] = []; // med bay heal particles (screen points)
   private moodNow = new Map<string, Mood>();
   private blocks: ReturnType<typeof systemBlocks> = [];
   ready = false;
@@ -191,7 +193,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       this.stepCount.set(c.id, n);
     }
     this.reactToHits(now);
-    const busy = state.crew.some((c) => c.fight || c.dying !== undefined);
+    const busy = state.crew.some((c) => c.fight || c.dying !== undefined || c.ko !== undefined);
     if (walking || busy || this.dirty || now - this.lastIdle > IDLE_FRAME_MS) {
       this.moodNow = moods(this.store.get());
       this.layer.setCrew(this.crewToDraw(now / 1000));
@@ -221,6 +223,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       // standing still: idle animation; at the desk spot of a console: typing; in a vehicle: seated
       const seat = c.path.length ? null : seatOf(ship, c.node);
       if (seat) return { ...base, at: seat.pos, facing: toView(c.heading), step: 0, lift: 0, idle: { t, seed, typing: false }, sit: seat };
+      if (c.ko !== undefined) return { ...base, at: c.pos, facing: toView(c.heading), step: 0, lift: 0, idle: { t, seed, typing: false, dying: 1 } };
       if (c.dying !== undefined) {
         const d = 1 - c.dying / COMBAT.death_s; // 0 … 1
         return { ...base, at: c.pos, facing: toView(c.heading), step: 0, lift: 0, idle: { t, seed, typing: false, dying: Math.min(1, d * 1.6) }, alpha: Math.max(0, 1 - Math.max(0, d - 0.4) / 0.6) };
@@ -264,6 +267,16 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
         const text = this.add.text(p.x, p.y, `-${Math.round(before - c.hp)}`, { ...TEXT_STYLE, color: CSS.red }).setOrigin(0.5).setDepth(3.4);
         this.floats.push({ text, born: now });
         if (c.hp <= 0) this.sfx.die?.();
+      } else if (before !== undefined && before > 0 && c.hp > before) {
+        // med bay tick: "+5" and a few green crosses rising around the body
+        this.sfx.heal?.();
+        const p = this.view.deckPoint(c.pos, HEAD_M);
+        const text = this.add.text(p.x, p.y - 6, `+${Math.round(c.hp - before)}`, { ...TEXT_STYLE, color: CSS.green }).setOrigin(0.5).setDepth(3.4);
+        this.floats.push({ text, born: now });
+        for (let k = 0; k < 4; k++) {
+          const a = this.view.deckPoint([c.pos[0] + (Math.random() - 0.5) * 0.8, c.pos[1] + (Math.random() - 0.5) * 0.8], 0.3 + Math.random() * 1.2);
+          this.pluses.push({ x: a.x, y: a.y, born: now + k * 120 });
+        }
       }
       this.lastHp.set(c.id, c.hp);
     }
@@ -322,9 +335,32 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       }
       if (work === 'repair') g.fillStyle(0xfff6c0, 0.35 + 0.35 * Math.random()).fillCircle(s.x, s.y, 5);
     }
+    // med bay heal particles: green crosses rising and fading
+    const nowMs = t * 1000;
+    this.pluses = this.pluses.filter((q) => nowMs - q.born < 900);
+    for (const q of this.pluses) {
+      const age = (nowMs - q.born) / 900;
+      if (age < 0) continue;
+      const y = q.y - age * 26;
+      const r = 4;
+      g.fillStyle(COLORS_HEX.green, 1 - age);
+      g.fillRect(q.x - r, y - 1.5, r * 2, 3).fillRect(q.x - 1.5, y - r, 3, r * 2);
+    }
+    // knocked out: little yellow stars circling the head of the one lying there
+    for (const c of crew) {
+      if (c.ko === undefined) continue;
+      const head = this.view.deckPoint([c.pos[0], c.pos[1]], 0.75);
+      for (let k = 0; k < 3; k++) {
+        const a = t * 3 + (k * Math.PI * 2) / 3;
+        const x = head.x + Math.cos(a) * 14;
+        const y = head.y - 6 + Math.sin(a) * 5;
+        g.fillStyle(0xffe066, Math.sin(a) > 0 ? 1 : 0.55);
+        g.fillTriangle(x, y - 4, x - 3.5, y + 2.5, x + 3.5, y + 2.5).fillTriangle(x, y + 4, x - 3.5, y - 2.5, x + 3.5, y - 2.5);
+      }
+    }
     const seen = new Set<string>();
     for (const c of crew) {
-      if (c.dying !== undefined || seatOf(ship, c.node)) continue;
+      if (c.dying !== undefined || c.ko !== undefined || seatOf(ship, c.node)) continue;
       const head = this.view.deckPoint(c.pos, HEAD_M);
       if (c.fight || c.hp < c.hpMax) {
         const w = 0.7 * PX_PER_M;
@@ -369,7 +405,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     let best: string | null = null;
     let bestD = Infinity;
     crew.forEach((c, i) => {
-      if (c.side === 'enemy' || c.dying !== undefined) return; // only own crew can be picked
+      if (c.side === 'enemy' || c.dying !== undefined || c.ko !== undefined) return; // only own crew on their feet can be picked
       const feet = this.view.deckPoint(c.pos, draw[i]!.lift ?? 0);
       const dx = x - feet.x;
       const dy = y - feet.y;

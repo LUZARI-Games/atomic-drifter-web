@@ -102,6 +102,9 @@ never restate the owner's tasks back to them.
   (far leg + arm, `drawCrewIso(..., half)`) → bike → near half; pod = egg → passenger (only chest + head above the
   rim) → egg sides; car = body → people → near walls/hood. Check with `?test=bike|sidecar|car`.
 - Taps: a figure on screen selects / deselects it; with crew selected a tap sends them; tapping the void lets go.
+- Orders go to ROOMS, not tiles (FTL, `roomTarget`): the first one sent into a room takes its console tile (operates /
+  repairs automatically), later ones the free tile nearest to the tap. Tapping your own room does nothing – to swap the
+  operator, send them out and someone else in.
 - Rendering: `ShipView.mountObjects` draws every standing object ONCE into its own graphics (stacked by depth);
   per frame only crew (and moving doors) are redrawn and slotted in by `isBehind`. Never redraw the whole ship per frame.
 - Demo ship: 4 rooms in a row (machinery port side, floors connected by doors) + a 2-tile balcony with a docked car
@@ -135,7 +138,13 @@ never restate the owner's tasks back to them.
   screen-right corner); the console tile is served first (an operator stays, the enemy comes to them; a free console
   tile becomes the meeting point), else the enemy walks onto the crew member's tile. Extras of the bigger side stay
   alone on their own tiles. Operators fight too (in their corner = system not manned). Boarders fight while crew are in
-  their room, then go for systems. Blows every `attack_interval_s`, HP by build, death animation then removed.
+  their room, then go for systems. Blows every `attack_interval_s`, 4 HP each (`hit_damage`). HP (`combat.json` hp):
+  crew 25 / tank 40, enemies 20 / tank 30. Enemies at 0 HP die (animation, removed). Own crew at 0 HP are KNOCKED OUT
+  (`ko`): lie there with circling stars, K.O. on their portrait, cannot be selected or hit; once no enemy is left on
+  board they wake after `ko_wake_after_s` with 10 % HP (`ko_wake_share`).
+- Med bay (`isMedbay`, room system `medbay`, not wrecked): own crew standing in it get 5 HP once per second
+  (`medbay_heal_per_s`) until full – "+5", rising green crosses and a soft chime per tick. Enemies are not healed.
+  Tests: `?test=ko|medbay`.
   Test: `?test=melee` (ship `test_ships/melee.json`, one 5-tile room).
 - Sabotage / repair (`workOf`): a boarder alone at a system's console desk sabotages it, 5 s per health bar
   (`sabotage_s_per_bar`); a system has as many bars as its power level (energy slots) in the run (`systemBars`, from

@@ -11,7 +11,7 @@ export type Mood =
   | { kind: 'chat'; role: 'teller' | 'listener'; partner: string }
   | { kind: 'wary'; other: string };
 
-const calm = (c: CrewMember) => c.side !== 'enemy' && c.dying === undefined && !c.fight && !c.path.length;
+const calm = (c: CrewMember) => c.side !== 'enemy' && c.dying === undefined && c.ko === undefined && !c.fight && !c.path.length;
 
 /** Mood of every own crew member that has one (id -> mood). */
 export function moods(state: GameState): Map<string, Mood> {

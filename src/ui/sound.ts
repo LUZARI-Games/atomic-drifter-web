@@ -181,6 +181,11 @@ export class Sound {
     o.start(t);
     o.stop(t + 0.85);
   }
+  /** Med bay heal tick: soft rising two-note chime. */
+  heal(): void {
+    this.blip(660, 0, 0.09, 0.05, 'sine');
+    this.blip(990, 0.08, 0.14, 0.05, 'sine');
+  }
   /** Boot on a metal deck: short click + a faint ring, slightly different each time. */
   step(): void {
     const p = 0.85 + Math.random() * 0.3;

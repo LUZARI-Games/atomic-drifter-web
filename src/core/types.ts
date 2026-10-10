@@ -98,6 +98,8 @@ export interface CrewMember {
   idle?: number; // seconds standing around without anything to do (moods)
   fight?: { target: string; cooldown: number; hits: number }; // melee: whom, time to the next blow, blows dealt
   dying?: number; // seconds left of the death animation (then removed)
+  ko?: number; // own crew knocked out (0 HP, lying): seconds since the last enemy is gone (wakes up after ko_wake_after_s)
+  heal?: number; // seconds collected towards the next med bay heal tick
 }
 
 export interface GameState {

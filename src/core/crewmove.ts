@@ -96,8 +96,8 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
 }
 
 /** Full health of a crew member / boarder (tanks are tougher). */
-export function maxHp(look: CrewLook): number {
-  return look.build === 'tank' ? COMBAT.hp.tank : COMBAT.hp.normal;
+export function maxHp(look: CrewLook, side: 'crew' | 'enemy' = 'crew'): number {
+  return COMBAT.hp[side][look.build === 'tank' ? 'tank' : 'normal'];
 }
 
 const sideOf = (c: CrewMember) => c.side ?? 'crew';
@@ -126,7 +126,7 @@ export function tileSpot(state: GameState, id: string, node: string): Point {
 function taken(state: GameState, id: string, node: string): boolean {
   const me = state.crew.find((c) => c.id === id);
   const side = me ? sideOf(me) : 'crew';
-  return state.crew.some((o) => o.id !== id && standing(o) && sideOf(o) === side && o.dest === node);
+  return state.crew.some((o) => o.id !== id && (standing(o) || o.ko !== undefined) && sideOf(o) === side && o.dest === node);
 }
 
 /** `node` if free for `id`, else the nearest free deck tile of the same room (null = room full). */
@@ -164,7 +164,7 @@ export function placeCrew(state: GameState, id: string, p: Point): GameState {
 }
 
 export function selectCrew(state: GameState, id: string | null): GameState {
-  if (id !== null && !state.crew.some((c) => c.id === id && c.side !== 'enemy' && c.dying === undefined)) return state;
+  if (id !== null && !state.crew.some((c) => c.id === id && c.side !== 'enemy' && c.dying === undefined && c.ko === undefined)) return state;
   return state.selectedCrewId === id ? state : { ...state, selectedCrewId: id };
 }
 
@@ -172,7 +172,27 @@ export function selectCrew(state: GameState, id: string | null): GameState {
 export function sendSelected(state: GameState, p: Point): GameState | null {
   const id = state.selectedCrewId;
   if (!id) return null;
-  return moveTo(state, id, p);
+  const to = roomTarget(state, id, p);
+  return to ? moveTo(state, id, to) : state;
+}
+
+/**
+ * Orders go to ROOMS, not tiles (FTL): the first one sent into a room takes its console tile (operating / repairing),
+ * later ones the free tile nearest to the tap. Tapping the room you are already in changes nothing – to swap the
+ * operator, send them out and someone else in. Returns the point to walk to (= `p` for vehicle seats), null = nothing to do.
+ */
+export function roomTarget(state: GameState, id: string, p: Point): Point | null {
+  const nav = navOf(state.ship);
+  const tapped = nodeAt(state.ship, nav, p);
+  const c = state.crew.find((m) => m.id === id);
+  if (!tapped || !c || !tapped.startsWith('t')) return p;
+  const room = state.ship.tiles[Number(tapped.slice(1))]?.room;
+  const mine = c.dest.startsWith('t') ? state.ship.tiles[Number(c.dest.slice(1))]?.room : null;
+  if (room && room === mine) return null; // already there (or on the way)
+  const desk = state.ship.rooms.find((r) => r.id === room)?.console?.tile;
+  const deskNode = desk ? nodeAt(state.ship, nav, desk) : null;
+  if (deskNode && !taken(state, id, deskNode)) return nav.nodes.get(deskNode)!.pos;
+  return p;
 }
 
 /** Walk crew member / boarder `id` to the spot under ship point `p`; null if `p` is not walkable. */
@@ -181,7 +201,7 @@ export function moveTo(state: GameState, id: string, p: Point): GameState | null
   const tapped = nodeAt(state.ship, nav, p);
   if (!tapped) return null;
   const c = state.crew.find((m) => m.id === id);
-  if (!c || c.dying !== undefined) return state;
+  if (!c || c.dying !== undefined || c.ko !== undefined) return state;
   // a vehicle seat holds one person; a deck tile one per side – else the nearest free tile of that room
   if (tapped.startsWith('v') && state.crew.some((m) => m.id !== id && m.dest === tapped)) return state;
   const target = freeTileNear(state, id, tapped);

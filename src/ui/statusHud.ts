@@ -99,7 +99,7 @@ export function mountStatusHud(root: HTMLElement, store: Store<GameState>): void
 
     // crew: rebuild only when people / selection / health / station change
     const ordered = s.crew.filter((c) => c.side !== 'enemy').sort((a, b) => Number(!!b.captain) - Number(!!a.captain));
-    const key = JSON.stringify([s.selectedCrewId, ordered.map((c) => [c.id, c.hp, c.hpMax, stationOf(s, c)])]);
+    const key = JSON.stringify([s.selectedCrewId, ordered.map((c) => [c.id, c.hp, c.hpMax, c.ko !== undefined, stationOf(s, c)])]);
     if (key === crewKey) return;
     crewKey = key;
     crewBox.innerHTML = ordered
@@ -107,8 +107,9 @@ export function mountStatusHud(root: HTMLElement, store: Store<GameState>): void
         const share = c.hp / c.hpMax;
         const sys = stationOf(s, c);
         const col = sys ? (SYSTEMS as Record<string, { color: string; name: string }>)[sys]?.color : null;
-        return `<button type="button" class="pn sh-face${c.captain ? ' captain' : ''}${c.id === s.selectedCrewId ? ' sel' : ''}" data-crew="${c.id}">
+        return `<button type="button" class="pn sh-face${c.captain ? ' captain' : ''}${c.ko !== undefined ? ' ko' : ''}${c.id === s.selectedCrewId ? ' sel' : ''}" data-crew="${c.id}">
           ${portraitHtml(c)}
+          ${c.ko !== undefined ? '<span class="ko-tag">K.O.</span>' : ''}
           <span class="nm">${c.name}</span>
           <span class="hp ${healthClass(share)}"><i style="width:${Math.round(share * 100)}%"></i></span>
           ${col ? `<span class="badge" style="background:${col}" title="${sys!.toUpperCase()}"></span>` : ''}

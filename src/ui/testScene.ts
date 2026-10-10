@@ -13,6 +13,7 @@ interface SceneCrew {
   enemy?: boolean; // spawn an enemy boarder here (does not use up a crew member)
   origin?: string; // give this crew member another origin (mood tests)
   idle?: number; // seconds they have been standing around already (bored tests)
+  hp?: number; // start HP (knock-out / med bay tests)
 }
 export interface TestScene {
   name: string;
@@ -46,6 +47,7 @@ export function applyTestScene(state: GameState, scene: TestScene): GameState {
     const m = s.crew[i];
     if (!m) return;
     s = placeCrew(s, m.id, c.at);
+    if (c.hp !== undefined) s = { ...s, crew: s.crew.map((x) => (x.id === m.id ? { ...x, hp: Math.min(x.hpMax, c.hp!) } : x)) };
     if (c.origin || c.idle !== undefined) {
       s = {
         ...s,
