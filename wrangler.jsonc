@@ -1,11 +1,18 @@
-// Cloudflare Workers – static assets only (no server code yet).
-// Multiplayer (Durable Objects) will be added here in a later handoff.
+// Cloudflare Workers: static pages from ./dist + a small server (worker/index.ts) for /api/*.
+// The crew database lives in one Durable Object (SQLite storage, created automatically on deploy).
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "atomic-drifter-web",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
-  }
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "CREW_DB", "class_name": "CrewDb" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["CrewDb"] }]
 }

@@ -1,0 +1,454 @@
+{
+ "_info": "Seed for the crew database (Durable Object on the website, /crew-db/). Used only when the live database is empty or unreachable. Live data wins.",
+ "characters": {
+  "bolt": {
+   "attrs": [],
+   "build": "tank",
+   "faction": "ironmall",
+   "hit": 4,
+   "hp": null,
+   "name": "BOLT",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "bolt",
+   "sex": "male",
+   "side": "crew"
+  },
+  "chuck": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "CHUCK",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "chuck",
+   "sex": "male",
+   "side": "crew"
+  },
+  "cole_ransom": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "COLE RANSOM",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "cole_ransom",
+   "sex": "male",
+   "side": "crew"
+  },
+  "crazy_pete": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "CRAZY PETE",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "crazy_pete",
+   "sex": "male",
+   "side": "crew"
+  },
+  "daisy": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "DAISY",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "daisy",
+   "sex": "female",
+   "side": "crew"
+  },
+  "dr_mitchell": {
+   "attrs": [
+    {
+     "name": "MEDBAY",
+     "value": "2"
+    }
+   ],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "DR MITCHELL",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats. The MEDBAY attribute is only an example of a free attribute.",
+   "portrait": "dr_mitchell",
+   "sex": "male",
+   "side": "crew"
+  },
+  "enemy_captain": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "ENEMY CAPTAIN",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "enemy_captain",
+   "sex": "male",
+   "side": "enemy"
+  },
+  "enemy_grunt": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "ENEMY GRUNT",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "enemy_grunt",
+   "sex": "male",
+   "side": "enemy"
+  },
+  "enemy_mechanic": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "ENEMY MECHANIC",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "enemy_mechanic",
+   "sex": "male",
+   "side": "enemy"
+  },
+  "enemy_scientist": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "ENEMY SCIENTIST",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "enemy_scientist",
+   "sex": "male",
+   "side": "enemy"
+  },
+  "enemy_tank": {
+   "attrs": [],
+   "build": "tank",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "ENEMY TANK",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "enemy_tank",
+   "sex": "male",
+   "side": "enemy"
+  },
+  "evelyn": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "EVELYN",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "evelyn",
+   "sex": "female",
+   "side": "crew"
+  },
+  "female_fighter": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "FEMALE FIGHTER",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "female_fighter",
+   "sex": "female",
+   "side": "crew"
+  },
+  "hunter": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "HUNTER",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "hunter",
+   "sex": "male",
+   "side": "crew"
+  },
+  "kaan": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "KAAN",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "kaan",
+   "sex": "male",
+   "side": "crew"
+  },
+  "madam_betty": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "MADAM BETTY",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "madam_betty",
+   "sex": "female",
+   "side": "crew"
+  },
+  "neh": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "NEH",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "neh",
+   "sex": "male",
+   "side": "crew"
+  },
+  "power_armor": {
+   "attrs": [],
+   "build": "tank",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "CAPTAIN (POWER ARMOR)",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "power_armor",
+   "sex": "male",
+   "side": "crew"
+  },
+  "raider_girl": {
+   "attrs": [],
+   "build": "normal",
+   "faction": "raider",
+   "hit": 4,
+   "hp": null,
+   "name": "RAIDER GIRL",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "raider_girl",
+   "sex": "female",
+   "side": "enemy"
+  },
+  "raider_pyromancer": {
+   "attrs": [],
+   "build": "normal",
+   "faction": "raider",
+   "hit": 4,
+   "hp": null,
+   "name": "RAIDER PYROMANCER",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "raider_pyromancer",
+   "sex": "male",
+   "side": "enemy"
+  },
+  "raider_soldier": {
+   "attrs": [],
+   "build": "normal",
+   "faction": "raider",
+   "hit": 4,
+   "hp": null,
+   "name": "RAIDER SOLDIER",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "raider_soldier",
+   "sex": "male",
+   "side": "enemy"
+  },
+  "raider_tank": {
+   "attrs": [],
+   "build": "tank",
+   "faction": "raider",
+   "hit": 4,
+   "hp": null,
+   "name": "RAIDER TANK",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "raider_tank",
+   "sex": "male",
+   "side": "enemy"
+  },
+  "reginald": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "REGINALD",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "reginald",
+   "sex": "male",
+   "side": "crew"
+  },
+  "samantha": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "SAMANTHA",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "samantha",
+   "sex": "female",
+   "side": "crew"
+  },
+  "super_mutant_leader": {
+   "attrs": [],
+   "build": "tank",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "SUPER MUTANT LEADER",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "super_mutant_leader",
+   "sex": "male",
+   "side": "enemy"
+  },
+  "tesla_trader_captain": {
+   "attrs": [],
+   "build": "normal",
+   "faction": null,
+   "hit": 4,
+   "hp": null,
+   "name": "TESLA TRADER CAPTAIN",
+   "notes": "EXAMPLE ENTRY from the game files – check faction and stats.",
+   "portrait": "tesla_trader_captain",
+   "sex": "male",
+   "side": "enemy"
+  }
+ },
+ "factions": {
+  "deserter": {
+   "color": "#86902a",
+   "name": "DESERTER",
+   "notes": "Ex-soldiers. Crew origin."
+  },
+  "ironmall": {
+   "color": "#24928a",
+   "name": "IRON MALL CITIZEN",
+   "notes": "Traders from the Iron Mall. Crew origin."
+  },
+  "raider": {
+   "color": "#b0381f",
+   "name": "RAIDER",
+   "notes": "Hostile scavengers. Boarders in the prototype."
+  },
+  "sentinel": {
+   "color": "#3a6fb0",
+   "name": "SENTINEL",
+   "notes": "Armoured order. Boarders in the prototype."
+  }
+ },
+ "portraits": {
+  "bolt": {
+   "file": "/portraits/bolt.webp"
+  },
+  "chuck": {
+   "file": "/portraits/chuck.webp"
+  },
+  "chuck_2": {
+   "file": "/portraits/chuck_2.webp"
+  },
+  "cole_ransom": {
+   "file": "/portraits/cole_ransom.webp"
+  },
+  "cole_ransom_2": {
+   "file": "/portraits/cole_ransom_2.webp"
+  },
+  "crazy_pete": {
+   "file": "/portraits/crazy_pete.webp"
+  },
+  "daisy": {
+   "file": "/portraits/daisy.webp"
+  },
+  "dr_mitchell": {
+   "file": "/portraits/dr_mitchell.webp"
+  },
+  "enemy_captain": {
+   "file": "/portraits/enemy_captain.webp"
+  },
+  "enemy_grunt": {
+   "file": "/portraits/enemy_grunt.webp"
+  },
+  "enemy_grunt_2": {
+   "file": "/portraits/enemy_grunt_2.webp"
+  },
+  "enemy_mechanic": {
+   "file": "/portraits/enemy_mechanic.webp"
+  },
+  "enemy_mechanic_2": {
+   "file": "/portraits/enemy_mechanic_2.webp"
+  },
+  "enemy_scientist": {
+   "file": "/portraits/enemy_scientist.webp"
+  },
+  "enemy_tank": {
+   "file": "/portraits/enemy_tank.webp"
+  },
+  "enemy_tank_2": {
+   "file": "/portraits/enemy_tank_2.webp"
+  },
+  "evelyn": {
+   "file": "/portraits/evelyn.webp"
+  },
+  "evelyn_2": {
+   "file": "/portraits/evelyn_2.webp"
+  },
+  "female_fighter": {
+   "file": "/portraits/female_fighter.webp"
+  },
+  "hunter": {
+   "file": "/portraits/hunter.webp"
+  },
+  "kaan": {
+   "file": "/portraits/kaan.webp"
+  },
+  "madam_betty": {
+   "file": "/portraits/madam_betty.webp"
+  },
+  "neh": {
+   "file": "/portraits/neh.webp"
+  },
+  "neh_2": {
+   "file": "/portraits/neh_2.webp"
+  },
+  "power_armor": {
+   "file": "/portraits/power_armor.webp"
+  },
+  "raider_girl": {
+   "file": "/portraits/raider_girl.webp"
+  },
+  "raider_girl_2": {
+   "file": "/portraits/raider_girl_2.webp"
+  },
+  "raider_pyromancer": {
+   "file": "/portraits/raider_pyromancer.webp"
+  },
+  "raider_soldier": {
+   "file": "/portraits/raider_soldier.webp"
+  },
+  "raider_soldier_2": {
+   "file": "/portraits/raider_soldier_2.webp"
+  },
+  "raider_tank": {
+   "file": "/portraits/raider_tank.webp"
+  },
+  "reginald": {
+   "file": "/portraits/reginald.webp"
+  },
+  "samantha": {
+   "file": "/portraits/samantha.webp"
+  },
+  "super_mutant_leader": {
+   "file": "/portraits/super_mutant_leader.webp"
+  },
+  "tesla_trader_captain": {
+   "file": "/portraits/tesla_trader_captain.webp"
+  },
+  "tesla_trader_captain_2": {
+   "file": "/portraits/tesla_trader_captain_2.webp"
+  }
+ }
+}

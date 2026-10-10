@@ -15,6 +15,7 @@ export default defineConfig({
         newrun: 'new-run/index.html',
         upgrades: 'upgrades/index.html',
         salvage: 'salvage/index.html',
+        crewdb: 'crew-db/index.html',
       },
       output: {
         manualChunks: { phaser: ['phaser'] },

@@ -91,6 +91,7 @@ export interface CrewMember {
   walked: number; // meters walked in total (drives the walk cycle)
   moved?: number; // meters walked on the current way (speeds up after the start)
   hp: number;
+  hit?: number; // damage per blow (crew database), default combat.json hit_damage
   hpMax: number;
   captain?: boolean; // the player's own character (first, big portrait)
   portrait?: string; // portrait id (src/data/portraits.json)
@@ -118,4 +119,6 @@ export interface GameState {
   /** Ship-space unit vector pointing to screen-right (set by the renderer from the camera): crew stand in the
    *  screen-left corner of a tile, enemies in the screen-right corner. */
   fightAxis: Point;
+  /** Characters from the crew database (website) the crew and boarders are drawn from; absent = built-in portraits. */
+  roster?: import('./crewdb').Roster;
 }

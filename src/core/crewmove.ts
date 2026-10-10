@@ -5,6 +5,7 @@ import MOVE from '../data/crew_move.json';
 import COMBAT from '../data/combat.json';
 import PORTRAITS from '../data/portraits.json';
 import { CREW_GEAR, CREW_LOOKS, equip, parseCrewLook, type CrewLook, type GearId } from './crew';
+import type { Roster, RosterEntry } from './crewdb';
 import { seatPose } from './exterior';
 import { buildNav, findPath, nodeAt, type NavGraph } from './nav';
 import type { CrewMember, GameState, Point, Ship } from './types';
@@ -55,7 +56,7 @@ function seeded(seed: number): () => number {
 const hash = (t: string) => [...t].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
 
 /** Random crew from the Crew Lab types: origin, build and gear vary; they start at the consoles, then on free deck. */
-export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): CrewMember[] {
+export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name), roster?: Roster): CrewMember[] {
   const nav = navOf(ship);
   const r = seeded(seed);
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)]!;
@@ -66,13 +67,25 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
   const starts = [...consoleNodes, ...deck.filter((d) => !consoleNodes.includes(d)).sort(() => r() - 0.5)];
   const names = [...NAMES].sort(() => r() - 0.5);
   // own crew = named characters from the portrait roster (captain: the power-armour portrait); name + sex follow it
-  const roster = PORTRAITS.portraits.filter((p) => p.side === 'crew' && p.variant === 1 && p.id !== PORTRAITS.captain_portrait).sort(() => r() - 0.5);
+  const faces = PORTRAITS.portraits.filter((p) => p.side === 'crew' && p.variant === 1 && p.id !== PORTRAITS.captain_portrait).sort(() => r() - 0.5);
+  // crew database (website): captain = its captain-portrait character, then its own crew in random order
+  const dbCrew = roster ? [...roster.crew].sort(() => r() - 0.5) : [];
   const crew: CrewMember[] = [];
   for (let i = 0; i < Math.min(count, starts.length); i++) {
+    if (roster) {
+      const entry = i === 0 ? roster.captain ?? dbCrew.shift() : dbCrew[(i - 1) % Math.max(1, dbCrew.length)];
+      if (entry) {
+        const base = pick(bases);
+        let gear: GearId[] = [];
+        for (const g of gearIds) if (r() < 0.4) gear = equip(gear, g);
+        crew.push(placeEntry(ship, starts[i]!, entry, base, gear, r, i));
+        continue;
+      }
+    }
     const base = pick(bases);
     let gear: GearId[] = [];
     for (const g of gearIds) if (r() < 0.4) gear = equip(gear, g);
-    const face = i === 0 ? PORTRAITS.portraits.find((p) => p.id === PORTRAITS.captain_portrait) : roster[(i - 1) % Math.max(1, roster.length)];
+    const face = i === 0 ? PORTRAITS.portraits.find((p) => p.id === PORTRAITS.captain_portrait) : faces[(i - 1) % Math.max(1, faces.length)];
     const look: CrewLook = {
       ...base,
       id: `crew_${i}`,
@@ -93,6 +106,24 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name)): Cre
     });
   }
   return crew;
+}
+
+/** A crew database character as a crew member at deck node `node` (look: random Crew Lab base, faction = origin). */
+function placeEntry(ship: Ship, node: string, e: RosterEntry, base: CrewLook, gear: GearId[], r: () => number, i: number): CrewMember {
+  const nav = navOf(ship);
+  const origin = e.faction && e.faction in CREW_LOOKS.origins ? (e.faction as CrewLook['origin']) : base.origin;
+  const name = i === 0 && !e.name ? 'CAPTAIN' : e.name;
+  const look: CrewLook = {
+    ...base, id: `crew_${i}`, name, sex: e.sex, build: e.build, origin, gear,
+    skin: Math.floor(r() * CREW_LOOKS.skin_tones.length), hair: Math.floor(r() * CREW_LOOKS.hair_colors.length),
+  };
+  const desk = consoleOf(ship, node);
+  const at = nav.nodes.get(node)!.pos;
+  return {
+    id: look.id, name, look, node, dest: node, pos: desk ? [at[0] + desk[0] * DESK_OFFSET, at[1] + desk[1] * DESK_OFFSET] : at, path: [],
+    heading: desk ? headingOf(desk) : r() * Math.PI * 2, walked: 0,
+    hp: e.hp, hpMax: e.hp, hit: e.hit, captain: i === 0, portrait: e.portrait ?? undefined,
+  };
 }
 
 /** Full health of a crew member / boarder (tanks are tougher). */

@@ -20,9 +20,9 @@ export const HUD_ICONS = {
 };
 
 /** The owner's face portrait (public/portraits) – or a drawn stand-in (head + shoulders) when a crew member has none. */
-function portraitHtml(c: CrewMember): string {
-  const p = PORTRAITS.portraits.find((x) => x.id === c.portrait);
-  if (p) return `<img class="face" src="${p.file}" alt="" draggable="false">`;
+function portraitHtml(c: CrewMember, files?: Record<string, string>): string {
+  const file = (c.portrait && files?.[c.portrait]) || PORTRAITS.portraits.find((x) => x.id === c.portrait)?.file;
+  if (file) return `<img class="face" src="${file}" alt="" draggable="false">`;
   return portraitSvg(c);
 }
 
@@ -108,7 +108,7 @@ export function mountStatusHud(root: HTMLElement, store: Store<GameState>): void
         const sys = stationOf(s, c);
         const col = sys ? (SYSTEMS as Record<string, { color: string; name: string }>)[sys]?.color : null;
         return `<button type="button" class="pn sh-face${c.captain ? ' captain' : ''}${c.ko !== undefined ? ' ko' : ''}${c.id === s.selectedCrewId ? ' sel' : ''}" data-crew="${c.id}">
-          ${portraitHtml(c)}
+          ${portraitHtml(c, s.roster?.portraits)}
           ${c.ko !== undefined ? '<span class="ko-tag">K.O.</span>' : ''}
           <span class="nm">${c.name}</span>
           <span class="hp ${healthClass(share)}"><i style="width:${Math.round(share * 100)}%"></i></span>

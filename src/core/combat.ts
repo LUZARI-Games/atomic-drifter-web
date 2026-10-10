@@ -30,8 +30,13 @@ export function spawnEnemy(state: GameState, p: Point, seed = state.crew.length 
   const r = () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
   const bases = LAB.map(parseCrewLook).filter((l): l is CrewLook => !!l && COMBAT.enemy_origins.includes(l.origin));
   const faces = PORTRAITS.portraits.filter((f) => f.side === 'enemy');
-  const base = bases[Math.floor(r() * bases.length)]!;
-  const face = faces[Math.floor(r() * faces.length)];
+  // crew database enemies (website) when there are any, else a random hostile look + enemy portrait
+  const entry = state.roster?.enemies.length ? state.roster.enemies[Math.floor(r() * state.roster.enemies.length)]! : null;
+  const pickBase = bases[Math.floor(r() * bases.length)]!;
+  const base: CrewLook = entry
+    ? { ...pickBase, build: entry.build, origin: entry.faction && entry.faction in CREW_LOOKS.origins ? (entry.faction as CrewLook['origin']) : pickBase.origin }
+    : pickBase;
+  const face = entry ? { id: entry.portrait ?? undefined, name: entry.name, sex: entry.sex } : faces[Math.floor(r() * faces.length)];
   const n = state.crew.filter(isEnemy).length + state.crew.length;
   const id = `enemy_${n}_${Math.floor(r() * 1e6)}`;
   const look: CrewLook = {
@@ -43,10 +48,10 @@ export function spawnEnemy(state: GameState, p: Point, seed = state.crew.length 
     hair: Math.floor(r() * CREW_LOOKS.hair_colors.length),
     gear: [],
   };
-  const hp = maxHp(look, 'enemy');
+  const hp = entry ? entry.hp : maxHp(look, 'enemy');
   const member: CrewMember = {
     id, name: look.name, look, node, dest: node, pos: nav.nodes.get(node)!.pos, path: [], heading: r() * Math.PI * 2,
-    walked: 0, hp, hpMax: hp, side: 'enemy', portrait: face?.id, idle: 0,
+    walked: 0, hp, hpMax: hp, hit: entry?.hit, side: 'enemy', portrait: face?.id, idle: 0,
   };
   // one enemy per tile: else the nearest free tile of that room; then onto its spot (centre / corner / desk)
   const placed = { ...state, crew: [...state.crew, member] };
@@ -136,7 +141,7 @@ export function tickCombat(state: GameState, dt: number): GameState {
     if (cooldown <= 0) {
       cooldown += COMBAT.attack_interval_s;
       hits += 1;
-      damage.set(foe.id, (damage.get(foe.id) ?? 0) + COMBAT.hit_damage);
+      damage.set(foe.id, (damage.get(foe.id) ?? 0) + (c.hit ?? COMBAT.hit_damage));
     }
     const heading = Math.atan2(foe.pos[1] - c.pos[1], foe.pos[0] - c.pos[0]);
     return { ...c, heading, idle: 0, fight: { target: foe.id, cooldown, hits } };
