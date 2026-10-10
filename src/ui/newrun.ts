@@ -53,7 +53,14 @@ type ErrState =
   | { kind: 'start'; field: 'ship' | 'captain' }
   | null;
 
-export function mountNewRun(screen: HTMLElement, hud: HTMLElement): void {
+/** Hooks from the hangar next to the terminal (ship selection). */
+export interface NewRunHooks {
+  shipLocked?: () => boolean;
+  onLockedStart?: () => void;
+  onStart?: () => void;
+}
+
+export function mountNewRun(screen: HTMLElement, hud: HTMLElement, hooks: NewRunHooks = {}): void {
   const sfx = new TermSfx();
   const fresh = (): NewRunSettings => ({ ...defaultSettings(), captainName: sanitizeName(loadRun().captainName) });
   let s: NewRunSettings = fresh();
@@ -261,6 +268,12 @@ export function mountNewRun(screen: HTMLElement, hud: HTMLElement): void {
       (field === 'ship' ? shipIn : capIn).focus();
       return trigErr({ kind: 'start', field });
     }
+    if (hooks.shipLocked?.()) {
+      sfx.play('error'); // ACCESS DENIED: the shown ship is still locked
+      hooks.onLockedStart?.();
+      return;
+    }
+    hooks.onStart?.();
     started = true;
     clearErr();
     (document.activeElement as HTMLElement | null)?.blur?.();

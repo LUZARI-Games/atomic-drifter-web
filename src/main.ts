@@ -16,6 +16,7 @@ import type { GameState } from './core/types';
 import { loadCrewDb } from './ui/crewDbApi';
 import { hasSavedRun, loadRun } from './ui/runStore';
 import { mountTitleScreen } from './ui/titleScreen';
+import { SHIP_CHOICE_KEY } from './ui/hangar';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
 import { applyTestScene, testSceneFromUrl, testShip } from './ui/testScene';
 import { Sound } from './ui/sound';
@@ -29,7 +30,15 @@ async function boot(): Promise<void> {
   const params = new URLSearchParams(location.search);
   const title = !scene && !params.has('play') && !params.has('ship');
   const sceneShip = scene?.ship ? parseShip(testShip(scene.ship)).ship : null;
-  const loaded = sceneShip ? { ship: sceneShip, source: 'demo' as const, problems: [] } : loadShip(!scene); // scenes use the demo ship
+  // the hangar choice (New Run): 'demo' ignores the planner ship; a planner TEST IN GAME (?ship=test) always uses it
+  let choice: string | null = null;
+  try {
+    choice = localStorage.getItem(SHIP_CHOICE_KEY);
+  } catch {
+    /* none */
+  }
+  const usePlanner = new URLSearchParams(location.search).has('ship') || choice !== 'demo';
+  const loaded = sceneShip ? { ship: sceneShip, source: 'demo' as const, problems: [] } : loadShip(!scene && usePlanner); // scenes use the demo ship
   // the planner export carries no crew yet -> random crew from the Crew Lab types
   // ship status (hull, shields, scrap …) comes from the saved run (New Run / Ship Upgrades / Salvage)
   const run = loadRun();

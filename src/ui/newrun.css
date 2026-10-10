@@ -356,3 +356,69 @@ html:not(.glass-on) .nr-fx .roll, html:not(.glass-on) .nr-fx .glare, html:not(.g
 @media (prefers-reduced-motion: reduce) {
   .nr-fx .roll { animation: none; display: none; }
 }
+
+/* ---------- Hangar + terminal layout (New Run = ship selection screen) ----------
+   Wide (PC, 16:9): hangar left, the New Run terminal slides in from the right in a metal housing.
+   Upright phone: hangar on top (~42 %), the terminal slides up from below and fills the rest. */
+.hangar { position: fixed; inset: 0; background: var(--bg); overflow: hidden; }
+.hg-game { position: absolute; inset: 0; }
+.hangar.locked .hg-game canvas { filter: brightness(0.32) saturate(0.15); }
+.hg-hud { position: absolute; inset: 0; pointer-events: none; }
+.hg-hud .status-hud { pointer-events: none; }
+.hg-arrow {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 52px; height: 72px; cursor: pointer;
+  font: 24px var(--font); color: var(--green); background: rgba(3, 8, 6, 0.8); border: 3px solid var(--green-dim);
+}
+.hg-arrow:hover, .hg-arrow:focus-visible { border-color: var(--green); outline: none; }
+.hg-arrow[data-step="-1"] { left: 10px; }
+.hg-arrow[data-step="1"] { right: 10px; }
+.hg-plate { position: absolute; inset: 0; pointer-events: none; }
+.hg-plate .hg-arrow { pointer-events: auto; }
+.hg-name {
+  position: absolute; right: 12px; bottom: 12px; text-align: right; pointer-events: none;
+  font-family: var(--font); color: var(--green); text-shadow: 0 0 6px #000, 0 0 2px #000;
+}
+.hg-name span { display: block; font-size: 24px; letter-spacing: 3px; }
+.hg-name small { display: block; font-size: 15px; letter-spacing: 2px; color: var(--green-dim); }
+.hangar.locked .hg-name span { color: var(--amber); }
+.hg-plate.deny .hg-name { animation: hg-shake 0.4s; }
+@keyframes hg-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.hg-lock {
+  display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-12deg); pointer-events: none;
+  font: 24px var(--font); letter-spacing: 8px; color: var(--amber); border: 3px solid var(--amber); padding: 8px 18px;
+  background: rgba(3, 8, 6, 0.6); text-shadow: 0 0 8px rgba(255, 180, 58, 0.6);
+}
+.hangar.locked .hg-lock { display: block; }
+.hg-sys {
+  position: absolute; left: 10px; bottom: 10px; pointer-events: none; font-family: var(--font); color: var(--green);
+  background: rgba(3, 8, 6, 0.78); border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); padding: 6px 8px;
+}
+.hg-sys-hd { font-size: 15px; letter-spacing: 2px; color: var(--green-dim); margin-bottom: 4px; }
+.hg-sys-row { display: flex; align-items: flex-end; gap: 6px; }
+.hg-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.hg-bars { display: flex; flex-direction: column-reverse; gap: 2px; }
+.hg-bars i { width: 14px; height: 5px; background: var(--green); box-shadow: 0 0 4px color-mix(in srgb, var(--green) 60%, transparent); }
+.hg-col.reactor .hg-bars i { background: #59d96b; width: 10px; height: 4px; }
+.hg-ico { width: 14px; height: 14px; border: 1px solid #000; }
+.hg-lbl { font-size: 15px; transform: scale(0.8); }
+
+/* the terminal in its housing */
+#game.nr { transform: translate(0, 0); box-shadow: -10px 0 30px rgba(0, 0, 0, 0.7); }
+@media (min-aspect-ratio: 1/1) {
+  .hangar { right: min(46%, 660px); }
+  #game.nr { left: auto; width: min(46%, 660px); border-left: 12px solid #3b3e37; outline: 2px solid #1c1e1a;
+    animation: nr-slide-x 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .hangar { bottom: 58%; }
+  #game.nr { top: 42%; border-top: 12px solid #3b3e37; animation: nr-slide-y 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .hg-arrow { width: 40px; height: 52px; top: 64%; }
+  .hg-hud .status-hud { transform: scale(0.72); transform-origin: top left; width: 139%; }
+  .hg-bars i { width: 10px; height: 3px; }
+  .hg-col.reactor .hg-bars i { width: 8px; height: 3px; }
+  .hg-sys { padding: 4px 6px; }
+  .hg-name span { font-size: 18px; }
+  .hg-sys-hd { display: none; }
+}
+@keyframes nr-slide-x { from { transform: translateX(105%); } to { transform: translateX(0); } }
+@keyframes nr-slide-y { from { transform: translateY(105%); } to { transform: translateY(0); } }

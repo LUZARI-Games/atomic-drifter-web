@@ -121,6 +121,14 @@ never restate the owner's tasks back to them.
   `/?play`), OPTIONS (sound, volume, greyscale, fullscreen), DEV TOOLS (planner, labs, database, sound list, upgrades,
   salvage, all test scenes), WISHLIST ON STEAM (`src/data/game_info.json` steam_url; empty = COMING SOON).
   The game itself = `/?play` (also `?test=`, planner `?ship=test`); in-game menu has MAIN MENU.
+- New Run = ship selection screen (`new-run/index.html`, `src/newrun.ts`): HANGAR (`src/ui/hangar.ts`) + the New Run
+  terminal. PC / wide: hangar left, terminal slides in from the right in a metal housing (`#game.nr` in newrun.css);
+  upright phone: hangar top ~42 %, terminal slides up from below. Hangar = selected ship flying (Phaser, ShipScene
+  attract mode), ◀ ▶ (also arrow keys) to flip ships, top-left HUD (crew + hull …), bottom-left systems / reactor bars
+  (placeholder). Ships (`src/core/hangar.ts`): planner ship (if any), demo ship, 4 LOCKED random placeholders
+  (`src/core/shipgen.ts`, seeded) shown dark with LOCKED / "???". START on a locked ship = ACCESS DENIED; START on an
+  unlocked one saves `adw.shipChoice` ('planner' | 'demo') – the game uses the demo ship when 'demo' is chosen
+  (planner TEST IN GAME `?ship=test` always uses the planner ship).
 - Run state `src/core/run.ts` (RunState: names, difficulty, modifiers, scrap, ammo, hull, evasion, system levels,
   reactor bars, turrets), saved per browser by `src/ui/runStore.ts` (`adw.run`). The game HUD reads it (`statusFromRun`).
 - Top-left HUD `src/ui/statusHud.ts`: hull segments, shield pips + recharge, evasion | ammo, scrap; crew portraits
