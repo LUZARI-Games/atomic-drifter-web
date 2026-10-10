@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/build-planner.mjs",
+    "predev": "node scripts/build-planner.mjs && node scripts/build-sfx.mjs",
     "dev": "vite --host",
-    "prebuild": "node scripts/build-planner.mjs",
+    "prebuild": "node scripts/build-planner.mjs && node scripts/build-sfx.mjs",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

@@ -187,3 +187,14 @@ html, body {
 .boot-bloom b { font-weight: normal; min-width: 64px; text-align: right; }
 .boot-extra { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(1180px, 100%); }
 .boot-extra:empty { display: none; }
+
+/* Boarders (statusHud): mirrored column top right, under [ MENU ]; amber = hostile */
+.status-hud.with-foes .sh-crew { max-width: calc(100% - 72px); }
+.sh-foes { position: absolute; top: calc(max(8px, env(safe-area-inset-top)) + 54px); right: max(8px, env(safe-area-inset-right)); display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.sh-foes:empty { display: none; }
+.sh-foes-hd { font-size: var(--fs-s); letter-spacing: 1px; color: var(--amber); text-shadow: 0 0 4px #000; }
+.sh-face.foe { width: 58px; color: var(--amber); border-color: var(--amber); }
+.sh-face.foe .face { background: radial-gradient(circle at 50% 40%, #3a2a0c, #0b0703); }
+.sh-face.foe .hp { background: rgba(255, 180, 58, 0.15); }
+.sh-face.foe .hp i { background: var(--amber); }
+.sh-more { font-size: var(--fs-s); color: var(--amber); }

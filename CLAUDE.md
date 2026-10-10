@@ -118,6 +118,9 @@ never restate the owner's tasks back to them.
   face webps in `public/portraits/` (`src/data/portraits.json`: side crew/enemy, sex). Captain = power_armor, named
   from New Run; other own crew = random named characters from the crew roster (their name + sex). Enemy faces are for
   hostile crew later. Full-res / in-game-res versions of the art are not in the repo yet.
+  Boarders: mirrored amber column top right under `[ MENU ]` (`.sh-foes`: portrait, name, health bar, up to 4 + "+N"),
+  only while enemies are on board; tap = camera pans to them (`ShipScene.lookAt`). The enemy ship's status goes above
+  it later (PC: right side, mirrored).
 - Pages (plain DOM, no Phaser), each with rules in core + data JSON + tests:
   `/new-run/` (newrun.ts: names, difficulty, modifiers → buildRun), `/upgrades/` (upgrades.ts: system levels, reactor
   bars, undo/confirm), `/salvage/` (salvage.ts: seeded offer of 3 turrets by rarity, pick / scrap all; `?seed=`).
@@ -178,10 +181,16 @@ never restate the owner's tasks back to them.
   server → seed data.
 
 ## Sound
-- `src/ui/sound.ts`: all sounds made in code with Web Audio (no files): terminal blips (select / deselect / send),
-  metal footsteps (one per stride), sliding doors, engine hum + wind ambience. Starts after the first tap (browser rule).
-  Menu: `SOUND: ON/OFF`, `VOLUME` (25/50/75/100 %), remembered per browser. ShipScene only calls the `ShipSounds`
-  interface; main.ts wires it to `Sound`.
+- Every sound has an id: catalogue `src/data/sounds.json` (id, when it plays, group) = the owner's to-do list for
+  making real sounds. Page `/sounds/` (`src/soundspage.ts`) lists them with ▶ and YOUR FILE / PLACEHOLDER.
+- Own files: `public/sfx/<id>.ogg|mp3|wav` (`scripts/build-sfx.mjs` writes `public/sfx/index.json` before dev/build;
+  `src/ui/sfxFiles.ts` `playFile` / `loopFile`) replace the synthesized placeholder everywhere.
+- Game: `src/ui/sound.ts` (`Sound.play(id)`, placeholders in `SYNTHS`, test: every game id has one). Ambience =
+  engine hum loop + hover hum while vehicles are docked + a soft `wind_gust` every 20–40 s (no constant wind).
+  ShipScene plays events from `stateEvents` / `moodEvents` / `orderRefused` (`src/core/events.ts`: boarder_alarm,
+  fight_won, crew_ko/wake, system_wrecked/repaired, vehicle_enter/exit, moods), hammer/weld ticks while working.
+- Terminal pages: `src/ui/termSfx.ts` (`term_*`, New Run + Ship Upgrades + boot/off) and `src/ui/salvageSfx.ts`
+  (`salvage_*`). Menu: `SOUND: ON/OFF`, `VOLUME` (`src/ui/soundPrefs.ts`, remembered per browser).
 
 ## Fast checks (for Claude)
 - Test scenes: open the game with `?test=<name>` (`src/data/test_scenes.json`: car, bike, sidecar, idle, walk,

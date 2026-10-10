@@ -19,6 +19,7 @@ export function mountHud(root: HTMLElement, store: Store<GameState>, opts: HudOp
     { label: 'SHIP UPGRADES', href: '/upgrades/' },
     { label: 'SALVAGE (TEST)', href: '/salvage/' },
     { label: 'CREW DATABASE', href: '/crew-db/' },
+    { label: 'SOUND LIST', href: '/sounds/' },
     { label: 'SHIP LAB', href: '/ship-lab/' },
     { label: 'CREW LAB', href: '/crew-lab/' },
     { label: 'PLANNER', href: '/planner/' },

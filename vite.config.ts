@@ -16,6 +16,7 @@ export default defineConfig({
         upgrades: 'upgrades/index.html',
         salvage: 'salvage/index.html',
         crewdb: 'crew-db/index.html',
+        sounds: 'sounds/index.html',
       },
       output: {
         manualChunks: { phaser: ['phaser'] },

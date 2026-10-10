@@ -40,10 +40,11 @@ function portraitSvg(c: CrewMember): string {
   </svg>`;
 }
 
+const FOES_SHOWN = 4;
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 const healthClass = (share: number) => (share > 0.5 ? '' : share > 0.25 ? 'warn' : 'bad');
 
-export function mountStatusHud(root: HTMLElement, store: Store<GameState>): void {
+export function mountStatusHud(root: HTMLElement, store: Store<GameState>, opts: { onFocus?: (id: string) => void } = {}): void {
   const el = document.createElement('div');
   el.className = 'status-hud';
   el.innerHTML = `
@@ -60,6 +61,33 @@ export function mountStatusHud(root: HTMLElement, store: Store<GameState>): void
     </div>
     <div class="sh-crew" data-ref="crew"></div>`;
   root.appendChild(el);
+  // boarders on board: mirrored column top right, under [ MENU ] (only while there are any); tap = camera to them
+  const foes = document.createElement('div');
+  foes.className = 'sh-foes';
+  root.appendChild(foes);
+  foes.addEventListener('click', (e) => {
+    const card = (e.target as HTMLElement).closest('[data-foe]') as HTMLElement | null;
+    if (card) opts.onFocus?.(card.dataset.foe!);
+  });
+  let foeKey = '';
+  const renderFoes = (s: GameState) => {
+    const list = s.crew.filter((c) => c.side === 'enemy' && c.dying === undefined);
+    const key = JSON.stringify(list.map((c) => [c.id, c.hp, c.hpMax]));
+    if (key === foeKey) return;
+    foeKey = key;
+    el.classList.toggle('with-foes', list.length > 0);
+    const shown = list.slice(0, FOES_SHOWN);
+    foes.innerHTML = shown.length
+      ? `<div class="sh-foes-hd">BOARDERS</div>` + shown.map((c) => {
+          const share = Math.max(0, c.hp / c.hpMax);
+          return `<button type="button" class="pn sh-face foe" data-foe="${c.id}">
+            ${portraitHtml(c, s.roster?.portraits)}
+            <span class="nm">${c.name}</span>
+            <span class="hp"><i style="width:${Math.round(share * 100)}%"></i></span>
+          </button>`;
+        }).join('') + (list.length > shown.length ? `<div class="sh-more">+${list.length - shown.length}</div>` : '')
+      : '';
+  };
   const $ = (r: string) => el.querySelector(`[data-ref="${r}"]`) as HTMLElement;
   const crewBox = $('crew');
   crewBox.addEventListener('click', (e) => {
@@ -79,6 +107,7 @@ export function mountStatusHud(root: HTMLElement, store: Store<GameState>): void
       renderStatus(st);
     }
     renderCrew(s);
+    renderFoes(s);
   };
   const renderStatus = (st: GameState['status']) => {
     // hull: one segment per hull point (FTL style), lit = remaining

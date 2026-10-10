@@ -48,7 +48,8 @@ async function boot(): Promise<void> {
   const store = new Store(start);
   const sound = new Sound();
 
-  mountStatusHud(document.getElementById('hud')!, store);
+  let look: ((id: string) => void) | null = null;
+  mountStatusHud(document.getElementById('hud')!, store, { onFocus: (id) => look?.(id) });
   mountHud(document.getElementById('hud')!, store, {
     source: loaded.source,
     extraItems: sound.menuItems(),
@@ -73,6 +74,10 @@ async function boot(): Promise<void> {
   const shipScene = new ShipScene(store, sound, scene?.focus ? { at: scene.focus, zoom: scene.zoom ?? 1 } : undefined);
   // debug hook for automated checks: window.adw.screenOf([x, z]) = where to tap for a ship point
   (window as unknown as { adw: unknown }).adw = { store, scene: shipScene };
+  look = (id) => {
+    const c = store.get().crew.find((m) => m.id === id);
+    if (c) shipScene.lookAt(c.pos);
+  };
   new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',

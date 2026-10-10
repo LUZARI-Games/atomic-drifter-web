@@ -1,0 +1,280 @@
+{
+ "_info": "Every sound in the prototype. Own files: public/sfx/<id>.ogg|mp3|wav replace the placeholder (page /sounds/).",
+ "groups": [
+  {
+   "name": "Crew orders",
+   "sounds": [
+    {
+     "id": "select",
+     "when": "Tap a crew member (or their portrait) to select them",
+     "synth": "game"
+    },
+    {
+     "id": "deselect",
+     "when": "Tap the selected crew member again / tap the void",
+     "synth": "game"
+    },
+    {
+     "id": "send",
+     "when": "Crew member gets sent into a room",
+     "synth": "game"
+    },
+    {
+     "id": "order_refused",
+     "when": "Tap a room that cannot take them (full / unreachable)",
+     "synth": "game"
+    },
+    {
+     "id": "step",
+     "when": "One footstep on the metal deck (per stride while walking)",
+     "synth": "game"
+    },
+    {
+     "id": "door_open",
+     "when": "Sliding door opens (hiss + clunk)",
+     "synth": "game"
+    },
+    {
+     "id": "door_close",
+     "when": "Sliding door closes",
+     "synth": "game"
+    },
+    {
+     "id": "vehicle_enter",
+     "when": "Someone climbs into a docked car / bike / sidecar",
+     "synth": "game"
+    },
+    {
+     "id": "vehicle_exit",
+     "when": "Someone climbs out of a vehicle back onto the balcony",
+     "synth": "game"
+    }
+   ]
+  },
+  {
+   "name": "Moods",
+   "sounds": [
+    {
+     "id": "mood_chat",
+     "when": "Two of the same faction start chatting (the storyteller laughs)",
+     "synth": "game"
+    },
+    {
+     "id": "mood_wary",
+     "when": "Crew of different factions in one room turn wary (\"hmm?\")",
+     "synth": "game"
+    },
+    {
+     "id": "mood_bored",
+     "when": "A bored crew member sits down on the floor (sigh)",
+     "synth": "game"
+    }
+   ]
+  },
+  {
+   "name": "Combat",
+   "sounds": [
+    {
+     "id": "boarder_alarm",
+     "when": "Enemy boarders appear on the ship",
+     "synth": "game"
+    },
+    {
+     "id": "hit",
+     "when": "A melee blow lands (crew or enemy)",
+     "synth": "game"
+    },
+    {
+     "id": "enemy_die",
+     "when": "An enemy goes down and dies",
+     "synth": "game"
+    },
+    {
+     "id": "crew_ko",
+     "when": "An own crew member is knocked out (0 HP)",
+     "synth": "game"
+    },
+    {
+     "id": "crew_wake",
+     "when": "A knocked-out crew member gets up after the fight",
+     "synth": "game"
+    },
+    {
+     "id": "fight_won",
+     "when": "The last boarder on board is defeated",
+     "synth": "game"
+    },
+    {
+     "id": "heal",
+     "when": "Med bay heal tick (+5 HP, once per second)",
+     "synth": "game"
+    }
+   ]
+  },
+  {
+   "name": "Systems",
+   "sounds": [
+    {
+     "id": "sabotage_hit",
+     "when": "A boarder hammers on a console (repeats while sabotaging)",
+     "synth": "game"
+    },
+    {
+     "id": "repair_weld",
+     "when": "Crew welds / repairs at a console (repeats while repairing)",
+     "synth": "game"
+    },
+    {
+     "id": "system_wrecked",
+     "when": "A system's last health bar is destroyed",
+     "synth": "game"
+    },
+    {
+     "id": "system_repaired",
+     "when": "A damaged system is fully repaired",
+     "synth": "game"
+    }
+   ]
+  },
+  {
+   "name": "Ambience",
+   "sounds": [
+    {
+     "id": "engine_hum",
+     "when": "Engine / atomic drives drone, loops the whole time (own file: a seamless loop)",
+     "synth": "game"
+    },
+    {
+     "id": "wind_gust",
+     "when": "A soft wind gust, every 20–40 s",
+     "synth": "game"
+    },
+    {
+     "id": "hover_hum",
+     "when": "Quiet hum while hover vehicles are docked (loop)",
+     "synth": "game"
+    }
+   ]
+  },
+  {
+   "name": "Terminal pages (New Run, Ship Upgrades, Salvage)",
+   "sounds": [
+    {
+     "id": "term_boot",
+     "when": "POWER ON / REBOOT – the screen switches on",
+     "synth": "term"
+    },
+    {
+     "id": "term_off",
+     "when": "The CRT switches off after a confirm",
+     "synth": "term"
+    },
+    {
+     "id": "term_hover",
+     "when": "Pointer / finger moves over an option",
+     "synth": "term"
+    },
+    {
+     "id": "term_click",
+     "when": "Plain button press, option toggles",
+     "synth": "term"
+    },
+    {
+     "id": "term_add",
+     "when": "Something added / switched on (+ level, modifier on)",
+     "synth": "term"
+    },
+    {
+     "id": "term_sub",
+     "when": "Something removed / switched off",
+     "synth": "term"
+    },
+    {
+     "id": "term_confirm",
+     "when": "CONFIRM / START pressed",
+     "synth": "term"
+    },
+    {
+     "id": "term_tick",
+     "when": "Ship Upgrades: one level being installed (pitch rises per level)",
+     "synth": "term"
+    },
+    {
+     "id": "term_done",
+     "when": "Done / success jingle",
+     "synth": "term"
+    },
+    {
+     "id": "term_error",
+     "when": "ACCESS DENIED (not enough scrap, locked, max level …)",
+     "synth": "term"
+    }
+   ]
+  },
+  {
+   "name": "Salvage",
+   "sounds": [
+    {
+     "id": "salvage_select",
+     "when": "Pick a line-up / reward type",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_coin",
+     "when": "Scrap coin counts up",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_shell",
+     "when": "A shell drops in during the reveal",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_lock",
+     "when": "A card locks into place",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_scan",
+     "when": "Scanner sweep over a card",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_stripe",
+     "when": "A rarity stripe lights up",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_plimp",
+     "when": "The final rarity stripe of a card",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_fanfare",
+     "when": "Rare (or better) card revealed",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_charge",
+     "when": "Charge-up before an epic / legendary reveal",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_burst",
+     "when": "Epic / legendary burst",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_arm",
+     "when": "Card armed (first tap on a card)",
+     "synth": "salvage"
+    },
+    {
+     "id": "salvage_finale",
+     "when": "Pick confirmed – salvage secured",
+     "synth": "salvage"
+    }
+   ]
+  }
+ ]
+}

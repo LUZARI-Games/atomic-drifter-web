@@ -67,3 +67,8 @@ button, select, input, textarea { font: inherit; color: inherit; }
   .sheet .box { animation: up 0.18s ease-out; }
   @keyframes up { from { transform: translateY(30px); opacity: 0.6; } }
 }
+/* /sounds/ page (shares this sheet) */
+.grp { font-size: 18px; font-weight: 400; letter-spacing: 2px; margin: 22px 0 8px; color: var(--green); }
+.facrow.snd { grid-template-columns: 52px 1fr auto; cursor: default; }
+.btn.play { min-width: 48px; padding: 0; font-size: 18px; }
+.own { color: var(--amber); font-weight: 400; }

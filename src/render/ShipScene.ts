@@ -7,6 +7,7 @@ import { systemBars, tickCombat, workOf } from '../core/combat';
 import { systemBlocks } from '../core/hull';
 import { atDesk, doorsInUse, navOf, seatOf, selectCrew, STRIDE_M, tickCrew } from '../core/crewmove';
 import { keepDistance, moods, type Mood } from '../core/mood';
+import { moodEvents, orderRefused, stateEvents } from '../core/events';
 import { nodeAt } from '../core/nav';
 import { tapPoint } from '../core/selection';
 import { roomOutline } from '../core/ship';
@@ -28,6 +29,10 @@ export interface ShipSounds {
   hit?(): void;
   die?(): void;
   heal?(): void;
+  /** Any sound by id (src/data/sounds.json). */
+  play?(id: string): void;
+  /** Docked vehicles hum. */
+  setVehicles?(on: boolean): void;
 }
 const SILENT: ShipSounds = { select() {}, deselect() {}, send() {}, door() {}, step() {} };
 const TEXT_STYLE = { fontFamily: FONT_FAMILY, fontSize: '15px', resolution: 3 };
@@ -63,6 +68,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private marks = new Map<string, Phaser.GameObjects.Text>(); // speech marks above heads
   private lastHp = new Map<string, number>();
   private hurtAt = new Map<string, number>();
+  private workTick = new Map<string, number>(); // seconds to the next hammer / weld sound per worker
   private floats: { text: Phaser.GameObjects.Text; born: number }[] = [];
   private pluses: { x: number; y: number; born: number }[] = []; // med bay heal particles (screen points)
   private moodNow = new Map<string, Mood>();
@@ -105,7 +111,12 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
         // a figure under the finger wins (they stand up from the floor, so test on screen, not on the deck)
         const hit = this.crewAt(x, y);
         if (hit) this.store.update((s) => selectCrew(s, s.selectedCrewId === hit ? null : hit));
-        else this.store.update((s) => tapPoint(s, this.view.toShip(x, y)));
+        else {
+          const before = this.store.get();
+          const p = this.view.toShip(x, y);
+          this.store.update((s) => tapPoint(s, p));
+          if (orderRefused(before, this.store.get(), p)) this.sfx.play?.('order_refused');
+        }
       },
     });
     // zoom right after fitting = "1" for the wasteland's zoom parallax (refit on resize happens first)
@@ -121,6 +132,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       focus();
     });
     this.ready = true;
+    this.sfx.setVehicles?.((this.store.get().ship.vehicles ?? []).length > 0);
 
     let lastSel = this.store.get().selectedCrewId;
     let lastDest = new Map(this.store.get().crew.map((c) => [c.id, c.dest]));
@@ -152,6 +164,12 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     };
   }
 
+  /** Slide the camera to ship point `p` (e.g. a boarder's portrait was tapped). */
+  lookAt(p: Point): void {
+    const w = this.view.deckPoint(p);
+    this.cameras.main.pan(w.x, w.y, 450, 'Sine.easeInOut');
+  }
+
   /** Where ship point `p` (height `h` m) is on the screen right now – for automated tap checks (window.adw). */
   screenOf(p: Point, h = 0): { x: number; y: number } {
     const cam = this.cameras.main;
@@ -173,8 +191,21 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     const dt = this.lastTime < 0 ? delta / 1000 : Math.min(now - this.lastTime, 250) / 1000;
     this.lastTime = now;
     // walking, then fights / boarders / repairs / idle timers (core rules), in real elapsed time
+    const prev = this.store.get();
     this.store.update((st) => keepDistance(tickCombat(walking ? tickCrew(st, dt) : st, dt)));
     const state = this.store.get();
+    for (const e of stateEvents(prev, state)) this.sfx.play?.(e);
+    // hammering / welding at consoles: a tick every ~0.45 s per worker
+    for (const c of state.crew) {
+      const work = workOf(state, c);
+      if (!work) {
+        this.workTick.delete(c.id);
+        continue;
+      }
+      const left = (this.workTick.get(c.id) ?? 0) - dt;
+      if (left <= 0) this.sfx.play?.(work === 'sabotage' ? 'sabotage_hit' : 'repair_weld');
+      this.workTick.set(c.id, left <= 0 ? 0.42 + Math.random() * 0.12 : left);
+    }
     const inUse = doorsInUse(state);
     const step = DOOR_SPEED * dt;
     let doorsMoved = false;
@@ -195,7 +226,9 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.reactToHits(now);
     const busy = state.crew.some((c) => c.fight || c.dying !== undefined || c.ko !== undefined);
     if (walking || busy || this.dirty || now - this.lastIdle > IDLE_FRAME_MS) {
-      this.moodNow = moods(this.store.get());
+      const m = moods(this.store.get());
+      for (const e of moodEvents(this.moodNow, m)) this.sfx.play?.(e);
+      this.moodNow = m;
       this.layer.setCrew(this.crewToDraw(now / 1000));
       this.lastIdle = now;
     }
@@ -266,7 +299,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
         const p = this.view.deckPoint(c.pos, HEAD_M);
         const text = this.add.text(p.x, p.y, `-${Math.round(before - c.hp)}`, { ...TEXT_STYLE, color: CSS.red }).setOrigin(0.5).setDepth(3.4);
         this.floats.push({ text, born: now });
-        if (c.hp <= 0) this.sfx.die?.();
+        if (c.hp <= 0 && c.side === 'enemy') this.sfx.die?.(); // own crew: crew_ko (stateEvents)
       } else if (before !== undefined && before > 0 && c.hp > before) {
         // med bay tick: "+5" and a few green crosses rising around the body
         this.sfx.heal?.();
