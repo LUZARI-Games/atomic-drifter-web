@@ -235,6 +235,41 @@
      }
     }
    ]
+  },
+  {
+   "id": "2026_10_10_reginald_mitchell",
+   "writes": [
+    {
+     "op": "set",
+     "collection": "factions",
+     "id": "slaver_guild",
+     "data": {
+      "name": "SLAVER GUILD",
+      "color": "#8a5a2b",
+      "notes": "Guild of the slavers. They kidnap people – among others for the Subjects' scientists."
+     }
+    },
+    {
+     "op": "merge",
+     "collection": "characters",
+     "id": "reginald",
+     "data": {
+      "side": "enemy",
+      "faction": "slaver_guild",
+      "body": "ghoul",
+      "notes": "Ghoul. Leader of the slaver guild – a villain."
+     }
+    },
+    {
+     "op": "merge",
+     "collection": "characters",
+     "id": "dr_mitchell",
+     "data": {
+      "body": "ghoul",
+      "notes": "Ghoul. Friendly Iron Mall citizen."
+     }
+    }
+   ]
   }
  ]
 }

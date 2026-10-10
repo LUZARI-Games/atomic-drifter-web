@@ -54,6 +54,8 @@ describe('crew database records', () => {
   it('body types: Neh + Oswald are super mutants; unknown bodies become human', () => {
     expect(SEED_DB.characters.neh?.body).toBe('super_mutant');
     expect(SEED_DB.characters.super_mutant_leader?.body).toBe('super_mutant');
+    expect(SEED_DB.characters.reginald).toMatchObject({ side: 'enemy', faction: 'slaver_guild', body: 'ghoul' });
+    expect(SEED_DB.characters.dr_mitchell).toMatchObject({ side: 'crew', faction: 'ironmall', body: 'ghoul' });
     expect((cleanRecord('characters', { name: 'X', body: 'robot' }) as { body: string }).body).toBe('human');
   });
 
