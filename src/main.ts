@@ -9,7 +9,7 @@ import { mountHud } from './ui/hud';
 import { spawnShipEnemies } from './core/combat';
 import { statusFromRun } from './core/run';
 import { systemId } from './core/systems';
-import { effectiveLevel } from './core/upgrades';
+import { levelOrNull } from './core/upgrades';
 import { parseShip } from './core/ship';
 import { loadRun } from './ui/runStore';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
@@ -29,7 +29,12 @@ async function boot(): Promise<void> {
   // the captain carries the name entered in New Run
   const crew = generateCrew(loaded.ship).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
   // system health bars = their power level in this run (Ship Upgrades)
-  const systemBarsByRoom = Object.fromEntries(loaded.ship.rooms.filter((r) => r.system).map((r) => [r.id, effectiveLevel(run, systemId(r.system))]));
+  // (systems without upgrade levels, e.g. the reactor, keep the default number of bars)
+  const systemBarsByRoom: Record<string, number> = {};
+  for (const r of loaded.ship.rooms) {
+    const level = r.system ? levelOrNull(run, systemId(r.system)) : null;
+    if (level !== null) systemBarsByRoom[r.id] = level;
+  }
   let start = { ...createGameState(loaded.ship), crew, status: statusFromRun(run), systemBars: systemBarsByRoom };
   start = spawnShipEnemies(start); // enemy boarders placed in the planner (ENEMY CREW)
   if (scene) start = applyTestScene(start, scene);

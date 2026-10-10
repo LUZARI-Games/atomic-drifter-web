@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultRun, type RunState } from './run';
 import {
+  levelOrNull,
   REACTOR,
   UPGRADE_SYSTEMS,
   availableScrap,
@@ -162,5 +163,14 @@ describe('upgrades rules', () => {
     expect(rows[3]?.cost).toBe('MANNED ONLY');
     expect(systemRows(run(), emptyPending(), 'engine')[2]?.cost).toBe('NEXT · 15 SCRAP');
     expect(reactorRows(run(), emptyPending()).map((x) => x.state)).toEqual(['owned', 'owned', 'owned', 'owned', 'next']);
+  });
+});
+
+describe('levelOrNull', () => {
+  it('gives the level of upgradeable systems and null for others (reactor, unknown) instead of throwing', () => {
+    const run = defaultRun();
+    expect(levelOrNull(run, 'weapons')).toBeGreaterThan(0);
+    expect(levelOrNull(run, 'reactor')).toBeNull();
+    expect(levelOrNull(run, 'nonsense')).toBeNull();
   });
 });

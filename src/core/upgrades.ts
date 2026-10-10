@@ -82,6 +82,11 @@ export function effectiveLevel(run: RunState, id: string): number {
   return typeof v === 'number' && v > 0 ? v : systemById(id).start;
 }
 
+/** Installed level of a ship room's system, or null when it is not an upgradeable system (e.g. reactor, airlock). */
+export function levelOrNull(run: RunState, id: string): number | null {
+  return UPGRADE_SYSTEMS.some((x) => x.id === id) ? effectiveLevel(run, id) : null;
+}
+
 /** Installed reactor bars (0 in the run = not set yet -> data start). */
 export function effectiveReactor(run: RunState): number {
   return run.reactor > 0 ? run.reactor : REACTOR.start;
