@@ -14,6 +14,7 @@ interface SceneCrew {
   origin?: string; // give this crew member another origin (mood tests)
   idle?: number; // seconds they have been standing around already (bored tests)
   hp?: number; // start HP (knock-out / med bay tests)
+  id?: string; // enemy: crew database character id
 }
 export interface TestScene {
   name: string;
@@ -58,7 +59,7 @@ export function applyTestScene(state: GameState, scene: TestScene): GameState {
     }
   });
   scene.crew.forEach((c, i) => {
-    if (c.enemy) s = spawnEnemy(s, c.at, 500 + i * 7919);
+    if (c.enemy) s = spawnEnemy(s, c.at, 500 + i * 7919, c.id);
   });
   own.forEach((c, i) => {
     const m = s.crew[i];

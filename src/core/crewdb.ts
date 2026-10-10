@@ -2,6 +2,7 @@
 // the game at start. Pure rules: record validation shared by server + page, and the roster the game draws crew from.
 // Engine-neutral: plain data in, plain data out.
 import COMBAT from '../data/combat.json';
+import { BODIES, type Body } from './crew';
 import PATCH_DATA from '../data/crew_db_patches.json';
 import SEED from '../data/crew_db_seed.json';
 
@@ -17,6 +18,7 @@ export interface CharacterRecord {
   hp: number | null; // null = default from combat.json (by side + build)
   hit: number; // damage per blow
   portrait: string | null; // portrait id
+  body: Body; // human | super_mutant | ghoul
   attrs: { name: string; value: string }[]; // free attributes
   notes: string;
 }
@@ -66,6 +68,7 @@ export function cleanRecord(collection: Collection, raw: unknown): CharacterReco
       hp: num(r.hp, 1, 999),
       hit: num(r.hit, 0, 99) ?? COMBAT.hit_damage,
       portrait: isId(r.portrait) ? r.portrait : null,
+      body: BODIES.includes(r.body as Body) ? (r.body as Body) : 'human',
       attrs,
       notes: str(r.notes, 1000),
     };
@@ -146,6 +149,8 @@ export interface RosterEntry {
   hp: number;
   hit: number;
   portrait: string | null;
+  body: Body;
+  clothes: string; // faction colour ('#rrggbb'), neutral grey without a faction
 }
 export interface Roster {
   captain: RosterEntry | null; // the character with the captain portrait, if any
@@ -154,10 +159,14 @@ export interface Roster {
   portraits: Record<string, string>; // portrait id -> image URL
 }
 
+/** Clothes colour of characters without a faction. */
+export const NO_FACTION_COLOR = '#7d7b70';
+
 /** Turn the database into the roster the game picks its crew and boarders from. */
 export function rosterFrom(db: CrewDb, captainPortrait = 'power_armor'): Roster {
   const all = Object.entries(db.characters)
-    .map(([id, c]): RosterEntry => ({ id, name: c.name, side: c.side, faction: c.faction, build: c.build, sex: c.sex, hp: characterHp(c), hit: c.hit, portrait: c.portrait && db.portraits[c.portrait] ? c.portrait : null }))
+    .map(([id, c]): RosterEntry => ({ id, name: c.name, side: c.side, faction: c.faction, build: c.build, sex: c.sex, hp: characterHp(c), hit: c.hit, portrait: c.portrait && db.portraits[c.portrait] ? c.portrait : null,
+      body: c.body, clothes: (c.faction && db.factions[c.faction]?.color) || NO_FACTION_COLOR }))
     .sort((a, b) => a.id.localeCompare(b.id));
   const captain = all.find((c) => c.side === 'crew' && c.portrait === captainPortrait) ?? null;
   return {

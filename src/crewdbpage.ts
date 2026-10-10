@@ -81,6 +81,7 @@ function render(): void {
               <span class="chip ${c.side === 'enemy' ? 'foe' : ''}">${c.side === 'enemy' ? 'ENEMY' : 'CREW'}</span>
               <span class="chip" style="color:${f ? esc(f.color) : 'var(--dim)'}">${f ? esc(f.name) : 'NO FACTION'}</span>
               <span class="chip">${c.build === 'tank' ? 'TANK' : 'NORMAL'}</span>
+              ${c.body !== 'human' ? `<span class="chip">${c.body === 'super_mutant' ? 'SUPER MUTANT' : 'GHOUL'}</span>` : ''}
             </span>
             <span class="stats"><span>HP <b>${characterHp(c)}</b></span><span>HIT <b>${c.hit}</b></span><span>${c.sex.toUpperCase()}</span></span>
           </span>
@@ -131,7 +132,7 @@ const confirmTwice = (btn: HTMLElement, then: () => void) => {
 };
 
 function charForm(id: string | null): void {
-  const c: CharacterRecord = (id && db.characters[id]) || { name: '', side: 'crew', faction: null, build: 'normal', sex: 'male', hp: null, hit: 4, portrait: null, attrs: [], notes: '' };
+  const c: CharacterRecord = (id && db.characters[id]) || { name: '', side: 'crew', faction: null, build: 'normal', sex: 'male', hp: null, hit: 4, portrait: null, body: 'human', attrs: [], notes: '' };
   const pics = Object.entries(db.portraits).sort(([a], [b]) => a.localeCompare(b));
   openSheet(`
     <h2>${id ? esc(c.name) : 'NEW CHARACTER'}</h2>
@@ -144,6 +145,7 @@ function charForm(id: string | null): void {
       <label class="f">BUILD<select data-f="build"><option value="normal">NORMAL</option><option value="tank">TANK</option></select></label>
       <label class="f">SEX<select data-f="sex"><option value="male">MALE</option><option value="female">FEMALE</option></select></label>
     </div>
+    <label class="f">BODY<select data-f="body"><option value="human">HUMAN</option><option value="super_mutant">SUPER MUTANT</option><option value="ghoul">GHOUL</option></select></label>
     <div class="row2">
       <label class="f">HP (EMPTY = DEFAULT)<input data-f="hp" type="number" min="1" inputmode="numeric" value="${esc(c.hp ?? '')}" placeholder="${characterHp({ ...c, hp: null })}"></label>
       <label class="f">DAMAGE PER HIT<input data-f="hit" type="number" min="0" inputmode="numeric" value="${esc(c.hit)}"></label>
@@ -167,6 +169,7 @@ function charForm(id: string | null): void {
   f$<HTMLSelectElement>('faction').value = c.faction ?? '';
   f$<HTMLSelectElement>('build').value = c.build;
   f$<HTMLSelectElement>('sex').value = c.sex;
+  f$<HTMLSelectElement>('body').value = c.body;
   let portrait = c.portrait;
   const choose = (pid: string) => {
     portrait = pid;
@@ -201,7 +204,7 @@ function charForm(id: string | null): void {
     const attrs = [...f$('attrs').querySelectorAll('.attr')].map((r) => ({ name: (r.children[0] as HTMLInputElement).value, value: (r.children[1] as HTMLInputElement).value }));
     const rec = cleanRecord('characters', {
       name: f$('name').value, side: f$<HTMLSelectElement>('side').value, faction: f$<HTMLSelectElement>('faction').value || null,
-      build: f$<HTMLSelectElement>('build').value, sex: f$<HTMLSelectElement>('sex').value, hp: f$('hp').value, hit: f$('hit').value,
+      build: f$<HTMLSelectElement>('build').value, sex: f$<HTMLSelectElement>('sex').value, body: f$<HTMLSelectElement>('body').value, hp: f$('hp').value, hit: f$('hit').value,
       portrait, attrs, notes: f$<HTMLTextAreaElement>('notes').value,
     });
     if (!rec) return msg('NAME IS MISSING.');

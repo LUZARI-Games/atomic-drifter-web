@@ -143,7 +143,7 @@ function placeEntry(ship: Ship, node: string, e: RosterEntry, base: CrewLook, ge
   const origin = e.faction && e.faction in CREW_LOOKS.origins ? (e.faction as CrewLook['origin']) : base.origin;
   const name = i === 0 && !e.name ? 'CAPTAIN' : e.name;
   const look: CrewLook = {
-    ...base, id: `crew_${i}`, name, sex: e.sex, build: e.build, origin, gear,
+    ...base, id: `crew_${i}`, name, sex: e.sex, build: e.build, origin, gear, clothes: e.clothes, body: e.body,
     skin: Math.floor(r() * CREW_LOOKS.skin_tones.length), hair: Math.floor(r() * CREW_LOOKS.hair_colors.length),
   };
   const desk = consoleOf(ship, node);

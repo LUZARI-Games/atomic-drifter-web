@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import COMBAT from '../data/combat.json';
 import demo from '../data/demo_ship.json';
 import { spawnEnemy, spawnShipEnemies } from './combat';
-import { applyPatches, characterHp, cleanRecord, parseCrewDb, PATCHES, rosterFrom, SEED_DB, toId } from './crewdb';
+import { applyPatches, characterHp, cleanRecord, NO_FACTION_COLOR, parseCrewDb, PATCHES, rosterFrom, SEED_DB, toId } from './crewdb';
 import { generateCrew, placedCrew } from './crewmove';
 import { createGameState } from './selection';
 import { parseShip } from './ship';
@@ -13,7 +13,7 @@ const ship = parseShip(demo).ship!;
 describe('crew database records', () => {
   it('cleans characters: upper-case name, known values only, default hit, bad ids dropped', () => {
     const c = cleanRecord('characters', { name: ' bolt ', side: 'x', build: 'tank', faction: 'Bad Id!', hp: '33', portrait: 'bolt', attrs: [{ name: 'piloting', value: '2' }, { name: '' }], extra: 1 });
-    expect(c).toEqual({ name: 'BOLT', side: 'crew', faction: null, build: 'tank', sex: 'male', hp: 33, hit: COMBAT.hit_damage, portrait: 'bolt', attrs: [{ name: 'PILOTING', value: '2' }], notes: '' });
+    expect(c).toEqual({ name: 'BOLT', side: 'crew', faction: null, build: 'tank', sex: 'male', hp: 33, hit: COMBAT.hit_damage, portrait: 'bolt', body: 'human', attrs: [{ name: 'PILOTING', value: '2' }], notes: '' });
     expect(cleanRecord('characters', { name: '' })).toBeNull();
   });
 
@@ -49,6 +49,22 @@ describe('crew database records', () => {
     expect(SEED_DB.characters.enemy_tank?.faction).toBe('sentinel');
     expect(SEED_DB.characters.bolt).toMatchObject({ faction: 'ironmall', build: 'tank' });
     expect(PATCHES.every((p) => p.writes.every((w) => w.op === 'set' || SEED_DB[w.collection][w.id]))).toBe(true);
+  });
+
+  it('body types: Neh + Oswald are super mutants; unknown bodies become human', () => {
+    expect(SEED_DB.characters.neh?.body).toBe('super_mutant');
+    expect(SEED_DB.characters.super_mutant_leader?.body).toBe('super_mutant');
+    expect((cleanRecord('characters', { name: 'X', body: 'robot' }) as { body: string }).body).toBe('human');
+  });
+
+  it('the roster carries the faction colour as clothes (grey without a faction) and the body', () => {
+    const r = rosterFrom(SEED_DB);
+    const neh = r.crew.find((c) => c.id === 'neh')!;
+    expect(neh.clothes).toBe(SEED_DB.factions.subjects!.color);
+    expect(neh.body).toBe('super_mutant');
+    expect(rosterFrom(parseCrewDb({ characters: { a: { name: 'A' } } })).crew[0]!.clothes).toBe(NO_FACTION_COLOR);
+    const crew = generateCrew(ship, 2, 7, { ...r, crew: [neh] });
+    expect(crew[1]!.look).toMatchObject({ body: 'super_mutant', clothes: neh.clothes });
   });
 
   it('the shipped seed has characters, factions and portraits', () => {

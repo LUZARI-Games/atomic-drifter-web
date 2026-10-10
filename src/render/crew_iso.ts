@@ -74,19 +74,31 @@ const now_and_then = (x: number) => {
  * `half` = draw only the limbs on the side away from the viewer ('far') or everything else ('near') – a rider is drawn
  * far half, then the bike, then the near half, so the far leg disappears behind the bike.
  */
+const HOSTILE = 0xff5a2a; // red-amber outline + ring of hostile crew
+const MUTANT_SKIN = 0x93a04e;
+const GHOUL_SKIN = 0x9a8462;
+
+/** Height of the top of the head above the floor (m) – health bars / marks go just above it. */
+export function headTop(look: { build: string; body?: string }): number {
+  return look.body === 'super_mutant' ? 2.45 : 2.05;
+}
+
 export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number, pxPerM: number, facing: number, step: number, hostile: boolean, ringColor?: number, idle?: IdlePose, sit?: SitPose, half?: 'far' | 'near'): void {
-  const color = shade(hex(CREW_LOOKS.origins[look.origin].color), -45 * (idle?.hurt ?? 0)); // flashes lighter when hit
-  const skin = hex(CREW_LOOKS.skin_tones[look.skin]!);
+  // clothes: faction colour from the crew database, else the Crew Lab origin colour; flashes lighter when hit
+  const color = shade(hex(look.clothes ?? CREW_LOOKS.origins[look.origin].color), -45 * (idle?.hurt ?? 0));
+  const mutant = look.body === 'super_mutant'; // big hunched hulk, bald, bare green-yellow arms
+  const ghoul = look.body === 'ghoul'; // thin, bald, patchy brown-grey skin
+  const skin = mutant ? MUTANT_SKIN : ghoul ? GHOUL_SKIN : hex(CREW_LOOKS.skin_tones[look.skin]!);
   const hair = hex(CREW_LOOKS.hair_colors[look.hair]!);
   const tank = look.build === 'tank';
   const female = look.sex === 'female';
   const wears = (id: string) => look.gear.includes(id as never);
 
   // body proportions (meters)
-  const k = tank ? 1.1 : 1; // tanks are taller and broader
+  const k = mutant ? 1.32 : tank ? 1.1 : 1; // tanks are taller and broader, super mutants much more
   const torso = CREW_LOOKS.builds[look.build].torso; // tanks: very wide shoulders, narrow waist = V shape
-  const W = 0.2 * torso.shoulders * (female ? 0.9 : 1); // shoulder half-width
-  const D = tank ? 0.15 : 0.12; // torso half-depth
+  const W = 0.2 * torso.shoulders * (female ? 0.9 : 1) * (mutant ? 1.55 : ghoul ? 0.88 : 1); // shoulder half-width
+  const D = mutant ? 0.22 : tank ? 0.15 : 0.12; // torso half-depth
   // idle: breathing lifts chest + head a little, weight moves from foot to foot, the head turns now and then
   const it = idle?.t ?? 0;
   const sd = idle?.seed ?? 0;
@@ -118,8 +130,8 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   const standHip = 0.85 * k;
   const hip = sit ? sit.hip : standHip + (0.24 - standHip) * floorSit;
   const shoulder = hip + 0.55 * k + breath - sigh * 0.05 + shake;
-  const head = shoulder + 0.2 * k + breath * 0.1 + bob - nod + laugh * 0.02 - (idle?.dying ?? 0) * 0.08;
-  const headR = 0.12 * (tank ? 1.05 : 1);
+  const head = shoulder + (mutant ? 0.1 : 0.2) * k + breath * 0.1 + bob - nod + laugh * 0.02 - (idle?.dying ?? 0) * 0.08; // mutants: hunched, head low between the shoulders
+  const headR = mutant ? 0.13 : 0.12 * (tank ? 1.05 : 1);
 
   // walk cycle: legs and arms swing in opposite directions
   const swing = Math.sin((step / STRIDE_M) * Math.PI) * 0.18; // one stride per leg swing
@@ -137,8 +149,8 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   const parts: { d: number; draw: () => void; side: number }[] = [];
   // two passes: first every part as a thick silhouette in the team colour (green = own crew, amber = hostile),
   // then the normal figure on top with thin dark edges -> a coloured outline that also reads in greyscale
-  const team = hostile ? COLORS.amber : COLORS.green;
-  const rim = Math.max(2.5, 0.1 * pxPerM);
+  const team = hostile ? HOSTILE : COLORS.green;
+  const rim = Math.max(3.5, 0.14 * pxPerM); // thick: friend / foe must read at a glance
   let sil = false;
   let limbSide = 0; // -1 / +1 while adding a left / right limb, 0 = middle of the body
   const add = (center: Vec3, draw: () => void, bias = 0) => parts.push({ d: D3(center) + bias, draw, side: limbSide });
@@ -222,6 +234,11 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
     g.fillStyle(0x000000, 0.35);
     g.fillPoints(floorEllipse(W + 0.14).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
   }
+  if (!sit && half !== 'near' && floorSit < 0.5) {
+    // friend / foe ring under the feet: green = own crew, red-amber = hostile
+    g.lineStyle(Math.max(2, 0.06 * pxPerM), team, 0.95);
+    g.strokePoints(floorEllipse(W + 0.2).map(([a, b]) => new Phaser.Math.Vector2(a, b)), true);
+  }
   if (ringColor !== undefined && half !== 'near') {
     // selected: ring on the floor (team colour is already the outline)
     g.lineStyle(Math.max(2, 0.08 * pxPerM), ringColor, 1);
@@ -229,7 +246,7 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   }
 
   // --- legs (trousers = dark origin colour) ---
-  const legR = tank ? 0.085 : 0.07;
+  const legR = mutant ? 0.12 : tank ? 0.085 : 0.07;
   const hipW = Math.max(W * torso.waist * 0.6, legR * 1.1);
   for (const side of [-1, 1]) {
     limbSide = side;
@@ -258,7 +275,8 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   // low in the sidecar pod: only the chest above its rim shows (the rest is inside the egg)
   const inPod = sit?.kind === 'pod';
   column(D, W * torso.waist, W, inPod ? Math.max(hip, POD_RIM - 0.02) : hip - 0.05 * k, shoulder, color, shift);
-  const armR = tank ? 0.075 : 0.06;
+  const armR = mutant ? 0.115 : tank ? 0.075 : ghoul ? 0.05 : 0.06;
+  const sleeve = mutant ? skin : shade(color, 14); // super mutants: bare arms
   for (const side of [-1, 1]) {
     if (inPod) break; // arms rest inside the pod
     limbSide = side;
@@ -307,10 +325,10 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
       elbow = [mid[0] - 0.05 * akimbo, mid[1] + side * 0.17 * akimbo, mid[2]];
     }
     if (elbow) {
-      capsule(sh, elbow, armR, shade(color, 14));
-      capsule(elbow, hand, armR, shade(color, 14));
-    } else capsule(sh, hand, armR, shade(color, 14));
-    sphere(hand, armR * 1.05, skin, 0.01);
+      capsule(sh, elbow, armR, sleeve);
+      capsule(elbow, hand, armR, sleeve);
+    } else capsule(sh, hand, armR, sleeve);
+    sphere(hand, armR * (mutant ? 1.35 : 1.05), skin, 0.01);
   }
   limbSide = 0;
 
@@ -325,7 +343,7 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
   }
 
   // --- head: skin ball, hair cap tilted to the back, ponytail (turned by `look` around the neck) ---
-  const hc: Vec3 = [0.02, shift, head];
+  const hc: Vec3 = [mutant ? 0.1 : 0.02, shift, head];
   const lc = Math.cos(headTurn);
   const ls = Math.sin(headTurn);
   const turn = ([f, s2, u]: Vec3): Vec3 => [f * lc - s2 * ls, f * ls + s2 * lc, u]; // direction
@@ -337,6 +355,9 @@ export function drawCrewIso(g: G, v: View, look: CrewLook, x: number, y: number,
     const brim: Vec3[] = [];
     for (const f of [headR * 0.75, headR * 1.25]) for (const s2 of [-headR * 0.9, headR * 0.9]) for (const u of [head + 0.02, head + 0.05]) brim.push(at([f + hc[0] - 0.02, s2 + hc[1], u]));
     add(at([hc[0] + headR, hc[1], head + 0.035]), () => fill(convexHull(brim.map(S)), METAL_DARK), 0.03);
+  } else if (mutant || ghoul) {
+    // bald: a darker brow ridge / patch instead of hair
+    cap(hc, headR * 1.02, turn([0.5, 0, 0.86]), 0.55, shade(skin, -28), 0.02);
   } else {
     cap(hc, headR * 1.06, turn([-0.55, 0, 0.84]), 0.0, hair, 0.02);
     if (female) capsule(at([hc[0] - headR * 0.9, hc[1], head + 0.02]), at([hc[0] - headR * 1.6, hc[1], head - 0.12]), 0.045, hair);

@@ -51,7 +51,11 @@ never restate the owner's tasks back to them.
   No phosphor-green UI glow and no scanlines on the world – the only glow there is atomic energy (see above). Selection = pale lamp-yellow outline.
   Contrast rule (checked with GREYSCALE): dark world outside → bright, desaturated Vault-like interior (light concrete
   floor, blue-grey steel half walls with bright tops, dark stencil labels) → crew darker + more saturated on top, with a
-  team-coloured outline (green = own crew, amber = hostile) and thin dark inner edges (`drawCrewIso`).
+  team-coloured outline (green = own crew, red-amber `HOSTILE` = enemy) and thin dark inner edges (`drawCrewIso`).
+  Friend / foe never depends on faction: thick team outline + team ring under the feet + a health bar over every
+  head (green = ours, red = hostile). Clothes = the character's faction colour from the crew database (`look.clothes`,
+  grey without a faction). Body types (database field BODY, `look.body`): human, super_mutant (1.3× tall, very wide,
+  hunched, bald, bare green-yellow arms, big hands), ghoul (thin, bald, brown-grey skin). `?test=looks`.
 
 ## Crew look (in evaluation)
 - OLD look: `src/render/crew.ts` (armour baked into the origin). NEW look: `src/render/crew_v2.ts` – plain clothes in the

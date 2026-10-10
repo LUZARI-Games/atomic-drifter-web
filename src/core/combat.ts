@@ -37,7 +37,7 @@ export function spawnEnemy(state: GameState, p: Point, seed = state.crew.length 
   const entry = chosen ?? randomPick;
   const pickBase = bases[Math.floor(r() * bases.length)]!;
   const base: CrewLook = entry
-    ? { ...pickBase, build: entry.build, origin: entry.faction && entry.faction in CREW_LOOKS.origins ? (entry.faction as CrewLook['origin']) : pickBase.origin }
+    ? { ...pickBase, build: entry.build, clothes: entry.clothes, body: entry.body, origin: entry.faction && entry.faction in CREW_LOOKS.origins ? (entry.faction as CrewLook['origin']) : pickBase.origin }
     : pickBase;
   const face = entry ? { id: entry.portrait ?? undefined, name: entry.name, sex: entry.sex } : faces[Math.floor(r() * faces.length)];
   const n = state.crew.filter(isEnemy).length + state.crew.length;

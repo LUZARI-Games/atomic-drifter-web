@@ -1,5 +1,6 @@
 // Main game view: the airship in the ISO 60/45 look (looking down 60°, turned 45°), orthographic, flat 2D shapes.
 // Same renderer as the Ship Lab (ship_view.ts). Owns NO game state: taps are turned into ship meters and sent to core.
+import { headTop } from './crew_iso';
 import Phaser from 'phaser';
 import { makeView } from '../core/projection';
 import COMBAT from '../data/combat.json';
@@ -38,7 +39,6 @@ const SILENT: ShipSounds = { select() {}, deselect() {}, send() {}, door() {}, s
 const TEXT_STYLE = { fontFamily: FONT_FAMILY, fontSize: '15px', resolution: 3 };
 const COLORS_HEX = { red: 0xff4a3a, amber: 0xffb43a, green: 0x1aff80 };
 const CSS = { red: '#FF4A3A', amber: '#FFB43A', green: '#1AFF80' };
-const HEAD_M = 2.05; // speech marks / health bars sit this high above the feet
 
 /** The game's camera angle (degrees). */
 export const GAME_VIEW = { pitch: 60, yaw: 45 } as const;
@@ -296,14 +296,14 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       if (before !== undefined && c.hp < before) {
         this.hurtAt.set(c.id, now);
         this.sfx.hit?.();
-        const p = this.view.deckPoint(c.pos, HEAD_M);
+        const p = this.view.deckPoint(c.pos, headTop(c.look));
         const text = this.add.text(p.x, p.y, `-${Math.round(before - c.hp)}`, { ...TEXT_STYLE, color: CSS.red }).setOrigin(0.5).setDepth(3.4);
         this.floats.push({ text, born: now });
         if (c.hp <= 0 && c.side === 'enemy') this.sfx.die?.(); // own crew: crew_ko (stateEvents)
       } else if (before !== undefined && before > 0 && c.hp > before) {
         // med bay tick: "+5" and a few green crosses rising around the body
         this.sfx.heal?.();
-        const p = this.view.deckPoint(c.pos, HEAD_M);
+        const p = this.view.deckPoint(c.pos, headTop(c.look));
         const text = this.add.text(p.x, p.y - 6, `+${Math.round(c.hp - before)}`, { ...TEXT_STYLE, color: CSS.green }).setOrigin(0.5).setDepth(3.4);
         this.floats.push({ text, born: now });
         for (let k = 0; k < 4; k++) {
@@ -394,11 +394,12 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     const seen = new Set<string>();
     for (const c of crew) {
       if (c.dying !== undefined || c.ko !== undefined || seatOf(ship, c.node)) continue;
-      const head = this.view.deckPoint(c.pos, HEAD_M);
-      if (c.fight || c.hp < c.hpMax) {
+      const head = this.view.deckPoint(c.pos, headTop(c.look));
+      {
+        // health bar over every head: green = own crew, red = hostile
         const w = 0.7 * PX_PER_M;
         const share = Math.max(0, c.hp / c.hpMax);
-        const col = c.side === 'enemy' ? COLORS_HEX.amber : share > 0.35 ? COLORS_HEX.green : COLORS_HEX.red;
+        const col = c.side === 'enemy' ? COLORS_HEX.red : COLORS_HEX.green;
         g.fillStyle(0x000000, 0.7).fillRect(head.x - w / 2 - 1, head.y - 1, w + 2, 6);
         g.fillStyle(col, 1).fillRect(head.x - w / 2, head.y, w * share, 4);
       }

@@ -20,7 +20,13 @@ export interface CrewLook {
   skin: number; // index into skin_tones
   hair: number; // index into hair_colors
   gear: GearId[]; // worn items, at most one per slot
+  clothes?: string; // '#rrggbb' clothes colour (crew database: faction colour) – overrides the origin colour
+  body?: Body; // crew database body type (default human)
 }
+
+/** Body types from the crew database: drawn differently (super mutant = big hulk, ghoul = thin, patchy skin). */
+export type Body = 'human' | 'super_mutant' | 'ghoul';
+export const BODIES: Body[] = ['human', 'super_mutant', 'ghoul'];
 
 export const CREW_LOOKS = LOOKS;
 export const CREW_GEAR = GEAR;
