@@ -125,4 +125,20 @@ export interface GameState {
   roster?: import('./crewdb').Roster;
   /** Ship weapons (turrets, target room, projectiles in flight) – absent = none mounted yet. */
   weapons?: import('./weapons').Weapons;
+  /** Enemy airship flying alongside (core/foe.ts) – absent = no ship fight. */
+  foe?: FoeShip;
+  /** P.A.U.S.E. active: time stands still (no rule ticks), orders can still be given (core/pause.ts). */
+  paused?: boolean;
+}
+
+/** Enemy airship in a ship fight. Its own ship space; `offset` = where its origin sits in OUR ship space (same heading). */
+export interface FoeShip {
+  ship: Ship;
+  offset: Point;
+  crew: CrewMember[]; // its people stand at their posts (side 'enemy'); they do not walk
+  weapons: import('./weapons').Weapons;
+  /** Gunnery: rest -> aim (target room telegraphed) -> fire a burst -> rest. */
+  ai: { phase: 'rest' | 'aim' | 'fire'; timer: number; shotsLeft: number };
+  /** Seconds since every one aboard went down (it drifts away, then is gone). */
+  beaten?: number;
 }

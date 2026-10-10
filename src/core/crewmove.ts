@@ -53,7 +53,7 @@ function seeded(seed: number): () => number {
   let s = seed >>> 0 || 1;
   return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296);
 }
-const hash = (t: string) => [...t].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
+export const hash = (t: string) => [...t].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
 
 /** Random crew from the Crew Lab types: origin, build and gear vary; they start at the consoles, then on free deck. */
 /**

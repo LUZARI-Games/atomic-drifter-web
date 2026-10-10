@@ -158,6 +158,26 @@
      "id": "turret_hit",
      "when": "Projectile hits the target room",
      "synth": "game"
+    },
+    {
+     "id": "foe_arrives",
+     "when": "An enemy airship pulls up alongside (ship fight starts)",
+     "synth": "game"
+    },
+    {
+     "id": "foe_lock",
+     "when": "Enemy guns lock onto one of our rooms (it glows red: clear it!)",
+     "synth": "game"
+    },
+    {
+     "id": "pause_on",
+     "when": "P.A.U.S.E. switched on: time stops",
+     "synth": "game"
+    },
+    {
+     "id": "pause_off",
+     "when": "P.A.U.S.E. switched off: time runs again",
+     "synth": "game"
     }
    ]
   },

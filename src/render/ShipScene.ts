@@ -12,11 +12,13 @@ import { moodEvents, orderRefused, stateEvents } from '../core/events';
 import { nodeAt } from '../core/nav';
 import { tapPoint } from '../core/selection';
 import { anyActive, isActive, setWeaponTarget, tickWeapons, toggleTurret } from '../core/weapons';
+import { foeThreat, tickFoe } from '../core/foe';
+import FOE from '../data/foe.json';
 import { roomAtPoint, roomOutline } from '../core/ship';
 import { wallHeight } from '../core/ship3d';
 import type { Store } from '../core/store';
-import type { CrewMember, GameState, Point } from '../core/types';
-import { attachPanZoom } from './panzoom';
+import type { CrewMember, FoeShip, GameState, Point, Ship } from '../core/types';
+import { attachPanZoom, type Refit } from './panzoom';
 import { FONT_FAMILY, WORLD } from './palette';
 import { ShipView, type CrewOnDeck, type ObjectLayer } from './ship_view';
 import type { ShipOnScreen } from './wasteland';
@@ -48,6 +50,7 @@ const DOOR_SPEED = 2.2; // door openings per second (0 -> 1 takes ~0.45 s)
 const BOB_PX = 2.5; // the airship rides the air: gentle up/down (screen px)
 const BOB_PERIOD = 3.4; // seconds
 const IDLE_FRAME_MS = 50; // nobody walking: idle animation redrawn at ~20 fps (saves battery)
+const FOE_ARRIVE_MS = 2600; // the enemy ship pulls up alongside
 
 export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private view!: ShipView;
@@ -78,6 +81,23 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private hoverTurret = -1;
   private lastFired = 0;
   private lastImpacts = 0;
+  /** Enemy airship alongside (state.foe): its own ShipView, drawn once like ours; its objects slide in / out. */
+  private foeGfx: {
+    ship: Ship;
+    view: ShipView;
+    layer: ObjectLayer;
+    energy: Phaser.GameObjects.Graphics;
+    turrets: Phaser.GameObjects.Graphics[];
+    objects: Phaser.GameObjects.GameObject[];
+    shownAt: number;
+    behind: boolean;
+  } | null = null;
+  private origin = { x: 0, y: 0 }; // where our ship's origin is in world space
+  private ownArea = new Phaser.Geom.Rectangle(0, 0, 1, 1);
+  private refit: Refit = () => ({ zoom: 1, x: 0, y: 0 });
+  /** Camera glide to a new fit (enemy ship arrives / leaves), in real time. */
+  private glide: { z0: number; z1: number; x0: number; y0: number; x1: number; y1: number; t0: number } | null = null;
+  private foeShift = { x: 0, y: 0 }; // screen offset of the enemy ship right now (arriving / leaving)
   ready = false;
   private unsubscribe: (() => void) | null = null;
 
@@ -112,6 +132,8 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.layer.setCrew(this.crewToDraw());
 
     this.area = new Phaser.Geom.Rectangle(0, 0, b.width, b.height);
+    this.ownArea = Phaser.Geom.Rectangle.Clone(this.area);
+    this.origin = { x: -b.x, y: -b.y };
     // weapon turrets: in front of the deck objects on the side facing the viewer, behind them on the far side
     this.turretGfx = (this.store.get().weapons?.turrets ?? []).map((t) => this.add.graphics().setDepth(this.view.turretInFront(t) ? 2.05 : 0.65));
     this.input.on(Phaser.Input.Events.POINTER_MOVE, (p: Phaser.Input.Pointer) => {
@@ -119,10 +141,11 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       const wp = this.cameras.main.getWorldPoint(p.x, p.y);
       this.hoverTurret = this.turretAt(wp.x, wp.y);
     });
-    attachPanZoom(this, {
+    this.refit = attachPanZoom(this, {
       bounds: () => this.area,
       onTap: (x, y) => {
         if (this.attract || this.held) return;
+        const foe = this.store.get().foe;
         // weapons first: tap a turret = on / off; with turrets on, a tap on a room = their target, the void = hold fire
         const ti = this.turretAt(x, y);
         if (ti >= 0) {
@@ -132,6 +155,14 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
           return;
         }
         if (anyActive(this.store.get())) {
+          // a room on the enemy ship first (it is a separate ship: its own floor plan at its offset)
+          const fp = foe && this.foeGfx ? this.foeGfx.view.toShip(x - this.foeShift.x, y - this.foeShift.y) : null;
+          const foeRoom = foe && fp ? roomAtPoint(foe.ship, fp) : null;
+          if (foeRoom) {
+            this.store.update((s) => setWeaponTarget(s, foeRoom, true));
+            this.sfx.play?.('select');
+            return;
+          }
           const p = this.view.toShip(x, y);
           const room = roomAtPoint(this.store.get().ship, p);
           this.store.update((s) => setWeaponTarget(s, room));
@@ -233,7 +264,8 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.lastTime = now;
     // walking, then fights / boarders / repairs / idle timers (core rules), in real elapsed time
     const prev = this.store.get();
-    if (!this.held) this.store.update((st) => tickWeapons(keepDistance(tickCombat(walking ? tickCrew(st, dt) : st, dt)), dt));
+    // P.A.U.S.E. / story popups: time stands still (orders can still be given)
+    if (!this.held && !this.store.get().paused) this.store.update((st) => tickFoe(tickWeapons(keepDistance(tickCombat(walking ? tickCrew(st, dt) : st, dt)), dt), dt));
     const state = this.store.get();
     for (const e of stateEvents(prev, state)) this.sfx.play?.(e);
     const wpn = state.weapons;
@@ -251,6 +283,8 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
         this.view.drawTurret(g, t, hl);
       });
     }
+    this.syncFoe(now);
+    this.stepGlide(now);
     // hammering / welding at consoles: a tick every ~0.45 s per worker
     for (const c of state.crew) {
       const work = workOf(state, c);
@@ -295,6 +329,91 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.dirty = false;
   }
 
+  /** Screen vector of a ship-space vector (both ships share the heading, so it works for either). */
+  private vec(p: Point): { x: number; y: number } {
+    const a = this.view.deckPoint(p);
+    const o = this.view.deckPoint([0, 0]);
+    return { x: a.x - o.x, y: a.y - o.y };
+  }
+
+  /** World point of a point on the ENEMY ship (its own ship space), incl. its slide in / out. */
+  private foePoint(p: Point, h = 0): { x: number; y: number } {
+    const off = this.store.get().foe?.offset ?? [0, 0];
+    const w = this.view.deckPoint([p[0] + off[0], p[1] + off[1]], h);
+    return { x: w.x + this.foeShift.x, y: w.y + this.foeShift.y };
+  }
+
+  /** Enemy ship: draw it once when it arrives, slide it in from astern, keep its glow / guns / crew live, let it go. */
+  private syncFoe(now: number): void {
+    const f = this.store.get().foe;
+    if (this.foeGfx && (!f || f.ship !== this.foeGfx.ship)) {
+      for (const o of this.foeGfx.objects) o.destroy();
+      this.foeGfx = null;
+      this.foeShift = { x: 0, y: 0 };
+      this.area = Phaser.Geom.Rectangle.Clone(this.ownArea);
+      this.glideTo(now);
+    }
+    if (!f) return;
+    if (!this.foeGfx) this.mountFoe(f, now);
+    const g = this.foeGfx!;
+    // arrive: from far astern, easing out; beaten: drifts off ahead, fading
+    const k = Math.min(1, (now - g.shownAt) / FOE_ARRIVE_MS);
+    const arrive = Math.pow(1 - k, 3);
+    const leave = f.beaten ? Math.min(1, f.beaten / FOE.leave_after_s) : 0;
+    const from = this.vec([0, 70]);
+    const to = this.vec([0, -90]);
+    this.foeShift = { x: from.x * arrive + to.x * leave * leave, y: from.y * arrive + to.y * leave * leave };
+    for (const o of g.objects) (o as Phaser.GameObjects.Graphics).setPosition(this.foeShift.x, this.foeShift.y).setAlpha(1 - leave * 0.8);
+    g.energy.clear();
+    g.view.drawEnergy(g.energy, now / 1000);
+    f.weapons.turrets.forEach((t, i) => {
+      const tg = g.turrets[i];
+      if (!tg) return;
+      tg.clear();
+      g.view.drawTurret(tg, t, isActive(t) && f.weapons.target ? COLORS_HEX.red : null);
+    });
+    g.layer.setCrew(this.crewToDraw(now / 1000, f));
+  }
+
+  private mountFoe(f: FoeShip, now: number): void {
+    const before = new Set(this.children.list);
+    const view = new ShipView(f.ship, makeView(GAME_VIEW.pitch, GAME_VIEW.yaw), PX_PER_M);
+    const d = this.vec(f.offset);
+    const ox = this.origin.x + d.x;
+    const oy = this.origin.y + d.y;
+    // farther from the viewer (up on screen) = drawn under our ship, else over it
+    const behind = d.y < 0;
+    const [deckD, lo, hi, glow, front, back] = behind ? [-0.9, -0.8, -0.2, -0.85, -0.15, -0.95] : [2.2, 2.3, 2.9, 2.25, 2.95, 2.15];
+    const deck = this.add.graphics().setDepth(deckD);
+    view.drawStatic(this, deck, ox, oy);
+    const layer = view.mountObjects(this, lo, hi, () => 0);
+    const energy = this.add.graphics().setDepth(glow);
+    const turrets = f.weapons.turrets.map((t) => this.add.graphics().setDepth(view.turretInFront(t) ? front : back));
+    layer.setCrew(this.crewToDraw(now / 1000, f));
+    const objects = this.children.list.filter((o) => !before.has(o));
+    this.foeGfx = { ship: f.ship, view, layer, energy, turrets, objects, shownAt: now, behind };
+    const fb = view.bounds();
+    this.area = Phaser.Geom.Rectangle.Union(this.ownArea, new Phaser.Geom.Rectangle(ox + fb.x, oy + fb.y, fb.width, fb.height));
+    this.glideTo(now);
+  }
+
+  /** Start a smooth pan + zoom to the fitted view of the (changed) area. */
+  private glideTo(now: number): void {
+    const cam = this.cameras.main;
+    const f = this.refit(true);
+    this.fitZoom = f.zoom;
+    this.glide = { z0: cam.zoom, z1: f.zoom, x0: cam.midPoint.x, y0: cam.midPoint.y, x1: f.x, y1: f.y, t0: now };
+  }
+
+  private stepGlide(now: number): void {
+    if (!this.glide) return;
+    const g = this.glide;
+    const k = Math.min(1, (now - g.t0) / 1400);
+    const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+    this.cameras.main.setZoom(g.z0 + (g.z1 - g.z0) * e).centerOn(g.x0 + (g.x1 - g.x0) * e, g.y0 + (g.y1 - g.y0) * e);
+    if (k >= 1) this.glide = null;
+  }
+
   /** Index of the weapon turret drawn at world point (x, y), -1 = none. */
   private turretAt(x: number, y: number): number {
     let best = -1;
@@ -307,9 +426,13 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     return best;
   }
 
-  /** Crew as the renderer needs them: facing on screen, lifted onto a vehicle seat, selection ring. */
-  private crewToDraw(t = performance.now() / 1000): CrewOnDeck[] {
-    const { ship, crew, selectedCrewId } = this.store.get();
+  /** Crew as the renderer needs them: facing on screen, lifted onto a vehicle seat, selection ring. `foe` = the
+   *  people of the enemy ship instead of ours (no moods, no work, no selection). */
+  private crewToDraw(t = performance.now() / 1000, foe?: FoeShip): CrewOnDeck[] {
+    const st = this.store.get();
+    const ship = foe ? foe.ship : st.ship;
+    const crew = foe ? foe.crew : st.crew;
+    const selectedCrewId = foe ? null : st.selectedCrewId;
     const nav = navOf(ship);
     const byId = new Map(crew.map((c) => [c.id, c]));
     // ship heading (atan2(dz, dx)) -> view angle: ship x -> view y, ship z -> view -x
@@ -336,11 +459,11 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
       }
       let idle: CrewOnDeck['idle'];
       let facing = toView(c.heading);
-      const work = workOf(this.store.get(), c);
+      const work = foe ? null : workOf(st, c);
       if (work) return { ...base, at: c.pos, facing, step: 0, lift: 0, idle: { t, seed, typing: false, hurt, work } };
       if (!c.path.length) {
         idle = { t, seed, typing: atDesk(ship, c), hurt };
-        const m = this.moodNow.get(c.id);
+        const m = foe ? undefined : this.moodNow.get(c.id);
         if (m) {
           const other = byId.get(m.kind === 'bored' ? '' : m.kind === 'chat' ? m.partner : m.other);
           const rel = Math.atan2(Math.sin(towards(c, other) - c.heading), Math.cos(towards(c, other) - c.heading)); // turn needed to look at them
@@ -358,13 +481,16 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
 
   /** Hits and deaths since the last frame: damage numbers, hurt flash, sounds. */
   private reactToHits(now: number): void {
-    const { crew } = this.store.get();
+    const st = this.store.get();
+    const crew = [...st.crew, ...(st.foe?.crew ?? [])];
+    const onFoe = new Set(st.foe?.crew.map((c) => c.id));
     for (const c of crew) {
+      const at = (p: Point, h: number) => (onFoe.has(c.id) ? this.foePoint(p, h) : this.view.deckPoint(p, h));
       const before = this.lastHp.get(c.id);
       if (before !== undefined && c.hp < before) {
         this.hurtAt.set(c.id, now);
         this.sfx.hit?.();
-        const p = this.view.deckPoint(c.pos, headTop(c.look));
+        const p = at(c.pos, headTop(c.look));
         const text = this.add.text(p.x, p.y, `-${Math.round(before - c.hp)}`, { ...TEXT_STYLE, color: CSS.red }).setOrigin(0.5).setDepth(3.4);
         this.floats.push({ text, born: now });
         if (c.hp <= 0 && c.side === 'enemy') this.sfx.die?.(); // own crew: crew_ko (stateEvents)
@@ -401,13 +527,49 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     g.clear();
     // weapons: the target room blinks amber, tracers fly, hits flash
     const wpn = state.weapons;
-    if (wpn?.target) {
+    const foe = state.foe;
+    if (wpn?.target && (!wpn.targetFoe || foe)) {
+      const pt = (p: Point) => (wpn.targetFoe ? this.foePoint(p, 0.05) : this.view.deckPoint(p, 0.05));
       g.lineStyle(3, COLORS_HEX.amber, 0.6 + 0.4 * Math.sin(t * 8));
-      for (const [p, q] of roomOutline(ship, wpn.target)) {
-        const a = this.view.deckPoint(p, 0.05);
-        const c = this.view.deckPoint(q, 0.05);
+      for (const [p, q] of roomOutline(wpn.targetFoe ? foe!.ship : ship, wpn.target)) {
+        const a = pt(p);
+        const c = pt(q);
         g.lineBetween(a.x, a.y, c.x, c.y);
       }
+    }
+    // enemy guns locked onto one of our rooms: it glows red (get out!), solid while they fire
+    const threat = foeThreat(state);
+    if (threat) {
+      const firing = foe!.ai.phase === 'fire';
+      g.fillStyle(COLORS_HEX.red, firing ? 0.45 : 0.3 + 0.15 * Math.sin(t * 10));
+      for (const tile of ship.tiles) if (tile.room === threat) g.fillPoints(tile.polygon.map((p) => this.view.deckPoint(p, 0.02)), true);
+      g.lineStyle(4, COLORS_HEX.red, firing ? 1 : 0.55 + 0.45 * Math.sin(t * 10));
+      for (const [p, q] of roomOutline(ship, threat)) {
+        const a = this.view.deckPoint(p, wallHeight(ship));
+        const c = this.view.deckPoint(q, wallHeight(ship));
+        g.lineBetween(a.x, a.y, c.x, c.y);
+      }
+    }
+    for (const sh of foe?.weapons.shots ?? []) {
+      const k = sh.t / sh.dur;
+      const at = (f: number) => this.view.deckPoint([sh.from[0] + (sh.to[0] - sh.from[0]) * f, sh.from[1] + (sh.to[1] - sh.from[1]) * f], sh.fromH + (sh.toH - sh.fromH) * f);
+      const a = at(Math.max(0, k - 0.12));
+      const b = at(k);
+      g.lineStyle(4, COLORS_HEX.red, 0.5).lineBetween(a.x, a.y, b.x, b.y);
+      g.lineStyle(2, 0xffd0c0, 1).lineBetween(a.x, a.y, b.x, b.y);
+    }
+    for (const m of foe?.weapons.impacts ?? []) {
+      const x = m.t / 0.35;
+      const p = this.view.deckPoint(m.at, m.h);
+      g.fillStyle(0xff8a5a, 0.75 * (1 - x)).fillCircle(p.x, p.y, 6 + 28 * x);
+    }
+    // health bars over the people of the enemy ship
+    for (const c of foe?.crew ?? []) {
+      if (c.dying !== undefined) continue;
+      const head = this.foePoint(c.pos, headTop(c.look));
+      const w = 0.7 * PX_PER_M;
+      g.fillStyle(0x000000, 0.7).fillRect(head.x - w / 2 - 1, head.y - 1, w + 2, 6);
+      g.fillStyle(COLORS_HEX.red, 1).fillRect(head.x - w / 2, head.y, w * Math.max(0, c.hp / c.hpMax), 4);
     }
     for (const sh of wpn?.shots ?? []) {
       const k = sh.t / sh.dur;

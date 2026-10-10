@@ -1,0 +1,42 @@
+{
+  "ironmall_intro": {
+    "_note": "Start of an Iron Mall run: the Mayor radios in. Event foe_arrives = the Sentinel gunship pulls up.",
+    "speaker": { "name": "THE MAYOR", "title": "IRON MALL // RADIO", "portrait": "crazy_pete", "silhouette": true },
+    "start": "hail",
+    "nodes": {
+      "hail": {
+        "text": "{ship}, this is the Iron Mall! Captain, do you read me? Your signal just died on us!",
+        "options": [
+          { "text": "We read you. Sentinels jumped us – we barely got out.", "next": "crew" },
+          { "text": "Bit busy here, Mayor!", "next": "crew" }
+        ]
+      },
+      "crew": {
+        "text": "Thank God… Who's still with you?",
+        "options": [
+          { "text": "{crew}. The others… I don't know where they are.", "next": "crate" }
+        ]
+      },
+      "crate": {
+        "text": "We'll find them. But the crate – tell me you still have the crate.",
+        "options": [
+          { "text": "It's in the hold. What the hell is in there?", "next": "pause" },
+          { "text": "We nearly died for that thing. Talk.", "next": "pause" }
+        ]
+      },
+      "pause": {
+        "text": "A P.A.U.S.E. unit. Prometheus Atomic. It can stop time itself – every Sentinel in the wasteland wants it.",
+        "options": [
+          { "text": "Stop time…? Mayor, we've got company. Sentinel ship, closing in!", "next": "fight" }
+        ]
+      },
+      "fight": {
+        "event": "foe_arrives",
+        "text": "Then fight! Power up your guns and hit their weapons room. If it gets ugly – use the P.A.U.S.E.",
+        "options": [
+          { "text": "[ END TRANSMISSION ]", "next": null }
+        ]
+      }
+    }
+  }
+}

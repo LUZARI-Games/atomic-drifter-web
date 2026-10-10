@@ -243,33 +243,76 @@ html, body {
 .ts-note { min-height: 1.2em; margin: 0; font-family: var(--font); font-size: 15px; color: var(--amber); text-shadow: 0 0 4px #000; }
 @media (min-aspect-ratio: 4/3) { .ts-menu { flex-direction: row; flex-wrap: wrap; justify-content: center; width: min(100%, 980px); } .ts-menu .ts-btn { flex: 1 1 160px; } }
 
-/* Intro log at the start of a run (src/ui/introLog.ts) */
-.intro-log {
-  position: fixed; inset: 0; z-index: 40; pointer-events: auto; display: flex; align-items: center; justify-content: center;
-  padding: 16px; box-sizing: border-box; background: rgba(1, 4, 3, 0.62); animation: il-in 0.35s ease-out;
+/* Conversations, Fallout 3 style (src/ui/dialogScreen.ts): panel at the bottom, the game shows through above */
+.dlg {
+  position: fixed; inset: 0; z-index: 40; pointer-events: auto; display: flex; align-items: flex-end; justify-content: center;
+  padding: 16px; box-sizing: border-box; animation: il-in 0.35s ease-out;
+  background: linear-gradient(to bottom, rgba(1, 4, 3, 0) 0%, rgba(1, 4, 3, 0.15) 40%, rgba(1, 4, 3, 0.75) 100%);
 }
-.intro-log.closing { animation: il-out 0.28s ease-in forwards; }
+.dlg.closing { animation: il-out 0.26s ease-in forwards; }
 @keyframes il-in { from { opacity: 0; } }
 @keyframes il-out { to { opacity: 0; transform: scaleY(0.02); } }
-.il-panel {
-  position: relative; width: min(100%, 620px); max-height: 100%; overflow-y: auto; box-sizing: border-box; padding: 20px 20px 18px;
-  background: rgba(3, 8, 6, 0.94); border: 3px solid var(--green-dim); font-family: var(--font); color: var(--green);
+.dlg-col { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; width: min(100%, 680px); max-height: 80%; }
+.dlg-panel {
+  position: relative; width: 100%; max-height: 100%; overflow-y: auto; box-sizing: border-box; padding: 16px 16px 14px;
+  background: rgba(3, 8, 6, 0.93); border: 3px solid var(--green-dim); font-family: var(--font); color: var(--green);
   box-shadow: 0 0 24px color-mix(in srgb, var(--green) 18%, transparent), inset 0 0 40px rgba(26, 255, 128, 0.05);
   text-shadow: 0 0 6px color-mix(in srgb, var(--green) 55%, transparent);
 }
-/* bracket corners */
-.il-panel::before, .il-panel::after {
-  content: ''; position: absolute; width: 18px; height: 18px; border: 3px solid var(--green); pointer-events: none;
+.dlg-panel::before, .dlg-panel::after { content: ''; position: absolute; width: 18px; height: 18px; border: 3px solid var(--green); pointer-events: none; }
+.dlg-panel::before { left: -3px; top: -3px; border-right: 0; border-bottom: 0; }
+.dlg-panel::after { right: -3px; bottom: -3px; border-left: 0; border-top: 0; }
+.dlg-skip {
+  min-height: 44px; padding: 6px 10px; cursor: pointer; font-family: var(--font); font-size: 15px;
+  letter-spacing: 2px; color: var(--green); background: rgba(3, 8, 6, 0.9); border: 3px solid var(--green-dim);
 }
-.il-panel::before { left: -3px; top: -3px; border-right: 0; border-bottom: 0; }
-.il-panel::after { right: -3px; bottom: -3px; border-left: 0; border-top: 0; }
-.il-tag { margin: 0; font-size: 15px; letter-spacing: 3px; color: var(--amber); text-shadow: 0 0 6px color-mix(in srgb, var(--amber) 55%, transparent); }
-.il-dot { display: inline-block; width: 9px; height: 9px; margin-left: 10px; background: var(--amber); border-radius: 50%; animation: ts-pulse 1s steps(2) infinite; }
-.il-panel h2 { margin: 6px 0 14px; font-weight: 400; font-size: 24px; letter-spacing: 3px; }
-.il-text p { margin: 0 0 10px; min-height: 1.35em; font-size: 18px; line-height: 1.35; }
-.il-text p.last { color: var(--amber); text-shadow: 0 0 8px color-mix(in srgb, var(--amber) 60%, transparent); }
-.il-text p.typing::after { content: '_'; animation: ts-pulse 0.6s steps(2) infinite; }
-.il-cargo { margin: 4px 0 14px; padding-top: 10px; border-top: 1px dashed var(--green-dim); font-size: 15px; letter-spacing: 1px; color: var(--green-dim); opacity: 0; transition: opacity 0.4s; }
-.il-cargo.shown { opacity: 1; }
-.il-ok { width: 100%; }
-.il-ok[hidden] { display: none; }
+.dlg-skip:hover { border-color: var(--green); }
+.dlg-who { display: flex; align-items: center; gap: 14px; }
+/* the fight HUD waits until the conversation is over */
+.dlg ~ .fight-hud { display: none; }
+.dlg-who h2 { margin: 0; font-weight: 400; font-size: 24px; letter-spacing: 3px; }
+.dlg-title { margin: 2px 0 0; font-size: 15px; letter-spacing: 2px; color: var(--amber); text-shadow: 0 0 6px color-mix(in srgb, var(--amber) 55%, transparent); }
+.dlg-dot { display: inline-block; width: 9px; height: 9px; margin-right: 8px; background: var(--amber); border-radius: 50%; animation: ts-pulse 1s steps(2) infinite; }
+.dlg-face { flex: 0 0 auto; width: 88px; height: 88px; border: 3px solid var(--green-dim); overflow: hidden; background: #06140d; position: relative; }
+.dlg-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* unknown face: a backlit silhouette */
+.dlg-face.silhouette { background: radial-gradient(circle at 50% 40%, rgba(26, 255, 128, 0.55), rgba(26, 255, 128, 0.12) 55%, #030806 80%); }
+.dlg-face.silhouette img { filter: brightness(0) drop-shadow(0 0 3px rgba(26, 255, 128, 0.8)); }
+.dlg-face::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.25) 0 2px, transparent 2px 4px); pointer-events: none; }
+.dlg-line { margin: 14px 0 12px; min-height: 2.7em; font-size: 18px; line-height: 1.4; }
+.dlg-line.typing::after { content: '_'; animation: ts-pulse 0.6s steps(2) infinite; }
+.dlg-options { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px dashed var(--green-dim); display: flex; flex-direction: column; gap: 8px; opacity: 0; transition: opacity 0.25s; }
+.dlg-options.shown { opacity: 1; }
+.dlg-opt {
+  width: 100%; min-height: 48px; text-align: left; cursor: pointer; padding: 9px 12px; box-sizing: border-box; font-family: var(--font);
+  font-size: 18px; line-height: 1.3; color: var(--green); background: rgba(3, 8, 6, 0.6); border: 3px solid var(--green-dim);
+  text-shadow: inherit;
+}
+.dlg-opt:hover, .dlg-opt:focus-visible { border-color: var(--green); background: color-mix(in srgb, var(--green) 14%, rgba(3, 8, 6, 0.9)); outline: none; }
+.dlg-opt .n { color: var(--green-dim); margin-right: 4px; }
+
+/* Ship fight HUD (src/ui/fightHud.ts): P.A.U.S.E. button + hint line, bottom centre */
+.fight-hud {
+  position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 30;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; width: min(calc(100% - 32px), 520px); pointer-events: none;
+  font-family: var(--font);
+}
+.fh-hint {
+  margin: 0; padding: 6px 12px; font-size: 15px; letter-spacing: 2px; text-align: center; color: var(--green);
+  background: rgba(3, 8, 6, 0.82); border: 1px solid var(--green-dim); text-shadow: 0 0 6px color-mix(in srgb, var(--green) 55%, transparent);
+}
+.fh-hint.amber { color: var(--amber); border-color: var(--amber); }
+.fh-hint.red { color: var(--red); border-color: var(--red); animation: ts-pulse 0.5s steps(2) infinite; }
+.fh-hint[hidden], .fh-pause[hidden], .pause-frame[hidden] { display: none; }
+.fh-pause {
+  pointer-events: auto; min-height: 56px; min-width: 220px; padding: 10px 18px; cursor: pointer; font-family: var(--font); font-size: 18px;
+  letter-spacing: 3px; color: var(--green); background: rgba(3, 8, 6, 0.9); border: 3px solid var(--green);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--green) 35%, transparent); text-shadow: 0 0 6px color-mix(in srgb, var(--green) 60%, transparent);
+}
+.fh-pause.on { color: var(--amber); border-color: var(--amber); box-shadow: 0 0 18px color-mix(in srgb, var(--amber) 45%, transparent); }
+/* time stopped: the world goes grey-green, an amber frame around the screen */
+#game.paused canvas { filter: saturate(0.25) sepia(0.35) hue-rotate(60deg) brightness(0.9); }
+.pause-frame {
+  position: fixed; inset: 0; z-index: 25; pointer-events: none; border: 4px solid var(--amber);
+  box-shadow: inset 0 0 40px color-mix(in srgb, var(--amber) 35%, transparent);
+}

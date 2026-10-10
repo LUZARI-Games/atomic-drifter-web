@@ -31,6 +31,11 @@ export function stateEvents(prev: GameState, next: GameState): string[] {
     const bars = systemBars(next, room);
     if (bars && dmg >= bars && was < bars) out.add('system_wrecked');
   }
+  // ship fight: the enemy ship arrives, locks onto one of our rooms, is beaten
+  if (!prev.foe && next.foe) out.add('foe_arrives');
+  if (prev.foe && next.foe && prev.foe.ai.phase === 'rest' && next.foe.ai.phase === 'aim') out.add('foe_lock');
+  const up = (c: { dying?: number; hp: number }) => c.dying === undefined && c.hp > 0;
+  if (prev.foe?.crew.some(up) && next.foe && !next.foe.crew.some(up)) out.add('fight_won');
   for (const [room, was] of Object.entries(prev.systemDamage)) if (was > 0 && !next.systemDamage[room]) out.add('system_repaired');
   return [...out];
 }

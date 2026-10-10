@@ -303,6 +303,16 @@ export const SYNTHS: Record<string, Synth> = {
     s.hiss(1400, 200, 0.18, 0.12, 0.9);
     s.blip(70, 0, 0.12, 0.15, 'triangle', 40);
   },
+  foe_arrives: (s) => {
+    s.blip(90, 0, 1.2, 0.12, 'sawtooth', 140);
+    [0, 0.45, 0.9].forEach((t) => s.blip(440, t, 0.3, 0.05, 'square', 660));
+  },
+  foe_lock: (s) => [0, 0.12, 0.24, 0.36].forEach((t) => s.blip(1250, t, 0.07, 0.05, 'square')),
+  pause_on: (s) => {
+    s.blip(880, 0, 0.5, 0.07, 'sine', 110);
+    s.hiss(3000, 400, 0.4, 0.05, 0.4);
+  },
+  pause_off: (s) => s.blip(110, 0, 0.35, 0.07, 'sine', 880),
   // ambience (engine / hover hum loop in the game; these are 2 s previews for the /sounds/ page)
   engine_hum: (s) => [52, 52.6, 104.3].forEach((f) => s.blip(f, 0, 2, 0.06, 'sawtooth')),
   hover_hum: (s) => [329, 331.5].forEach((f) => s.blip(f, 0, 2, 0.02, 'triangle')),

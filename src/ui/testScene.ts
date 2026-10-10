@@ -4,6 +4,7 @@
 import { setWeaponTarget, toggleTurret } from '../core/weapons';
 import SCENES from '../data/test_scenes.json';
 import { spawnEnemy } from '../core/combat';
+import { spawnFoe } from '../core/foe';
 import { placeCrew, selectCrew, sendSelected } from '../core/crewmove';
 import type { GameState, Point } from '../core/types';
 
@@ -24,7 +25,8 @@ export interface TestScene {
   focus?: Point;
   zoom?: number;
   damage?: Record<string, number>; // preset system damage in health bars (repair tests)
-  weapons?: { on: number[]; target?: string }; // turrets switched on (indices) + their target room
+  weapons?: { on: number[]; target?: string; foe?: boolean }; // turrets switched on (indices) + their target room
+  foe?: boolean; // a Sentinel gunship alongside (ship fight, core/foe.ts)
 }
 
 const SHIPS = import.meta.glob('../data/test_ships/*.json', { eager: true, import: 'default' }) as Record<string, unknown>;
@@ -70,9 +72,10 @@ export function applyTestScene(state: GameState, scene: TestScene): GameState {
     s = selectCrew(s, null);
   });
   if (scene.damage) s = { ...s, systemDamage: { ...s.systemDamage, ...scene.damage } };
+  if (scene.foe) s = spawnFoe(s);
   if (scene.weapons) {
     for (const i of scene.weapons.on) s = toggleTurret(s, i);
-    if (scene.weapons.target) s = setWeaponTarget(s, scene.weapons.target);
+    if (scene.weapons.target) s = setWeaponTarget(s, scene.weapons.target, !!scene.weapons.foe);
   }
   const sel = own.findIndex((c) => c.selected);
   if (sel >= 0 && s.crew[sel]) s = selectCrew(s, s.crew[sel]!.id);

@@ -1,0 +1,13 @@
+{
+  "_note": "Enemy airship in a ship fight (core/foe.ts). Gunnery: after a rest it picks one of our rooms (red, telegraphed), aims for aim_s, fires burst_shots per turret, rests again. Its guns work while someone is alive in its weapons room.",
+  "seed": 1957,
+  "name": "SENTINEL GUNSHIP",
+  "faction": "sentinel",
+  "crew": 4,
+  "gap_m": 7,
+  "first_rest_s": 4,
+  "rest_s": 6,
+  "aim_s": 2.5,
+  "burst_shots": 3,
+  "leave_after_s": 4
+}

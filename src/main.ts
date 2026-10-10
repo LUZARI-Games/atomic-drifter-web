@@ -15,8 +15,12 @@ import { rosterFrom } from './core/crewdb';
 import type { GameState } from './core/types';
 import { loadCrewDb } from './ui/crewDbApi';
 import { hasSavedRun, loadRun, saveRun } from './ui/runStore';
-import { introFor, markBriefed, needsIntro, START_FACTION, startCrewCount } from './core/story';
-import { mountIntroLog } from './ui/introLog';
+import { markBriefed, needsIntro, START_FACTION, startOf, startRoster } from './core/story';
+import { dialogById, nameList } from './core/dialog';
+import { spawnFoe } from './core/foe';
+import PORTRAITS from './data/portraits.json';
+import { mountDialog } from './ui/dialogScreen';
+import { mountFightHud } from './ui/fightHud';
 import { mountTitleScreen } from './ui/titleScreen';
 import { SHIP_CHOICE_KEY } from './ui/hangar';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
@@ -48,9 +52,10 @@ async function boot(): Promise<void> {
   // crew + boarders come from the crew database on the website (/crew-db/); built-in copy if the server is not reachable
   const roster = rosterFrom((await loadCrewDb()).db);
   // crew placed in the planner (CREW tool) spawn where they were put; nobody placed = the run's survivors (story.json:
-  // 3 Iron Mall citizens); test scenes keep 4 random database crew
+  // the captain + Bolt, Samantha, Kaan); test scenes keep 4 random database crew
   const placed = placedCrew(loaded.ship, roster);
-  const crew = (placed.length ? placed : (scene ? generateCrew(loaded.ship, 4, undefined, roster) : generateCrew(loaded.ship, startCrewCount(run), undefined, roster, START_FACTION))).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
+  const start0 = startRoster(roster, run); // the captain + the start faction's named crew (story.json)
+  const crew = (placed.length ? placed : (scene ? generateCrew(loaded.ship, 4, undefined, roster) : generateCrew(loaded.ship, start0.count, undefined, start0.roster, START_FACTION))).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
   // system health bars = their power level in this run (Ship Upgrades)
   // (systems without upgrade levels, e.g. the reactor, keep the default number of bars)
   const systemBarsByRoom: Record<string, number> = {};
@@ -91,15 +96,27 @@ async function boot(): Promise<void> {
   const shipScene = new ShipScene(store, sound, scene?.focus ? { at: scene.focus, zoom: scene.zoom ?? 1 } : undefined, title);
   // debug hook for automated checks: window.adw.screenOf([x, z]) = where to tap for a ship point
   (window as unknown as { adw: unknown }).adw = { store, scene: shipScene };
-  // a new run opens on its intro log (once per run; not in test scenes / planner tests; `?play&intro` = always);
-  // the game waits behind it
-  if (!title && !scene && (params.has('intro') || (!params.has('ship') && hasSavedRun() && needsIntro(run)))) {
+  // a new run opens on its radio conversation (once per run; not in test scenes / planner tests; `?play&intro` =
+  // always); the game waits behind it. The Sentinel gunship pulls up during it -> the first ship fight.
+  const opening = dialogById(startOf(START_FACTION).dialog);
+  if (opening && !title && !scene && (params.has('intro') || (!params.has('ship') && hasSavedRun() && needsIntro(run)))) {
     shipScene.held = true;
-    mountIntroLog(document.getElementById('hud')!, introFor(START_FACTION), () => {
-      if (hasSavedRun()) saveRun(markBriefed(loadRun()));
-      shipScene.held = false;
+    const files = roster.portraits;
+    const pid = opening.speaker.portrait;
+    const crewNames = store.get().crew.filter((c) => !c.captain).map((c) => c.name);
+    mountDialog(document.getElementById('hud')!, opening, {
+      vars: { ship: run.shipName || loaded.ship.name, captain: run.captainName || 'Captain', crew: nameList(crewNames) },
+      portrait: files[pid] ?? PORTRAITS.portraits.find((p) => p.id === pid)?.file ?? null,
+      onEvent: (e) => {
+        if (e === 'foe_arrives') store.update((s) => (s.foe ? s : spawnFoe(s)));
+      },
+      onClose: () => {
+        if (hasSavedRun()) saveRun(markBriefed(loadRun()));
+        shipScene.held = false;
+      },
     });
   }
+  if (!title) mountFightHud(document.getElementById('hud')!, store, (id) => sound.play(id));
   look = (id) => {
     const c = store.get().crew.find((m) => m.id === id);
     if (c) shipScene.lookAt(c.pos);

@@ -4,7 +4,7 @@
 // limited acceleration + top speed, late braking. Each projectile flies to the room and hits EVERY character in it
 // (combat.ts hitRoom, combat.json turret_hit_damage). Pure functions (state, dt) => state – engine-neutral.
 import WEAPONS from '../data/weapons.json';
-import { hitRoom } from './combat';
+import { hitFoeRoom, hitRoom } from './combat';
 import { airshipHull } from './hull';
 import type { GameState, Point, Ship } from './types';
 
@@ -31,6 +31,7 @@ export interface Turret {
   clock: number;
 }
 
+/** A projectile in flight. Points are in OUR ship space (the enemy ship sits at foe.offset in it). */
 export interface Shot {
   from: Point;
   to: Point;
@@ -39,12 +40,15 @@ export interface Shot {
   t: number;
   dur: number;
   room: string;
+  /** The room is on the enemy ship (else on ours). */
+  foe?: boolean;
   turret: number;
 }
 
 export interface Weapons {
   turrets: Turret[];
   target: string | null; // room the turrets fire at
+  targetFoe?: boolean; // that room is on the enemy ship
   shots: Shot[];
   impacts: { at: Point; h: number; t: number }[]; // for hit flashes (renderer), 0.35 s each
   fired: number; // shots fired in total (sounds)
@@ -73,17 +77,18 @@ export function toggleTurret(state: GameState, i: number): GameState {
   return { ...state, weapons: { ...w, turrets, target } };
 }
 
-/** Target room for all turrets that are on (null = hold fire). */
-export function setWeaponTarget(state: GameState, room: string | null): GameState {
+/** Target room for all turrets that are on (null = hold fire); `foe` = a room on the enemy ship. */
+export function setWeaponTarget(state: GameState, room: string | null, foe = false): GameState {
   const w = weaponsOf(state);
-  return w.target === room ? state : { ...state, weapons: { ...w, target: room } };
+  const onFoe = !!room && foe;
+  return w.target === room && !!w.targetFoe === onFoe ? state : { ...state, weapons: { ...w, target: room, targetFoe: onFoe } };
 }
 
 /** All turrets off. */
 export function deactivateAll(state: GameState): GameState {
   const w = weaponsOf(state);
   if (!w.turrets.some(isActive)) return state;
-  return { ...state, weapons: { ...w, target: null, turrets: w.turrets.map((t) => (isActive(t) ? { ...t, mode: 'down' as TurretMode, queue: [] } : t)) } };
+  return { ...state, weapons: { ...w, target: null, targetFoe: false, turrets: w.turrets.map((t) => (isActive(t) ? { ...t, mode: 'down' as TurretMode, queue: [] } : t)) } };
 }
 
 /** Centre of a room's walkable floor (all tiles if it has none). */
@@ -116,11 +121,12 @@ export function muzzleOf(t: Turret): Point {
   return [t.at[0] + Math.cos(t.yaw) * GUN.muzzle_m - Math.sin(t.yaw) * side, t.at[1] + Math.sin(t.yaw) * GUN.muzzle_m + Math.cos(t.yaw) * side];
 }
 
-/** One weapons step: power up / down, aim (reaction delay + servo), fire when on target, projectiles, room hits. */
-export function tickWeapons(state: GameState, dt: number): GameState {
-  const w = state.weapons;
-  if (!w || (!w.turrets.some((t) => t.mode !== 'off' || t.recoil > 0) && !w.shots.length && !w.impacts.length)) return state;
-  const aimAt = w.target ? roomCentre(state.ship, w.target) : null;
+/**
+ * One step of a set of guns sitting at `origin` (where their ship's origin is in OUR ship space): power up / down,
+ * aim at `aimAt` (our ship space; reaction delay + servo), fire when on target and `mayFire`, move projectiles.
+ * Returns the guns and the projectiles that arrived this step (the caller applies the hits).
+ */
+export function stepGuns(w: Weapons, dt: number, aimAt: Point | null, origin: Point = [0, 0], mayFire = true): { weapons: Weapons; landed: Shot[] } {
   const newShots: Shot[] = [];
   let fired = w.fired;
   const turrets = w.turrets.map((t0, i): Turret => {
@@ -129,8 +135,9 @@ export function tickWeapons(state: GameState, dt: number): GameState {
       const power = Math.min(1, t.power + dt / GUN.power_up_s);
       t = { ...t, power, mode: power >= 1 ? 'on' : 'up' };
     }
+    const at: Point = [t.at[0] + origin[0], t.at[1] + origin[1]];
     // goal: the target room while on, else rest; new aim points reach the servo after the reaction delay
-    const want = t.mode === 'on' && aimAt ? Math.atan2(aimAt[1] - t.at[1], aimAt[0] - t.at[0]) : t.rest;
+    const want = t.mode === 'on' && aimAt ? Math.atan2(aimAt[1] - at[1], aimAt[0] - at[0]) : t.rest;
     const cont = t.yaw + wrap(want - t.yaw); // no full spins
     const queue = Math.abs(wrap(cont - (t.queue.at(-1)?.yaw ?? t.goal))) > 1e-4 ? [...t.queue, { t: t.clock, yaw: cont }] : t.queue;
     let goal = t.goal;
@@ -148,26 +155,48 @@ export function tickWeapons(state: GameState, dt: number): GameState {
       t = { ...t, power, mode: power <= 0 && Math.abs(wrap(t.yaw - t.rest)) < 0.02 ? 'off' : 'down' };
     }
     // fire: on, a target, on aim, cooled down
-    if (t.mode === 'on' && aimAt && w.target && t.cooldown <= 0 && Math.abs(wrap(want - t.yaw)) < GUN.aim_tolerance_deg * RAD && Math.abs(wrap(goal - want)) < 1e-3) {
-      const from = muzzleOf(t);
+    if (mayFire && t.mode === 'on' && aimAt && w.target && t.cooldown <= 0 && Math.abs(wrap(want - t.yaw)) < GUN.aim_tolerance_deg * RAD && Math.abs(wrap(goal - want)) < 1e-3) {
+      const m = muzzleOf(t);
+      const from: Point = [m[0] + origin[0], m[1] + origin[1]];
       const dur = Math.max(0.03, Math.hypot(aimAt[0] - from[0], aimAt[1] - from[1]) / GUN.projectile_speed_mps);
-      newShots.push({ from, to: aimAt, fromH: GUN.height_m, toH: GUN.target_height_m, t: 0, dur, room: w.target, turret: i });
+      newShots.push({ from, to: aimAt, fromH: GUN.height_m, toH: GUN.target_height_m, t: 0, dur, room: w.target, foe: !!w.targetFoe, turret: i });
       fired++;
       t = { ...t, cooldown: GUN.fire_interval_s, recoil: 1, barrel: 1 - t.barrel };
     }
     return t;
   });
-  // projectiles fly; on arrival every character in that room is hit
-  let next: GameState = state;
   const shots: Shot[] = [];
+  const landed: Shot[] = [];
   const impacts = w.impacts.map((m) => ({ ...m, t: m.t + dt })).filter((m) => m.t < 0.35);
   for (const s of [...w.shots, ...newShots]) {
     const t = s.t + dt;
     if (t < s.dur) shots.push({ ...s, t });
     else {
-      next = hitRoom(next, s.room);
+      landed.push(s);
       impacts.push({ at: s.to, h: s.toH, t: 0 });
     }
   }
-  return { ...next, weapons: { ...w, turrets, shots, impacts, fired } };
+  return { weapons: { ...w, turrets, shots, impacts, fired }, landed };
+}
+
+/** Where a room's centre is in OUR ship space (`foe` = a room on the enemy ship). */
+export function roomPoint(state: GameState, room: string, foe = false): Point | null {
+  if (!foe) return roomCentre(state.ship, room);
+  if (!state.foe) return null;
+  const c = roomCentre(state.foe.ship, room);
+  return c && [c[0] + state.foe.offset[0], c[1] + state.foe.offset[1]];
+}
+
+/** Hits of arrived projectiles: every character in the room loses HP (our room or a room on the enemy ship). */
+export function applyHits(state: GameState, landed: Shot[]): GameState {
+  return landed.reduce((s, sh) => (sh.foe ? hitFoeRoom(s, sh.room) : hitRoom(s, sh.room)), state);
+}
+
+/** One step of OUR guns (they may target a room on our ship or on the enemy ship). */
+export function tickWeapons(state: GameState, dt: number): GameState {
+  const w = state.weapons;
+  if (!w || (!w.turrets.some((t) => t.mode !== 'off' || t.recoil > 0) && !w.shots.length && !w.impacts.length)) return state;
+  const aimAt = w.target ? roomPoint(state, w.target, !!w.targetFoe) : null;
+  const { weapons, landed } = stepGuns(w, dt, aimAt);
+  return applyHits({ ...state, weapons }, landed);
 }

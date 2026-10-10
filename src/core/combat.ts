@@ -297,6 +297,15 @@ export function hitRoom(state: GameState, room: string, damage = COMBAT.turret_h
   return { ...state, crew, selectedCrewId: sel && alive(sel) ? state.selectedCrewId : null };
 }
 
+/** A projectile hits room `room` on the enemy ship: everyone alive in it loses `damage` HP. */
+export function hitFoeRoom(state: GameState, room: string, damage = COMBAT.turret_hit_damage): GameState {
+  const foe = state.foe;
+  if (!foe) return state;
+  const inRoom = (c: CrewMember) => alive(c) && foe.ship.tiles[Number(c.node.slice(1))]?.room === room;
+  if (!foe.crew.some(inRoom)) return state;
+  return { ...state, foe: { ...foe, crew: foe.crew.map((c) => (inRoom(c) ? damageMember(c, damage) : c)) } };
+}
+
 /** `dmg` HP off one character; at 0 HP enemies start dying, own crew are knocked out (as in melee). */
 export function damageMember(c: CrewMember, dmg: number): CrewMember {
   if (!alive(c)) return c;

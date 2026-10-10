@@ -15,7 +15,10 @@ export interface PanZoomOptions {
 const TAP_SLOP = 10; // px a finger may wander and still count as a tap
 const MAX_ZOOM_FACTOR = 8; // how far you can zoom in, relative to the fitted view
 
-export function attachPanZoom(scene: Phaser.Scene, opts: PanZoomOptions): void {
+/** Refit the view to the (changed) bounds. `measure` = only work out the fitted zoom + centre (the caller animates). */
+export type Refit = (measure?: boolean) => { zoom: number; x: number; y: number };
+
+export function attachPanZoom(scene: Phaser.Scene, opts: PanZoomOptions): Refit {
   const cam = scene.cameras.main;
   const margin = opts.margin ?? 16;
   const touches = new Map<number, { x: number; y: number; sx: number; sy: number }>();
@@ -39,14 +42,16 @@ export function attachPanZoom(scene: Phaser.Scene, opts: PanZoomOptions): void {
   };
   const setZoom = (z: number) => cam.setZoom(Phaser.Math.Clamp(z, fitZoom * 0.6, fitZoom * MAX_ZOOM_FACTOR));
 
-  const fit = () => {
+  const fit = (measure = false) => {
     const b = opts.bounds();
     const zw = (cam.width - 2 * margin) / b.width;
     const zh = (cam.height - 2 * margin) / b.height;
     fitZoom = Math.max(0.05, opts.fit === 'width' ? zw : Math.min(zw, zh));
+    if (measure) return { zoom: fitZoom, x: b.centerX, y: b.centerY };
     cam.setZoom(fitZoom);
     const viewH = cam.height / fitZoom;
     cam.centerOn(b.centerX, opts.fit === 'width' && viewH < b.height ? b.y - margin / fitZoom + viewH / 2 : b.centerY);
+    return { zoom: fitZoom, x: b.centerX, y: b.centerY };
   };
 
   scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
@@ -111,4 +116,5 @@ export function attachPanZoom(scene: Phaser.Scene, opts: PanZoomOptions): void {
     cam.setSize(scene.scale.width, scene.scale.height);
     fit();
   });
+  return fit;
 }
