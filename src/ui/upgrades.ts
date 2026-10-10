@@ -300,7 +300,7 @@ function build(screen: HTMLElement): void {
   back.type = 'button';
   back.className = 'upg-back';
   back.textContent = '[ BACK TO GAME ]';
-  back.addEventListener('click', () => (location.href = '/'));
+  back.addEventListener('click', () => (location.href = '/?play'));
   boot.extra.appendChild(back);
 }
 

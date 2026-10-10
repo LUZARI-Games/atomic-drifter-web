@@ -198,3 +198,47 @@ html, body {
 .sh-face.foe .hp { background: rgba(255, 180, 58, 0.15); }
 .sh-face.foe .hp i { background: var(--amber); }
 .sh-more { font-size: var(--fs-s); color: var(--amber); }
+
+/* ---------- Title screen (main menu over the flying ship): 1950s poster logo, terminal buttons ---------- */
+.title-screen {
+  position: absolute; inset: 0; z-index: 10; overflow-y: auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 18px;
+  padding: calc(max(16px, env(safe-area-inset-top)) + 8px) 16px calc(max(16px, env(safe-area-inset-bottom)) + 8px);
+  background: radial-gradient(ellipse at 50% 30%, transparent 30%, rgba(3, 8, 6, 0.55) 100%);
+  pointer-events: auto;
+}
+.ts-logo { position: relative; text-align: center; margin-top: 2vh; }
+.ts-menu .ts-btn { background: rgba(3, 8, 6, 0.9); }
+.ts-atom { position: absolute; left: 50%; top: 46%; width: min(92vw, 520px); height: auto; transform: translate(-50%, -50%) rotate(-12deg); opacity: 0.55; z-index: -1; }
+.ts-atom g { stroke: #e9d8a6; filter: drop-shadow(0 0 6px rgba(233, 216, 166, 0.5)); }
+.ts-atom .ts-core { fill: #6cff6a; filter: drop-shadow(0 0 10px #6cff6a); animation: ts-pulse 1.7s ease-in-out infinite; }
+@keyframes ts-pulse { 50% { opacity: 0.55; } }
+.ts-logo h1 { margin: 0; font-family: 'Bungee', 'Share Tech Mono', Impact, sans-serif; font-weight: 400; line-height: 0.92; display: flex; flex-direction: column; align-items: center; }
+.ts-logo h1 span {
+  /* chrome letters with a rust shadow, like a 1950s pulp poster */
+  background: linear-gradient(180deg, #fffbe9 0%, #f3d27a 38%, #c56a2b 52%, #f6e3a6 64%, #9a4b1e 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(3px 3px 0 #2a1408) drop-shadow(0 0 14px rgba(255, 190, 90, 0.35));
+}
+.ts-logo .ts-w0 { font-size: clamp(30px, 10vw, 64px); letter-spacing: 0.18em; transform: skewX(-8deg); }
+.ts-logo .ts-w1 { font-size: clamp(44px, 15vw, 104px); letter-spacing: 0.04em; transform: skewX(-8deg); }
+.ts-tag { margin: 10px 0 0; font-family: var(--font); font-size: 15px; letter-spacing: 3px; color: #e9d8a6; text-shadow: 0 0 6px #000, 0 0 2px #000; }
+.ts-menu, .ts-panel { margin-top: auto; display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: min(100%, 360px); }
+.ts-menu[hidden], .ts-panel[hidden] { display: none; }
+.ts-panel { background: rgba(3, 8, 6, 0.86); border: 3px solid var(--green-dim); padding: 14px; }
+.ts-panel h2 { margin: 0; font-family: var(--font); font-weight: 400; font-size: 24px; letter-spacing: 3px; color: var(--green); }
+.ts-panel h3 { margin: 6px 0 0; font-family: var(--font); font-weight: 400; font-size: 15px; letter-spacing: 2px; color: var(--green-dim); }
+.ts-list { display: flex; flex-direction: column; gap: 8px; }
+.ts-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.ts-btn {
+  display: block; text-align: center; text-decoration: none; cursor: pointer; min-height: 48px; box-sizing: border-box;
+  padding: 11px 14px; font-family: var(--font); font-size: 18px; letter-spacing: 3px;
+  color: var(--green); background: rgba(3, 8, 6, 0.82); border: 3px solid var(--green-dim);
+  text-shadow: 0 0 6px color-mix(in srgb, var(--green) 60%, transparent);
+}
+.ts-btn:hover, .ts-btn:focus-visible { border-color: var(--green); outline: none; box-shadow: 0 0 12px color-mix(in srgb, var(--green) 40%, transparent); }
+.ts-btn.primary { border-color: var(--green); background: color-mix(in srgb, var(--green) 14%, rgba(3, 8, 6, 0.9)); }
+.ts-btn.small { min-height: 44px; padding: 9px 10px; font-size: 15px; letter-spacing: 2px; }
+.ts-btn.steam { color: #e9d8a6; border-color: #8a7a52; text-shadow: none; }
+.ts-note { min-height: 1.2em; margin: 0; font-family: var(--font); font-size: 15px; color: var(--amber); text-shadow: 0 0 4px #000; }
+@media (min-aspect-ratio: 4/3) { .ts-menu { flex-direction: row; flex-wrap: wrap; justify-content: center; width: min(100%, 980px); } .ts-menu .ts-btn { flex: 1 1 160px; } }

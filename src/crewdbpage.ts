@@ -9,7 +9,7 @@ app.innerHTML = `
   <div class="wrap">
     <div class="top">
       <h1>CREW DATABASE</h1>
-      <a class="btn" href="/">BACK TO GAME</a>
+      <a class="btn" href="/">MAIN MENU</a>
     </div>
     <p class="sub">Characters, factions and portraits. Tap a card to edit. Saved on the server – the game uses it.</p>
     <div class="bar">

@@ -28,7 +28,7 @@ function render(): void {
   const own = SOUNDS.groups.reduce((n, g) => n + g.sounds.filter((s) => customFile(s.id)).length, 0);
   app.innerHTML = `
     <div class="wrap">
-      <div class="top"><h1>SOUND LIST</h1><a class="btn" href="/">BACK TO GAME</a></div>
+      <div class="top"><h1>SOUND LIST</h1><a class="btn" href="/">MAIN MENU</a></div>
       <p class="sub">${total} sounds · ${own} replaced by your own files. Tap ▶ to hear the current one.</p>
       <p class="note">To replace one: make a file named after its id (e.g. <b>boarder_alarm.ogg</b>, also .mp3 / .wav), send it to Claude, it goes into <b>public/sfx/</b>. Loops (engine_hum, hover_hum) should loop seamlessly.</p>
       ${SOUNDS.groups.map((g) => `

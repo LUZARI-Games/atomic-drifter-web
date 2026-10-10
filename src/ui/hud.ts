@@ -15,6 +15,7 @@ export interface HudOptions {
 
 export function mountHud(root: HTMLElement, store: Store<GameState>, opts: HudOptions): void {
   const items: MenuItem[] = [
+    { label: 'MAIN MENU', href: '/' },
     { label: 'NEW RUN', href: '/new-run/' },
     { label: 'SHIP UPGRADES', href: '/upgrades/' },
     { label: 'SALVAGE (TEST)', href: '/salvage/' },

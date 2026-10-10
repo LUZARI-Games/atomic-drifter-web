@@ -325,7 +325,7 @@ export function mountSalvage(host: HTMLElement, opts: SalvageOptions = {}): void
   back.className = 'sv-back';
   back.textContent = '[ BACK TO GAME ]';
   back.hidden = true;
-  back.addEventListener('click', () => (location.href = '/'));
+  back.addEventListener('click', () => (location.href = '/?play'));
   bootEl.querySelector('[data-ref="power"]')!.after(back);
   const extra = boot.extra;
 

@@ -12,6 +12,15 @@ export function loadRun(): RunState {
   }
 }
 
+/** A run was started / saved in this browser (title screen: CONTINUE). */
+export function hasSavedRun(): boolean {
+  try {
+    return localStorage.getItem(KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function saveRun(run: RunState): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(run));

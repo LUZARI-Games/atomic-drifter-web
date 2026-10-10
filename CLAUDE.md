@@ -115,6 +115,12 @@ never restate the owner's tasks back to them.
   (both rows at the railing) and a bike.
 
 ## Run screens + HUD (from the owner's design mockups)
+- Title screen = `/` without parameters (`src/ui/titleScreen.ts`, styles in styles.css `.title-screen`): 1950s poster
+  logo (Bungee font, chrome/rust letters, atom emblem) over the player's current ship flying (ShipScene `attract`:
+  no input, no boarders, slow camera drift). Buttons: NEW GAME (→ /new-run/), CONTINUE (only with a saved run →
+  `/?play`), OPTIONS (sound, volume, greyscale, fullscreen), DEV TOOLS (planner, labs, database, sound list, upgrades,
+  salvage, all test scenes), WISHLIST ON STEAM (`src/data/game_info.json` steam_url; empty = COMING SOON).
+  The game itself = `/?play` (also `?test=`, planner `?ship=test`); in-game menu has MAIN MENU.
 - Run state `src/core/run.ts` (RunState: names, difficulty, modifiers, scrap, ammo, hull, evasion, system levels,
   reactor bars, turrets), saved per browser by `src/ui/runStore.ts` (`adw.run`). The game HUD reads it (`statusFromRun`).
 - Top-left HUD `src/ui/statusHud.ts`: hull segments, shield pips + recharge, evasion | ammo, scrap; crew portraits

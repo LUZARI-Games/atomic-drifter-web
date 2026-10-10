@@ -81,6 +81,8 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     private readonly sfx: ShipSounds = SILENT,
     /** Test scenes: camera centred on this ship point, `zoom` times the fitted view. */
     private readonly focus?: { at: Point; zoom: number },
+    /** Title screen: no input, the camera drifts slowly around the ship. */
+    private readonly attract = false,
   ) {
     super({ key: 'ship', active: true });
   }
@@ -108,6 +110,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     attachPanZoom(this, {
       bounds: () => this.area,
       onTap: (x, y) => {
+        if (this.attract) return;
         // a figure under the finger wins (they stand up from the floor, so test on screen, not on the deck)
         const hit = this.crewAt(x, y);
         if (hit) this.store.update((s) => selectCrew(s, s.selectedCrewId === hit ? null : hit));
@@ -184,6 +187,14 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     const bob = Math.sin((time / 1000 / BOB_PERIOD) * Math.PI * 2) * BOB_PX;
     cam.scrollY -= (bob - this.bob) / cam.zoom;
     this.bob = bob;
+    if (this.attract) {
+      // title screen: slow drift + breathing zoom around the ship (the ship stays a bit low, under the logo)
+      const t = time / 1000;
+      // smaller than the fitted view, a bit above the middle: between the logo (top) and the menu (bottom)
+      const tall = cam.height > cam.width;
+      cam.setZoom(this.fitZoom * ((tall ? 0.78 : 0.62) + 0.05 * Math.sin(t / 9)));
+      cam.centerOn(this.area.centerX + Math.sin(t / 13) * 40, this.area.centerY + (cam.height * (tall ? 0.04 : 0.02)) / cam.zoom + Math.cos(t / 11) * 20 - bob / cam.zoom);
+    }
 
     // crew walk (core rules), doors open by themselves while someone walks through
     const walking = this.store.get().crew.some((c) => c.path.length);

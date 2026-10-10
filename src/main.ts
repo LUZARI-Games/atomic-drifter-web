@@ -14,7 +14,8 @@ import { parseShip } from './core/ship';
 import { rosterFrom } from './core/crewdb';
 import type { GameState } from './core/types';
 import { loadCrewDb } from './ui/crewDbApi';
-import { loadRun } from './ui/runStore';
+import { hasSavedRun, loadRun } from './ui/runStore';
+import { mountTitleScreen } from './ui/titleScreen';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
 import { applyTestScene, testSceneFromUrl, testShip } from './ui/testScene';
 import { Sound } from './ui/sound';
@@ -24,6 +25,9 @@ import './ui/styles.css';
 async function boot(): Promise<void> {
   // ?test=<name>: a fixed test scene (src/data/test_scenes.json) instead of the saved / demo ship
   const scene = testSceneFromUrl();
+  // no ?play / ?test / ?ship: the title screen (main menu) over the flying ship
+  const params = new URLSearchParams(location.search);
+  const title = !scene && !params.has('play') && !params.has('ship');
   const sceneShip = scene?.ship ? parseShip(testShip(scene.ship)).ship : null;
   const loaded = sceneShip ? { ship: sceneShip, source: 'demo' as const, problems: [] } : loadShip(!scene); // scenes use the demo ship
   // the planner export carries no crew yet -> random crew from the Crew Lab types
@@ -43,14 +47,15 @@ async function boot(): Promise<void> {
     if (level !== null) systemBarsByRoom[r.id] = level;
   }
   let start: GameState = { ...createGameState(loaded.ship), crew, status: statusFromRun(run), systemBars: systemBarsByRoom, roster };
-  start = spawnShipEnemies(start); // enemy boarders placed in the planner (ENEMY CREW)
+  if (!title) start = spawnShipEnemies(start); // enemy boarders placed in the planner (ENEMY CREW)
   if (scene) start = applyTestScene(start, scene);
   const store = new Store(start);
   const sound = new Sound();
 
   let look: ((id: string) => void) | null = null;
-  mountStatusHud(document.getElementById('hud')!, store, { onFocus: (id) => look?.(id) });
-  mountHud(document.getElementById('hud')!, store, {
+  if (title) mountTitleScreen(document.getElementById('hud')!, { hasRun: hasSavedRun(), optionItems: sound.menuItems() });
+  else mountStatusHud(document.getElementById('hud')!, store, { onFocus: (id) => look?.(id) });
+  if (!title) mountHud(document.getElementById('hud')!, store, {
     source: loaded.source,
     extraItems: sound.menuItems(),
     problems: loaded.problems,
@@ -60,7 +65,7 @@ async function boot(): Promise<void> {
       } catch {
         /* ignore */
       }
-      location.href = location.pathname;
+      location.href = '/?play';
     },
   });
 
@@ -71,7 +76,7 @@ async function boot(): Promise<void> {
     /* fall back to monospace */
   }
 
-  const shipScene = new ShipScene(store, sound, scene?.focus ? { at: scene.focus, zoom: scene.zoom ?? 1 } : undefined);
+  const shipScene = new ShipScene(store, sound, scene?.focus ? { at: scene.focus, zoom: scene.zoom ?? 1 } : undefined, title);
   // debug hook for automated checks: window.adw.screenOf([x, z]) = where to tap for a ship point
   (window as unknown as { adw: unknown }).adw = { store, scene: shipScene };
   look = (id) => {

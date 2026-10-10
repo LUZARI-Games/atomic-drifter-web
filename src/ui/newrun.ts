@@ -20,7 +20,7 @@ import { applyGreyscale, greyscaleItem, mountMenu, toggleFullscreen } from './me
 import { mountBootScreen } from './terminal';
 import { TermSfx } from './termSfx';
 
-const GAME_URL = '/';
+const GAME_URL = '/?play';
 
 // ---------- icons (24×24, stroke = currentColor) ----------
 const P: Record<string, string> = {
