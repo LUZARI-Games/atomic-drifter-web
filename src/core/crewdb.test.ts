@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import COMBAT from '../data/combat.json';
 import demo from '../data/demo_ship.json';
-import { spawnEnemy } from './combat';
+import { spawnEnemy, spawnShipEnemies } from './combat';
 import { applyPatches, characterHp, cleanRecord, parseCrewDb, PATCHES, rosterFrom, SEED_DB, toId } from './crewdb';
-import { generateCrew } from './crewmove';
+import { generateCrew, placedCrew } from './crewmove';
 import { createGameState } from './selection';
 import { parseShip } from './ship';
 import type { GameState } from './types';
@@ -85,5 +85,36 @@ describe('roster for the game', () => {
     s = spawnEnemy(s, [3, 1]);
     const e = s.crew[0]!;
     expect(roster.enemies.some((x) => x.name === e.name && x.hp === e.hpMax)).toBe(true);
+  });
+});
+
+describe('crew placed in the planner', () => {
+  const roster = rosterFrom(SEED_DB);
+  const withCrew = (crew: unknown[]) => parseShip({ ...demo, crew }).ship!;
+
+  it('placed own crew spawn on their tiles, the marked captain first; unknown ids and duplicates are skipped', () => {
+    const s = withCrew([
+      { side: 'crew', tile: [3, 1], id: 'chuck' },
+      { side: 'crew', tile: [3, -1], id: 'daisy', captain: true },
+      { side: 'crew', tile: [1, 3], id: 'nobody' },
+      { side: 'crew', tile: [1, 1], id: 'chuck' },
+    ]);
+    const crew = placedCrew(s, roster);
+    expect(crew.map((c) => c.name)).toEqual(['DAISY', 'CHUCK']);
+    expect(crew[0]!.captain).toBe(true);
+    expect(crew[1]!.pos).toEqual([3, 1]);
+  });
+
+  it('nobody placed -> empty (the game falls back to random crew)', () => {
+    expect(placedCrew(withCrew([{ side: 'enemy', tile: [3, 1] }]), roster)).toEqual([]);
+  });
+
+  it('a chosen enemy spawns as that database character; no id = random database enemy', () => {
+    const s = withCrew([{ side: 'enemy', tile: [3, 1], id: 'super_mutant_leader' }, { side: 'enemy', tile: [3, -1] }]);
+    expect(s.crew?.[0]).toEqual({ side: 'enemy', tile: [3, 1], id: 'super_mutant_leader' });
+    const g = spawnShipEnemies({ ...createGameState(s), crew: [], roster });
+    expect(g.crew[0]!.name).toBe('OSWALD');
+    expect(g.crew[0]!.hpMax).toBe(COMBAT.hp.enemy.tank);
+    expect(g.crew).toHaveLength(2);
   });
 });

@@ -26,10 +26,16 @@ and the export format `atomic-drifter-ship-godot` v1. If the format changes, `sr
 - Console = keyboard desk drawn ON the machinery edge facing the console tile, overhanging that tile a little (`drawConsoleRect`).
 - Godot export: `rooms[].console = { tile: [x, z], facing: [x, z] } | null` (+ `console_info`), read by `src/core/ship.ts`.
 - Godot export: `vehicles[] = { type, seats, docked, tiles[{center, polygon}], exits[{a, b}], walls[{a, b}] }` (+ `vehicles_info`).
-- **ENEMY CREW** tool (amber, key **[E]**): tap a floor field to add an enemy boarder (up to 4 per field, the 5th tap clears it;
-  not on machinery). Stored as `tile.enemies = 1..4` (so it is in save / undo / localStorage and follows moved / turned rooms),
-  drawn as amber dots with "!" (`drawEnemies`). Godot export: `crew[] = { side: "enemy", tile: [x, z] }` – one entry per
-  enemy, `tile` = floor tile centre like `rooms[].console.tile` (+ `crew_info`). Older exports without `crew` stay valid.
+- **Crew database** (`loadCrewDb`, `CREWDB`): on start the planner loads `/api/db` (website crew database). The CREW
+  ROSTER lists characters marked CREW (portraits, grouped by faction); the Unreal DataTable buttons are hidden and the stored
+  Unreal table is not loaded. Placed crew show their portrait on the grid (`drawFace`). Only works on the website.
+- **ENEMY CREW** tool (amber, key **[E]**) + **ENEMY CREW** box under the crew roster: pick a database enemy (or RANDOM
+  ENEMY), tap floor fields (up to 4 per field, the 5th tap clears it; not on machinery). Stored as
+  `tile.enemies = [characterId | null, …]` (older saves with a count still load), drawn as amber-ringed portraits.
+- Godot export `crew[] = { side: "crew" | "enemy", tile: [x, z], id?, captain? }` (+ `crew_info`): own crew = placed
+  database characters (captain = the starred one), enemies = one entry per enemy, `id` missing = random. `tile` = floor
+  tile centre like `rooms[].console.tile`. Older exports without `crew` stay valid.
+- `window.__planner = { ship, sx, sy, godotShip }` debug hook for automated checks.
 
 ## Things to know
 - Ships and loaded Unreal tables are stored **per browser**. Ships saved in the artifact are not on the website automatically:

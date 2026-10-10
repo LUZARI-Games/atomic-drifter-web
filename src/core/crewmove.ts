@@ -108,6 +108,35 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name), rost
   return crew;
 }
 
+/**
+ * Own crew placed in the planner (ship.crew with side 'crew' + a crew database id) at their tiles. The captain is the
+ * one marked captain, else the database captain if placed, else the first. Unknown ids / taken tiles are skipped.
+ * Empty when nobody was placed (the game then uses `generateCrew`).
+ */
+export function placedCrew(ship: Ship, roster: Roster, seed = hash(ship.name)): CrewMember[] {
+  const nav = navOf(ship);
+  const r = seeded(seed);
+  const people = [roster.captain, ...roster.crew].filter((e): e is RosterEntry => !!e);
+  const spawns = (ship.crew ?? []).filter((c) => c.side === 'crew' && c.id && people.some((e) => e.id === c.id));
+  const seen = new Set<string>();
+  const unique = spawns.filter((c) => !seen.has(c.id!) && !!seen.add(c.id!));
+  const marked = unique.findIndex((c) => c.captain);
+  const dbCaptain = unique.findIndex((c) => c.id === roster.captain?.id);
+  const capIdx = marked >= 0 ? marked : dbCaptain >= 0 ? dbCaptain : 0;
+  const ordered = unique.length ? [unique[capIdx]!, ...unique.filter((_, i) => i !== capIdx)] : [];
+  const bases = LAB.map(parseCrewLook).filter((l): l is CrewLook => !!l);
+  const used = new Set<string>();
+  const crew: CrewMember[] = [];
+  for (const sp of ordered) {
+    const node = nodeAt(ship, nav, sp.tile);
+    if (!node || !node.startsWith('t') || used.has(node)) continue;
+    used.add(node);
+    const entry = people.find((e) => e.id === sp.id)!;
+    crew.push(placeEntry(ship, node, entry, bases[Math.floor(r() * bases.length)]!, [], r, crew.length));
+  }
+  return crew;
+}
+
 /** A crew database character as a crew member at deck node `node` (look: random Crew Lab base, faction = origin). */
 function placeEntry(ship: Ship, node: string, e: RosterEntry, base: CrewLook, gear: GearId[], r: () => number, i: number): CrewMember {
   const nav = navOf(ship);

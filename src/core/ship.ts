@@ -64,9 +64,12 @@ export function parseVehicles(raw: unknown): ShipVehicle[] {
 export function parseCrewSpawns(raw: unknown): ShipCrewSpawn[] {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((c): ShipCrewSpawn[] => {
-    const o = c as { side?: unknown; tile?: unknown } | null;
+    const o = c as { side?: unknown; tile?: unknown; id?: unknown; captain?: unknown } | null;
     if (!o || !isPoint(o.tile)) return [];
-    return [{ side: o.side === 'crew' ? 'crew' : 'enemy', tile: o.tile }];
+    const spawn: ShipCrewSpawn = { side: o.side === 'crew' ? 'crew' : 'enemy', tile: o.tile };
+    if (typeof o.id === 'string' && /^[a-z0-9_]{1,60}$/.test(o.id)) spawn.id = o.id;
+    if (o.captain === true && spawn.side === 'crew') spawn.captain = true;
+    return [spawn];
   });
 }
 

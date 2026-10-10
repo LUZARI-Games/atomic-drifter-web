@@ -209,6 +209,11 @@ body.m .crewlist{max-height:none}
 .crewm{display:grid;grid-template-columns:36px 1fr auto auto;gap:10px;align-items:center;min-height:48px;padding:4px 8px;border:3px solid var(--p-faint);background:transparent;cursor:pointer;text-align:left;width:100%;font-size:15px}
 .crewm:hover{border-color:var(--p)}
 .crewm .ini{width:32px;height:32px;border-radius:50%;background:var(--p);color:var(--ink);display:flex;align-items:center;justify-content:center;font-size:14px;letter-spacing:0}
+.crewm img.ini{object-fit:cover;background:#0b1a12;border:2px solid var(--p)} /* [website] database portraits */
+.crewm.foe img.ini,.crewm.foe .ini{border-color:#FFB43A}
+.crewgrp{font-size:13px;letter-spacing:2px;color:var(--p-dim);padding:6px 2px 2px;display:flex;align-items:center;gap:6px}
+.crewgrp i{width:10px;height:10px;display:inline-block;border:1px solid #000}
+.box.crewbox.foes.live{border-color:#FFB43A}
 .crewm .ini.spot{background:transparent;border:2px dashed var(--amber);color:var(--amber)}
 .crewm .nm{min-width:0;display:flex;flex-direction:column}
 .crewm .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -354,7 +359,7 @@ body.m .crewlist{max-height:none}
       <div class="box crewbox" id="crewBox">
         <div class="hd">CREW ROSTER<span id="crewCount"></span></div>
         <div class="crewsrc" id="crewSrc"></div>
-        <div class="row">
+        <div class="row" hidden><!-- [website] crew comes from the website crew database, not an Unreal table -->
           <button class="btn primary" id="crewFileBtn">LOAD DATATABLE FILE</button>
           <button class="btn" id="crewPasteBtn">PASTE</button>
           <button class="btn warn" id="crewClearBtn" hidden>REMOVE TABLE</button>
@@ -367,6 +372,12 @@ body.m .crewlist{max-height:none}
         <input class="crewfilter" id="crewFilter" placeholder="FILTER CREW…" aria-label="Filter crew" hidden>
         <div class="crewlist" id="crewList"></div>
         <div class="hint" id="crewHint"></div>
+      </div>
+      <!-- [website] ENEMY CREW picker: characters marked ENEMY in the crew database -->
+      <div class="box crewbox foes" id="enemyBox">
+        <div class="hd">ENEMY CREW<span id="enemyCount"></span></div>
+        <div class="crewlist" id="enemyList"></div>
+        <div class="hint" id="enemyHint">Pick an enemy, then tap floor fields ([E] ENEMY CREW). Up to 4 per field, the 5th tap clears the field. The same enemy can be placed many times.</div>
       </div>
       <div class="box">
         <div class="hd">SYSTEMS<span id="sysCount"></span></div>
@@ -521,7 +532,7 @@ const TOOLS = [
   { k: 'balcony', key: '8', name: 'BALCONY', ic: 'M3 20 H21 M3 12 H21 M5 12 V20 M9 12 V20 M13 12 V20 M17 12 V20 M21 12 V20', hint: 'TAP AN EMPTY ROOM: CLOSED ↔ BALCONY (OPEN RAILING · VEHICLES DOCK HERE)' },
   { k: 'crew', key: '6', name: 'CREW', ic: 'M9 7 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0 M5 21 C5 14 19 14 19 21', hint: 'PICK A CREW MEMBER IN THE CREW ROSTER, THEN TAP A FLOOR FIELD · TAP A PLACED ONE TO REMOVE' },
   // [website] ENEMY CREW tool: boarders for testing (tile.enemies = 1..4), exported as Godot crew[] with side 'enemy'
-  { k: 'enemy', key: 'E', name: 'ENEMY CREW', ic: 'M12 3 L22 20 H2 Z M12 9 V14 M12 16.5 V17.5', hint: 'TAP A FLOOR FIELD: +1 ENEMY BOARDER (UP TO 4) · A 5TH TAP CLEARS THE FIELD' },
+  { k: 'enemy', key: 'E', name: 'ENEMY CREW', ic: 'M12 3 L22 20 H2 Z M12 9 V14 M12 16.5 V17.5', hint: 'PICK AN ENEMY IN THE ENEMY CREW LIST, THEN TAP A FLOOR FIELD (UP TO 4) · A 5TH TAP CLEARS THE FIELD' },
   { k: 'system', key: '', hidden: true, name: 'SYSTEM', ic: '', hint: 'TAP SYSTEM BLOCKS TO GIVE THEM THIS SYSTEM' },
   { k: 'stamp', key: '', hidden: true, name: 'PLACE BLOCK', ic: '', hint: 'CLICK THE GRID · THE BLOCK SNAPS TO THE SHIP · [R] ROTATE · [ESC] CANCEL' },
   { k: 'pan', key: 'H', name: 'PAN', ic: 'M12 2 V22 M2 12 H22 M9 5 L12 2 L15 5 M9 19 L12 22 L15 19 M5 9 L2 12 L5 15 M19 9 L22 12 L19 15', hint: 'DRAG TO MOVE THE VIEW' },
@@ -550,6 +561,38 @@ function crewInitials(id) {
   const w = crewLabel(id).replace(/[^A-Z0-9 ]/gi, ' ').trim().split(/\s+/).filter(Boolean);
   if (!w.length) return '?';
   return (w.length > 1 ? w[w.length - 2][0] + w[w.length - 1][0] : w[0].slice(0, 2)).toUpperCase();
+}
+// [website] crew database (website /api/db): characters with portraits + factions. CREW lists side 'crew',
+// ENEMY CREW lists side 'enemy'. Placed crew keep the database id (tile.crew = id, tile.enemies = [id | null, ...]).
+const CREWDB = { chars: {}, factions: {}, portraits: {}, ok: false };
+const dbFaction = c => (c && c.faction && CREWDB.factions[c.faction]) || null;
+const dbPortrait = id => { const c = CREWDB.chars[id]; return c && c.portrait && CREWDB.portraits[c.portrait] ? CREWDB.portraits[c.portrait].file : ''; };
+const dbRows = side => Object.entries(CREWDB.chars).filter(([, c]) => c.side === side)
+  .map(([id, c]) => ({ id, label: c.name, role: dbFaction(c) ? dbFaction(c).name : 'NO FACTION', color: dbFaction(c) ? dbFaction(c).color : '', asset: '', portrait: dbPortrait(id) }))
+  .sort((a, b) => (a.role === 'NO FACTION') - (b.role === 'NO FACTION') || a.role.localeCompare(b.role) || a.label.localeCompare(b.label));
+const portraitCache = new Map();
+function portraitImage(file) { // loaded <img> or null (redraws once it arrives)
+  if (!file) return null;
+  let im = portraitCache.get(file);
+  if (!im) { im = new Image(); im.onload = () => draw(); im.src = file; portraitCache.set(file, im); }
+  return im.complete && im.naturalWidth ? im : null;
+}
+function drawFace(file, cx, cy, r, ring, ringW) { // portrait in a circle with a ring; false if not loaded yet
+  const im = portraitImage(file); if (!im) return false;
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fillStyle = '#0b1a12'; ctx.fill(); ctx.clip();
+  ctx.drawImage(im, cx - r, cy - r, r * 2, r * 2); ctx.restore();
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.lineWidth = ringW; ctx.strokeStyle = ring; ctx.stroke();
+  return true;
+}
+async function loadCrewDb() {
+  try {
+    const res = await fetch('/api/db', { cache: 'no-store' }); if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    CREWDB.chars = d.characters || {}; CREWDB.factions = d.factions || {}; CREWDB.portraits = d.portraits || {}; CREWDB.ok = true;
+    setRoster({ rows: dbRows('crew'), source: 'CREW DATABASE', at: Date.now() }, false);
+    if (armedEnemy && !CREWDB.chars[armedEnemy]) armedEnemy = null;
+  } catch (e) { CREWDB.ok = false; error('CREW DATABASE NOT REACHABLE · OPEN THE PLANNER ON THE WEBSITE'); }
+  refresh(); draw();
 }
 function crewPlacedIds() { const o = new Set(); for (const t of S.tiles.values()) { const id = crewIdOf(t); if (id) o.add(id); } return o; }
 function crewTileOf(id) { for (const [k, t] of S.tiles) if (crewIdOf(t) === id) return k; return null; }
@@ -664,31 +707,53 @@ function crewTap(t) {
   commit();
   status(`${crewLabel(id)} ${oldK ? 'MOVED' : 'PLACED'}${replaced ? ` · ${crewLabel(replaced)} IS FREE AGAIN` : ''}${next ? ` · NEXT: ${crewLabel(next)}` : roster.rows.length ? ' · ALL CREW PLACED' : ''}`);
 }
-// [website] ENEMY CREW: tile.enemies = 1..4 enemy boarders on that floor field (tap adds one, the 5th tap clears)
-const ENEMY_MAX = 4, ENEMY_COL = '#FFB43A';
+// [website] ENEMY CREW: tile.enemies = [characterId | null, ...] (1..4 per floor field; null = random enemy;
+// older saves stored a count). Tap adds the picked enemy, the 5th tap clears the field.
+const ENEMY_MAX = 4, ENEMY_COL = '#FFB43A', RANDOM_ENEMY = '__random';
+let armedEnemy = null;
+const enemyList = t => Array.isArray(t.enemies) ? t.enemies : t.enemies > 0 ? Array.from({ length: Math.min(4, t.enemies) }, () => null) : [];
+const enemyName = id => (id && CREWDB.chars[id] ? CREWDB.chars[id].name : 'RANDOM ENEMY');
 function enemyTap(t) {
   if (!t) { error('TAP A FIELD INSIDE THE SHIP'); return; }
   if (isMach(t)) { error('ENEMIES STAND ON FLOOR, NOT ON MACHINERY'); return; }
-  const n = t.enemies || 0;
-  if (n >= ENEMY_MAX) { delete t.enemies; commit(); status('ENEMIES REMOVED FROM THIS FIELD'); return; }
-  t.enemies = n + 1; commit();
-  const all = [...S.tiles.values()].reduce((m, x) => m + (x.enemies || 0), 0);
-  status(`ENEMY ${t.enemies} / ${ENEMY_MAX} ON THIS FIELD · ${all} ON BOARD${t.enemies === ENEMY_MAX ? ' · TAP AGAIN TO CLEAR' : ''}`);
+  const list = enemyList(t);
+  if (list.length >= ENEMY_MAX) { delete t.enemies; commit(); status('ENEMIES REMOVED FROM THIS FIELD'); return; }
+  const id = armedEnemy && armedEnemy !== RANDOM_ENEMY ? armedEnemy : null;
+  t.enemies = [...list, id]; commit();
+  const all = [...S.tiles.values()].reduce((m, x) => m + enemyList(x).length, 0);
+  status(`${enemyName(id)} PLACED · ${t.enemies.length} / ${ENEMY_MAX} ON THIS FIELD · ${all} ON BOARD${t.enemies.length === ENEMY_MAX ? ' · TAP AGAIN TO CLEAR' : ''}`);
+}
+function renderEnemies() {
+  const list = $('enemyList'); if (!list) return;
+  $('enemyBox').classList.toggle('live', tool === 'enemy');
+  const counts = new Map(); let total = 0;
+  for (const t of S.tiles.values()) for (const id of enemyList(t)) { counts.set(id || RANDOM_ENEMY, (counts.get(id || RANDOM_ENEMY) || 0) + 1); total++; }
+  $('enemyCount').textContent = total ? `${total} ON BOARD` : '';
+  const armed = armedEnemy || RANDOM_ENEMY;
+  const row = (id, nm, sub, pic) => `<button class="crewm foe${counts.has(id) ? ' placed' : ''}${tool === 'enemy' && armed === id ? ' armed' : ''}" data-enemy="${esc(id)}">${pic ? `<img class="ini" src="${esc(pic)}" alt="">` : '<span class="ini spot">!</span>'}<span class="nm"><span>${esc(nm)}</span><small>${esc(sub)}</small></span><em>${counts.has(id) ? `${counts.get(id)} PLACED` : ''}</em><span></span></button>`;
+  let html = '', grp = null;
+  for (const r of dbRows('enemy')) {
+    if (r.role !== grp) { grp = r.role; html += `<div class="crewgrp">${r.color ? `<i style="background:${esc(r.color)}"></i>` : ''}${esc(grp)}</div>`; }
+    html += row(r.id, r.label, r.role, r.portrait);
+  }
+  html += `<div class="crewgrp">OTHER</div>` + row(RANDOM_ENEMY, 'RANDOM ENEMY', 'THE GAME PICKS ONE', '');
+  list.innerHTML = CREWDB.ok || total ? html : '<div class="hint">Loading the crew database… (only on the website)</div>';
 }
 function drawEnemies(s) {
   for (const [k, t] of S.tiles) {
-    const n = t.enemies || 0; if (!n) continue;
+    const ids = enemyList(t), n = ids.length; if (!n) continue;
     const [x, y] = unkey(k), cx = sx(x + .5), cy = sy(y + .5);
     // 1 = centre · 2 = diagonal · 3/4 = corners of a 2x2 grid
     const o = s * .22, spots = n === 1 ? [[0, 0]] : n === 2 ? [[-o, -o], [o, o]] : n === 3 ? [[-o, -o], [o, -o], [0, o]] : [[-o, -o], [o, -o], [-o, o], [o, o]];
     const rr = Math.max(4, n === 1 ? s * .26 : s * .17);
     ctx.save();
-    for (const [dx, dy] of spots) {
+    spots.forEach(([dx, dy], i) => {
+      if (drawFace(dbPortrait(ids[i]), cx + dx, cy + dy, rr, ENEMY_COL, Math.max(2, s * .05))) return; // [website] portrait
       ctx.beginPath(); ctx.arc(cx + dx, cy + dy, rr, 0, Math.PI * 2); ctx.fillStyle = ENEMY_COL; ctx.fill();
       ctx.lineWidth = Math.max(1.5, s * .045); ctx.strokeStyle = C.bg; ctx.stroke();
       if (rr >= 6) { ctx.fillStyle = C.ink; const w = Math.max(1.5, rr * .26);
         ctx.fillRect(cx + dx - w / 2, cy + dy - rr * .58, w, rr * .7); ctx.fillRect(cx + dx - w / 2, cy + dy + rr * .26, w, w); } // "!"
-    }
+    });
     ctx.restore();
   }
 }
@@ -705,19 +770,23 @@ function renderCrew() {
   $('crewFilter').hidden = has < 8;
   const f = crewFilterText.trim().toUpperCase();
   const capBtn = (id, placed) => placed && id !== SPOT ? `<span class="cap${S.captain === id ? ' on' : ''}" data-cap="${esc(id)}" role="button" title="${S.captain === id ? 'Captain · tap to unset' : 'Make captain'}">${S.captain === id ? '★ CPT' : '☆'}</span>` : '<span></span>';
-  const row = (id, ini, nm, sub, state, cls) => `<button class="crewm${cls}" data-crew="${esc(id)}" title="${esc(id)}"><span class="ini${id === SPOT ? ' spot' : ''}">${esc(ini)}</span><span class="nm"><span>${esc(nm)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</span><em>${esc(state)}</em>${capBtn(id, / placed/.test(cls))}</button>`;
-  let html = '';
+  const row = (id, ini, nm, sub, state, cls, pic) => `<button class="crewm${cls}" data-crew="${esc(id)}" title="${esc(id)}">${pic ? `<img class="ini" src="${esc(pic)}" alt="">` : `<span class="ini${id === SPOT ? ' spot' : ''}">${esc(ini)}</span>`}<span class="nm"><span>${esc(nm)}</span>${sub ? `<small>${esc(sub)}</small>` : ''}</span><em>${esc(state)}</em>${capBtn(id, / placed/.test(cls))}</button>`;
+  let html = '', grp = null;
   for (const r of roster.rows) {
     if (f && !(r.label + ' ' + r.id + ' ' + r.role).toUpperCase().includes(f)) continue;
+    if (r.role !== grp) { grp = r.role; html += `<div class="crewgrp">${r.color ? `<i style="background:${esc(r.color)}"></i>` : ''}${esc(grp)}</div>`; } // [website] faction groups
     const pr = placedMap.get(r.id), on = tool === 'crew' && armedCrew === r.id;
-    html += row(r.id, crewInitials(r.id), r.label, [r.role, r.id !== r.label ? r.id : '', r.asset ? assetShort(r.asset) : 'NO ASSET REF'].filter(Boolean).join(' · '),
-      pr !== undefined ? `IN ${roomName(pr)}` : 'AVAILABLE', (pr !== undefined ? ' placed' : '') + (on ? ' armed' : ''));
+    html += row(r.id, crewInitials(r.id), r.label, r.portrait !== undefined ? r.role : [r.role, r.id !== r.label ? r.id : '', r.asset ? assetShort(r.asset) : 'NO ASSET REF'].filter(Boolean).join(' · '),
+      pr !== undefined ? `IN ${roomName(pr)}` : 'AVAILABLE', (pr !== undefined ? ' placed' : '') + (on ? ' armed' : ''), r.portrait);
   }
   // placed crew that the current table does not know
   for (const [id, rm] of placedMap) if (!rosterIdx.has(id) && (!f || id.toUpperCase().includes(f)))
     html += row(id, crewInitials(id), id.toUpperCase(), 'NOT IN THE CREW TABLE · TAP TO SELECT, THEN REMOVE OR REPLACE', `IN ${roomName(rm)}`, ' placed gone' + (tool === 'crew' && armedCrew === id ? ' armed' : ''));
   html += row(SPOT, '?', 'EMPTY CREW SPOT', 'A SPAWN SPOT WITHOUT A CREW MEMBER', spots ? `${spots} PLACED` : '', (spots ? ' placed' : '') + (tool === 'crew' && armedCrew === SPOT ? ' armed' : ''));
   list.innerHTML = html;
+  renderEnemies(); // [website]
+  if (roster.source === 'CREW DATABASE') { $('crewHint').innerHTML = (tool === 'crew' ? 'Tap a crew member, then a floor field. Each one can be placed once; placing again moves them. ☆ = make captain.' : 'Tap a crew member to start placing ([6] CREW).') + ' Edit characters in the <a href="/crew-db/" target="_blank" style="color:inherit">CREW DATABASE</a>.'; return; }
+  if (!CREWDB.ok) { $('crewHint').innerHTML = 'Loading the crew database… (only on the website)'; return; }
   $('crewHint').innerHTML = has
     ? (tool === 'crew' ? 'Tap a crew member, then a floor field. Placed crew show their initials on the grid; hover one to see the name. Placing someone again moves them.'
       : 'Tap a crew member to start placing ([6] CREW). The exported ship JSON stores each one by its DataTable row name (crew_id).')
@@ -1488,7 +1557,7 @@ function normalize() {
   // crew only on floor
   for (const t of S.tiles.values()) if (t.crew && t.kind === 'machine') delete t.crew;
   // [website] enemies only on floor, 1..4 per field
-  for (const t of S.tiles.values()) if ('enemies' in t) { const n = Math.min(4, Math.floor(+t.enemies || 0)); if (n < 1 || t.kind === 'machine') delete t.enemies; else t.enemies = n; }
+  for (const t of S.tiles.values()) if ('enemies' in t) { const l = enemyList(t).slice(0, 4).map(id => (typeof id === 'string' && /^[a-z0-9_]{1,60}$/.test(id) ? id : null)); if (!l.length || t.kind === 'machine') delete t.enemies; else t.enemies = l; }
   // machinery only on full tiles
   for (const t of S.tiles.values()) if (t.kind && t.shape !== 'full') delete t.kind;
   // doors: only where a door / airlock is still possible
@@ -1678,9 +1747,10 @@ function drawNow() {
       if (rr >= 9) { ctx.font = `${Math.round(rr * .95)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = C.amber; ctx.fillText('?', c[0], c[1] + 1); }
     } else {
       const col = info ? C.p : C.red;
-      ctx.beginPath(); ctx.arc(c[0], c[1], rr, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = Math.max(1.5, s * .05); ctx.strokeStyle = C.bg; ctx.stroke();
+      if (!drawFace(dbPortrait(id), c[0], c[1], rr, '#1AFF80', Math.max(2, s * .05))) { // [website] database portrait, else the dot
+      ctx.beginPath(); ctx.arc(c[0], c[1], rr, 0, Math.PI * 2); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = Math.max(1.5, s * .05); ctx.strokeStyle = C.bg; ctx.stroke(); }
       if (tool === 'crew' && id === armedCrew) { ctx.beginPath(); ctx.arc(c[0], c[1], rr + 4, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = C.p; ctx.stroke(); }
-      if (rr >= 9) { ctx.font = `${Math.round(rr * .9)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = C.ink; ctx.fillText(crewInitials(id), c[0], c[1] + 1); }
+      if (rr >= 9 && !dbPortrait(id)) { ctx.font = `${Math.round(rr * .9)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = C.ink; ctx.fillText(crewInitials(id), c[0], c[1] + 1); }
       if (id === S.captain) { // captain: small star badge top-right of the dot
         const sx0 = c[0] + rr * .8, sy0 = c[1] - rr * .8, R1 = Math.max(5, rr * .55), R2 = R1 * .45;
         ctx.beginPath(); for (let q = 0; q < 10; q++) { const a = -Math.PI / 2 + q * Math.PI / 5, rq = q % 2 ? R2 : R1; ctx.lineTo(sx0 + Math.cos(a) * rq, sy0 + Math.sin(a) * rq); } ctx.closePath();
@@ -1691,6 +1761,8 @@ function drawNow() {
   drawEnemies(s); // [website] ENEMY CREW markers
   // hovered crew member: full name above the field
   if (hover && !drag) { const ht = S.tiles.get(key(hover.x, hover.y)); if (ht && ht.crew && (showCrew || tool === 'crew')) { const id = crewIdOf(ht); label(id ? crewLabel(id) + (id === S.captain ? ' · CAPTAIN' : '') + (crewInfo(id) ? '' : ' · NOT IN CREW TABLE') : 'CREW SPOT · NO ONE ASSIGNED', sx(hover.x), sy(hover.y) - 22, id ? (crewInfo(id) ? C.p : C.red) : C.amber); } }
+  // [website] hovered enemy field: names
+  if (hover && !drag) { const ht = S.tiles.get(key(hover.x, hover.y)); if (ht && enemyList(ht).length && !(ht.crew && (showCrew || tool === 'crew'))) label(enemyList(ht).map(enemyName).join(' · '), sx(hover.x), sy(hover.y) - 22, ENEMY_COL); }
   // bounding box + dimensions
   if (b) {
     ctx.save(); ctx.setLineDash([3, 5]); ctx.lineWidth = 1; ctx.strokeStyle = rgba(C.p, .45);
@@ -2032,6 +2104,7 @@ function setTool(k) {
   const was = tool; tool = k; drag = null;
   if (k === 'crew') { showCrew = true; if (!armedCrew || (armedCrew !== SPOT && !crewInfo(armedCrew))) armedCrew = nextFreeCrew() || SPOT;
     if (was !== 'crew') { const bx = $('crewBox'); if (bx && bx.scrollIntoView) bx.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } }
+  if (k === 'enemy' && was !== 'enemy') { const bx = $('enemyBox'); if (bx && bx.scrollIntoView) bx.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } // [website]
   refresh(); status(); if ($('blocks').children.length) renderBlocks();
 }
 function toggleCrew() { showCrew = !showCrew; refresh(); status(showCrew ? 'CREW SHOWN' : 'CREW HIDDEN'); }
@@ -2980,9 +3053,13 @@ function godotShip() {
         exits: v.exits.map(edge), walls: v.walls.map(edge) };
     }),
     // [website] crew placed in the planner: one entry per person, tile = floor tile centre [x, z] (like rooms[].console.tile)
-    crew_info: 'crew[]: { side: enemy, tile: [x, z] centre of the floor tile } · one entry per person (up to 4 per tile). Missing = no crew placed.',
-    crew: [...S.tiles].filter(([, t]) => t.enemies > 0).flatMap(([k, t]) => { const [x, y] = unkey(k), c = W(x + .5, y + .5);
-      return Array.from({ length: t.enemies }, () => ({ side: 'enemy', tile: [c[0], c[1]] })); }),
+    crew_info: 'crew[]: { side: crew | enemy, tile: [x, z] centre of the floor tile, id: crew database character id (missing = random), captain: true for the captain } · one entry per person (enemies up to 4 per tile). Missing = no crew placed.',
+    crew: [
+      ...[...S.tiles].filter(([, t]) => crewIdOf(t) && CREWDB.chars[crewIdOf(t)]).map(([k, t]) => { const [x, y] = unkey(k), c = W(x + .5, y + .5), id = crewIdOf(t);
+        return id === S.captain ? { side: 'crew', tile: [c[0], c[1]], id, captain: true } : { side: 'crew', tile: [c[0], c[1]], id }; }),
+      ...[...S.tiles].filter(([, t]) => enemyList(t).length).flatMap(([k, t]) => { const [x, y] = unkey(k), c = W(x + .5, y + .5);
+        return enemyList(t).map(id => (id ? { side: 'enemy', tile: [c[0], c[1]], id } : { side: 'enemy', tile: [c[0], c[1]] })); }),
+    ],
     rooms, tiles, walls, doors } };
 }
 function exportGodot(all, copyOnly) {
@@ -3049,13 +3126,19 @@ $('crewList').addEventListener('click', e => {
   if (tool !== 'crew') { armedCrew = id; setTool('crew'); }
   armedCrew = id; refresh(); status();
 });
+// [website] pick an enemy, then tap fields with ENEMY CREW
+$('enemyList').addEventListener('click', e => {
+  const b = e.target.closest('[data-enemy]'); if (!b) return;
+  armedEnemy = b.dataset.enemy; if (tool !== 'enemy') setTool('enemy'); else refresh();
+  status(`${enemyName(armedEnemy === RANDOM_ENEMY ? null : armedEnemy)} · TAP FLOOR FIELDS TO PLACE`);
+});
 // drop a DataTable file anywhere on the roster box
 $('crewBox').addEventListener('dragover', e => { e.preventDefault(); });
 $('crewBox').addEventListener('drop', async e => {
   e.preventDefault(); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (!f) return;
   try { loadCrewTable(await f.text(), f.name); } catch (err) { error(String(err.message || 'COULD NOT READ THE FILE').toUpperCase()); }
 });
-try { const r = JSON.parse(localStorage.getItem(ROSTER_KEY) || 'null'); if (r && Array.isArray(r.rows)) setRoster(r, false); } catch (e) {}
+loadCrewDb(); // [website] crew + enemies come from the website crew database (the stored Unreal crew table is not used)
 
 // CLEAR keeps one temporary backup; the next clear of a non-empty ship overwrites it
 const CLEAR_KEY = 'adShipPlanner.cleared.v1';
@@ -3301,6 +3384,8 @@ $('techBtn').onclick = toggleTech;
 $('techLayers').addEventListener('change', e => { const k = e.target.dataset.tl; if (!k) return; techLayers[k] = e.target.checked; saveTech(); draw(); });
 const start = () => { resize(); centerView(); };
 (document.fonts && document.fonts.load ? document.fonts.load(`15px ${FONT}`).then(start, start) : start());
+// [website] debug hook for automated checks (like window.adw in the game)
+window.__planner = { ship: () => S, sx, sy, godotShip };
 })();
 </script>
 

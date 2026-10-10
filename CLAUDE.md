@@ -130,8 +130,11 @@ never restate the owner's tasks back to them.
   without asking. Equipment picks are stored as `equip:<id>` in `run.turrets` until the run gets an equipment list.
 
 ## Boarding combat + moods
-- Enemies: placed in the planner with the ENEMY CREW tool (key E) → export `crew: [{ side: 'enemy', tile }]` →
-  `spawnShipEnemies` at game start (random hostile look from `combat.json` enemy_origins + enemy portrait).
+- Planner crew (from the crew database, portraits grouped by faction): CREW tool [6] places own crew (each character once,
+  ☆ = captain), ENEMY CREW tool [E] places database enemies (any number, up to 4 per field, or RANDOM ENEMY). Export
+  `crew: [{ side, tile, id?, captain? }]`. Game: `placedCrew` spawns exactly the placed own crew on their tiles (nobody
+  placed → random `generateCrew`); `spawnShipEnemies` spawns each enemy as its database character (`spawnEnemy(..., id)`).
+  Everyone starts without items.
 - `src/core/combat.ts` `tickCombat` (every frame), FTL melee: everyone standing still at their spot hits the NEAREST
   opponent standing still in the same room – from their own tile (attack animation only, nobody walks over to hit).
   Walkers are never attacked. `pairUp`: crew and enemies in a room pair up 1:1 on one tile (crew screen-left, enemy

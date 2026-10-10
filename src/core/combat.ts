@@ -22,7 +22,7 @@ export function roomOf(state: GameState, c: CrewMember): string | null {
 
 
 /** Put an enemy boarder onto the spot under ship point `p` (random hostile look + enemy portrait). */
-export function spawnEnemy(state: GameState, p: Point, seed = state.crew.length * 7919 + 13): GameState {
+export function spawnEnemy(state: GameState, p: Point, seed = state.crew.length * 7919 + 13, characterId?: string): GameState {
   const nav = navOf(state.ship);
   const node = nodeAt(state.ship, nav, p);
   if (!node || !node.startsWith('t')) return state;
@@ -31,7 +31,10 @@ export function spawnEnemy(state: GameState, p: Point, seed = state.crew.length 
   const bases = LAB.map(parseCrewLook).filter((l): l is CrewLook => !!l && COMBAT.enemy_origins.includes(l.origin));
   const faces = PORTRAITS.portraits.filter((f) => f.side === 'enemy');
   // crew database enemies (website) when there are any, else a random hostile look + enemy portrait
-  const entry = state.roster?.enemies.length ? state.roster.enemies[Math.floor(r() * state.roster.enemies.length)]! : null;
+  // a chosen database character (planner ENEMY CREW pick), else a random database enemy
+  const chosen = characterId ? state.roster?.enemies.find((e) => e.id === characterId) ?? null : null;
+  const randomPick = state.roster?.enemies.length ? state.roster.enemies[Math.floor(r() * state.roster.enemies.length)]! : null;
+  const entry = chosen ?? randomPick;
   const pickBase = bases[Math.floor(r() * bases.length)]!;
   const base: CrewLook = entry
     ? { ...pickBase, build: entry.build, origin: entry.faction && entry.faction in CREW_LOOKS.origins ? (entry.faction as CrewLook['origin']) : pickBase.origin }
@@ -65,7 +68,7 @@ export function spawnEnemy(state: GameState, p: Point, seed = state.crew.length 
 export function spawnShipEnemies(state: GameState): GameState {
   let s = state;
   (state.ship.crew ?? []).forEach((c, i) => {
-    if (c.side === 'enemy') s = spawnEnemy(s, c.tile, 1000 + i * 7919);
+    if (c.side === 'enemy') s = spawnEnemy(s, c.tile, 1000 + i * 7919, c.id);
   });
   return s;
 }

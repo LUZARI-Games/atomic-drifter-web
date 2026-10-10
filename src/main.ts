@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { generateCrew } from './core/crewmove';
+import { generateCrew, placedCrew } from './core/crewmove';
 import { createGameState } from './core/selection';
 import { Store } from './core/store';
 import { COLORS, FONT_FAMILY } from './render/palette';
@@ -32,7 +32,9 @@ async function boot(): Promise<void> {
   // the captain carries the name entered in New Run
   // crew + boarders come from the crew database on the website (/crew-db/); built-in copy if the server is not reachable
   const roster = rosterFrom((await loadCrewDb()).db);
-  const crew = generateCrew(loaded.ship, 4, undefined, roster).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
+  // crew placed in the planner (CREW tool) spawn where they were put; nobody placed = random crew from the database
+  const placed = placedCrew(loaded.ship, roster);
+  const crew = (placed.length ? placed : generateCrew(loaded.ship, 4, undefined, roster)).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
   // system health bars = their power level in this run (Ship Upgrades)
   // (systems without upgrade levels, e.g. the reactor, keep the default number of bars)
   const systemBarsByRoom: Record<string, number> = {};

@@ -75,6 +75,8 @@ export interface Ship {
 export interface ShipCrewSpawn {
   side: 'crew' | 'enemy';
   tile: Point; // tile centre
+  id?: string; // crew database character id (missing = random)
+  captain?: boolean; // the player's captain (own crew)
 }
 
 /** A crew member on board. Positions in ship meters; `node` = spot reached last, `dest` = spot walking to. */
