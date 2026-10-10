@@ -1,0 +1,311 @@
+{
+ "format": "atomic-drifter-ship-godot",
+ "version": 1,
+ "revision": "test",
+ "name": "MELEE TEST",
+ "design_id": null,
+ "tile_size": 2,
+ "wall_height": 1.0,
+ "door_width": 1.2,
+ "size": {
+  "x": 6.0,
+  "z": 4.0
+ },
+ "rooms": [
+  {
+   "id": "weapons",
+   "kind": "system",
+   "system": "weapons",
+   "label": "WEAPONS",
+   "color": null,
+   "console": {
+    "tile": [
+     1,
+     1
+    ],
+    "facing": [
+     -1,
+     0
+    ]
+   }
+  }
+ ],
+ "tiles": [
+  {
+   "room": "weapons",
+   "shape": "full",
+   "machinery": true,
+   "center": [
+    -1,
+    1
+   ],
+   "polygon": [
+    [
+     -2,
+     2
+    ],
+    [
+     -2,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     2
+    ]
+   ]
+  },
+  {
+   "room": "weapons",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    1,
+    1
+   ],
+   "polygon": [
+    [
+     0,
+     2
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     2,
+     2
+    ]
+   ]
+  },
+  {
+   "room": "weapons",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    3,
+    1
+   ],
+   "polygon": [
+    [
+     2,
+     2
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     4,
+     0
+    ],
+    [
+     4,
+     2
+    ]
+   ]
+  },
+  {
+   "room": "weapons",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    -1,
+    -1
+   ],
+   "polygon": [
+    [
+     -2,
+     0
+    ],
+    [
+     -2,
+     -2
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     0,
+     0
+    ]
+   ]
+  },
+  {
+   "room": "weapons",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    1,
+    -1
+   ],
+   "polygon": [
+    [
+     0,
+     0
+    ],
+    [
+     0,
+     -2
+    ],
+    [
+     2,
+     -2
+    ],
+    [
+     2,
+     0
+    ]
+   ]
+  },
+  {
+   "room": "weapons",
+   "shape": "full",
+   "machinery": false,
+   "center": [
+    3,
+    -1
+   ],
+   "polygon": [
+    [
+     2,
+     0
+    ],
+    [
+     2,
+     -2
+    ],
+    [
+     4,
+     -2
+    ],
+    [
+     4,
+     0
+    ]
+   ]
+  }
+ ],
+ "walls": [
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    -2
+   ],
+   "b": [
+    0,
+    -2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    2
+   ],
+   "b": [
+    0,
+    2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    0,
+    -2
+   ],
+   "b": [
+    2,
+    -2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    0,
+    2
+   ],
+   "b": [
+    2,
+    2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    2,
+    -2
+   ],
+   "b": [
+    4,
+    -2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    2,
+    2
+   ],
+   "b": [
+    4,
+    2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    -2
+   ],
+   "b": [
+    -2,
+    0
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    4,
+    -2
+   ],
+   "b": [
+    4,
+    0
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    -2,
+    0
+   ],
+   "b": [
+    -2,
+    2
+   ]
+  },
+  {
+   "kind": "hull",
+   "a": [
+    4,
+    0
+   ],
+   "b": [
+    4,
+    2
+   ]
+  }
+ ],
+ "doors": [],
+ "vehicles": []
+}

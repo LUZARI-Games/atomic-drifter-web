@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import COMBAT from '../data/combat.json';
 import demo from '../data/demo_ship.json';
+import meleeShip from '../data/test_ships/melee.json';
 import { roomOf, spawnEnemy, spawnShipEnemies, systemBars, tickCombat, workOf } from './combat';
 import { generateCrew, moveTo, navOf, placeCrew, selectCrew, tickCrew, tileSpot } from './crewmove';
 import { keepDistance, moods } from './mood';
@@ -119,6 +120,47 @@ describe('boarding combat', () => {
     expect(enemies).toHaveLength(2);
     expect(enemies[0]!.node).not.toBe(enemies[1]!.node);
     expect(near(enemies[0]!.pos, tileSpot(s, enemies[0]!.id, enemies[0]!.node))).toBe(true);
+  });
+});
+
+describe('room melee (FTL): pairs on one tile, extras fight from their own tile', () => {
+  // one room, 5 free tiles; console tile [1, 1]
+  const room = parseShip(meleeShip).ship!;
+  const setup = (crewAt: [number, number][], enemiesAt: [number, number][]): GameState => {
+    let s: GameState = { ...createGameState(room), crew: generateCrew(room, crewAt.length) };
+    s.crew.forEach((c, i) => (s = placeCrew(s, c.id, crewAt[i]!)));
+    for (const p of enemiesAt) s = spawnEnemy(s, p);
+    return s;
+  };
+  const nodeOf = (p: [number, number]) => navOf(room).nodes.get([...navOf(room).nodes.values()].find((n) => n.pos[0] === p[0] && n.pos[1] === p[1])!.id)!.id;
+
+  it('3 crew vs 2 enemies: two pairs share tiles, the extra crew member stays alone and still hits someone', () => {
+    let s = setup([[3, 1], [-1, -1], [3, -1]], [[1, 1], [1, -1]]);
+    s = run(s, 3);
+    const crew = s.crew.filter((c) => c.side !== 'enemy');
+    const foes = s.crew.filter((c) => c.side === 'enemy');
+    const pairs = crew.filter((c) => foes.some((e) => e.node === c.node));
+    expect(pairs).toHaveLength(2);
+    const extra = crew.find((c) => !pairs.includes(c))!;
+    expect(foes.some((e) => e.node === extra.node)).toBe(false);
+    expect(extra.fight?.target).toBeDefined(); // hits across tiles
+    expect(crew.every((c) => c.fight)).toBe(true);
+    expect(foes.every((e) => e.fight)).toBe(true);
+  });
+
+  it('the console tile is served first: an enemy entering goes to the operator', () => {
+    let s = setup([[1, 1], [3, -1]], [[-1, -1]]);
+    s = run(s, 3);
+    const foe = s.crew.find((c) => c.side === 'enemy')!;
+    expect(foe.node).toBe(nodeOf([1, 1]));
+  });
+
+  it('walkers are not hit; nobody fights before standing still', () => {
+    let s = setup([[3, 1]], [[-1, -1]]);
+    const foe = s.crew.find((c) => c.side === 'enemy')!;
+    s = { ...s, crew: s.crew.map((c) => (c.id === foe.id ? { ...c, path: [[3, -1]] } : c)) };
+    s = tickCombat(s, 0.05);
+    expect(s.crew.some((c) => c.fight)).toBe(false);
   });
 });
 

@@ -129,10 +129,14 @@ never restate the owner's tasks back to them.
 ## Boarding combat + moods
 - Enemies: placed in the planner with the ENEMY CREW tool (key E) → export `crew: [{ side: 'enemy', tile }]` →
   `spawnShipEnemies` at game start (random hostile look from `combat.json` enemy_origins + enemy portrait).
-- `src/core/combat.ts` `tickCombat` (every frame): a fight starts only between opponents standing still on the SAME
-  tile, each in their corner – walkers are never attacked. Idle crew (not operating) walk onto a lone enemy's tile in
-  their room; boarders do the same towards crew in their room before going for systems. Blows every
-  `attack_interval_s`, HP by build, death animation then removed.
+- `src/core/combat.ts` `tickCombat` (every frame), FTL melee: everyone standing still at their spot hits the NEAREST
+  opponent standing still in the same room – from their own tile (attack animation only, nobody walks over to hit).
+  Walkers are never attacked. `pairUp`: crew and enemies in a room pair up 1:1 on one tile (crew screen-left, enemy
+  screen-right corner); the console tile is served first (an operator stays, the enemy comes to them; a free console
+  tile becomes the meeting point), else the enemy walks onto the crew member's tile. Extras of the bigger side stay
+  alone on their own tiles. Operators fight too (in their corner = system not manned). Boarders fight while crew are in
+  their room, then go for systems. Blows every `attack_interval_s`, HP by build, death animation then removed.
+  Test: `?test=melee` (ship `test_ships/melee.json`, one 5-tile room).
 - Sabotage / repair (`workOf`): a boarder alone at a system's console desk sabotages it, 5 s per health bar
   (`sabotage_s_per_bar`); a system has as many bars as its power level (energy slots) in the run (`systemBars`, from
   `effectiveLevel`). Crew at the desk repair 5 s per bar while no boarder is in the room. Animations: hammering with

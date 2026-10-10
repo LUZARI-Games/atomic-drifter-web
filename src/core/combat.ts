@@ -111,13 +111,18 @@ export function tickCombat(state: GameState, dt: number): GameState {
     }),
   };
 
-  // 2. melee: only between opponents standing still on the SAME tile, each in their corner (walkers are left alone)
+  // 2. melee, FTL-style: everyone standing still at their spot hits the NEAREST opponent standing still in the same
+  //    room – from their own tile (pairs share a tile, extras fight from where they stand). Walkers are left alone.
   const damage = new Map<string, number>();
+  const ready = (c: CrewMember) => standingStill(c) && c.node.startsWith('t') && at(c, tileSpot(next, c.id, c.node));
+  const dist = (a: CrewMember, b: CrewMember) => Math.hypot(a.pos[0] - b.pos[0], a.pos[1] - b.pos[1]);
   let crew = next.crew.map((c): CrewMember => {
-    if (!standingStill(c)) return c.fight ? { ...c, fight: undefined } : c;
-    const foe = next.crew.find((o) => standingStill(o) && isEnemy(o) !== isEnemy(c) && o.node === c.node);
-    const ready = foe && at(c, tileSpot(next, c.id, c.node)) && at(foe, tileSpot(next, foe.id, foe.node));
-    if (!foe || !ready) return c.fight ? { ...c, fight: undefined } : c;
+    if (!ready(c)) return c.fight ? { ...c, fight: undefined } : c;
+    const room = roomOf(next, c);
+    const foes = next.crew.filter((o) => isEnemy(o) !== isEnemy(c) && standingStill(o) && roomOf(next, o) === room);
+    if (!room || !foes.length) return c.fight ? { ...c, fight: undefined } : c;
+    // keep hitting the current target while it is still there, else the nearest
+    const foe = foes.find((o) => o.id === c.fight?.target) ?? foes.reduce((x, y) => (dist(y, c) < dist(x, c) ? y : x));
     const prev = c.fight?.target === foe.id ? c.fight : { target: foe.id, cooldown: COMBAT.attack_interval_s * 0.5, hits: c.fight?.hits ?? 0 };
     let cooldown = prev.cooldown - dt;
     let hits = prev.hits;
@@ -156,19 +161,8 @@ export function tickCombat(state: GameState, dt: number): GameState {
   for (const k of Object.keys(sysDamage)) if (sysDamage[k] === 0) delete sysDamage[k];
   next = { ...next, systemDamage: sysDamage };
 
-  // 5. engaging: idle people walk onto a tile in their room where an opponent stands alone
-  for (const c of next.crew) {
-    const fresh = next.crew.find((x) => x.id === c.id)!;
-    if (!standingStill(fresh) || fresh.fight || !fresh.node.startsWith('t')) continue;
-    if (!isEnemy(fresh) && atDesk(next.ship, fresh)) continue; // operators stay at their console
-    if (isEnemy(fresh) && workOf(next, fresh) === 'sabotage' && !next.crew.some((o) => !isEnemy(o) && alive(o) && roomOf(next, o) === roomOf(next, fresh) && !o.path.length)) continue;
-    const room = roomOf(next, fresh);
-    const lonely = next.crew.filter((o) => standingStill(o) && isEnemy(o) !== isEnemy(fresh) && roomOf(next, o) === room && o.node !== fresh.node
-      && !next.crew.some((m) => m.id !== o.id && alive(m) && isEnemy(m) === isEnemy(fresh) && m.dest === o.node));
-    if (!lonely.length) continue;
-    const near = lonely.reduce((a, b) => (Math.hypot(b.pos[0] - fresh.pos[0], b.pos[1] - fresh.pos[1]) < Math.hypot(a.pos[0] - fresh.pos[0], a.pos[1] - fresh.pos[1]) ? b : a));
-    next = moveTo(next, fresh.id, navOf(next.ship).nodes.get(near.node)!.pos) ?? next;
-  }
+  // 5. pairing: crew and enemies in one room pair up on one tile (crew screen-left, enemy screen-right corner).
+  next = pairUp(next);
 
   // 6. boarders with nothing to do head for the console of the nearest system that is not wrecked yet
   for (const c of next.crew) {
@@ -189,6 +183,46 @@ export function tickCombat(state: GameState, dt: number): GameState {
       return idle === c.idle ? c : { ...c, idle };
     }),
   };
+  return next;
+}
+
+/**
+ * Opponents in one room pair up 1:1 on a shared tile. The console tile is served first (an operator stays and the
+ * enemy comes to them; a free console tile becomes the meeting point); otherwise the enemy walks onto the crew
+ * member's tile. When one side has more people, the extras stay alone on their own tiles (and fight from there).
+ * Someone already on the way counts by their destination, so nobody is sent twice.
+ */
+export function pairUp(state: GameState): GameState {
+  let next = state;
+  const nav = navOf(next.ship);
+  const inRoom = (c: CrewMember, room: string) => alive(c) && c.dest.startsWith('t') && next.ship.tiles[Number(c.dest.slice(1))]?.room === room;
+  const paired = (c: CrewMember) => next.crew.some((o) => alive(o) && isEnemy(o) !== isEnemy(c) && o.dest === c.dest);
+  const rooms = new Set(next.crew.filter((c) => isEnemy(c) && alive(c)).map((c) => roomOf(next, c)).filter((r): r is string => !!r));
+  for (const room of rooms) {
+    const consoleTile = next.ship.rooms.find((r) => r.id === room)?.console?.tile;
+    const consoleNode = consoleTile ? nodeAt(next.ship, nav, consoleTile) : null;
+    for (let guard = 0; guard < 16; guard++) {
+      const free = next.crew.filter((c) => inRoom(c, room) && standingStill(c) && !paired(c));
+      const crew = free.filter((c) => !isEnemy(c));
+      const foes = free.filter(isEnemy);
+      if (!crew.length || !foes.length) break;
+      // console first, then the closest pair
+      let best: { c: CrewMember; e: CrewMember; score: number } | null = null;
+      for (const c of crew) for (const e of foes) {
+        const onConsole = c.dest === consoleNode || e.dest === consoleNode;
+        const score = Math.hypot(c.pos[0] - e.pos[0], c.pos[1] - e.pos[1]) - (onConsole ? 1000 : 0);
+        if (!best || score < best.score) best = { c, e, score };
+      }
+      const { c, e } = best!;
+      const consoleFree = !!consoleNode && !next.crew.some((o) => o.id !== c.id && o.id !== e.id && alive(o) && o.dest === consoleNode);
+      const meet = e.dest === consoleNode ? e.dest : c.dest === consoleNode || !consoleFree ? c.dest : consoleNode!;
+      const go = (s: GameState, m: CrewMember) => (m.dest === meet ? s : moveTo(s, m.id, nav.nodes.get(meet)!.pos) ?? s);
+      const after = go(go(next, c), e);
+      // could not meet (unreachable / taken): stop pairing this room for now – they fight from where they are
+      if (after.crew.find((x) => x.id === c.id)!.dest !== meet || after.crew.find((x) => x.id === e.id)!.dest !== meet) break;
+      next = after;
+    }
+  }
   return next;
 }
 
