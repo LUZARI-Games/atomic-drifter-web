@@ -256,8 +256,10 @@ never restate the owner's tasks back to them.
   must still stand out without colour (`applyGreyscale` in src/ui/menu.ts).
 
 ## Godot port
+- **ON HOLD (owner, 10.10.2026): work on the web version only.** Do NOT port changes to Godot until the owner asks;
+  later the Godot project is updated in one go with what proved fun here.
 - `LUZARI-Games/Atomic_Drifter_Godot` is the same game in Godot 4.7 (3D in this web look). Rules there are 1:1 ports of
-  `src/core` (`game/core/*.gd`, tests `tests/core_tests.gd`): when a rule changes here, port it there too.
+  `src/core` (`game/core/*.gd`, tests `tests/core_tests.gd`).
 - Shared data: `node scripts/sync-godot-data.mjs ../atomic_drifter_godot` copies `src/data` JSON, test ships,
   portraits and own sounds into the Godot project. Live data (crew database, portraits, planner ships) comes from this
   site's `/api` for both (CORS open) – edits in Godot show up here and the other way round.
