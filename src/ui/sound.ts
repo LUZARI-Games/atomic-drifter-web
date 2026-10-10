@@ -289,6 +289,20 @@ export const SYNTHS: Record<string, Synth> = {
     s.blip(440, 0, 0.08, 0.05);
     s.blip(880, 0.09, 0.16, 0.05);
   },
+  // weapons
+  turret_on: (s) => {
+    s.blip(180, 0, 0.35, 0.06, 'sawtooth', 520);
+    s.blip(880, 0.36, 0.06, 0.05);
+  },
+  turret_off: (s) => s.blip(520, 0, 0.4, 0.05, 'sawtooth', 140),
+  turret_fire: (s) => {
+    s.hiss(2400, 600, 0.07, 0.16, 0.8);
+    s.blip(95 + Math.random() * 25, 0, 0.06, 0.18, 'square', 50);
+  },
+  turret_hit: (s) => {
+    s.hiss(1400, 200, 0.18, 0.12, 0.9);
+    s.blip(70, 0, 0.12, 0.15, 'triangle', 40);
+  },
   // ambience (engine / hover hum loop in the game; these are 2 s previews for the /sounds/ page)
   engine_hum: (s) => [52, 52.6, 104.3].forEach((f) => s.blip(f, 0, 2, 0.06, 'sawtooth')),
   hover_hum: (s) => [329, 331.5].forEach((f) => s.blip(f, 0, 2, 0.02, 'triangle')),

@@ -137,6 +137,31 @@
    ]
   },
   {
+   "name": "Weapons",
+   "sounds": [
+    {
+     "id": "turret_on",
+     "when": "Tap a weapon turret: it powers up",
+     "synth": "game"
+    },
+    {
+     "id": "turret_off",
+     "when": "Tap an active turret / tap nothing: it powers down",
+     "synth": "game"
+    },
+    {
+     "id": "turret_fire",
+     "when": "Machine gun shot (every 0.14s while firing)",
+     "synth": "game"
+    },
+    {
+     "id": "turret_hit",
+     "when": "Projectile hits the target room",
+     "synth": "game"
+    }
+   ]
+  },
+  {
    "name": "Ambience",
    "sounds": [
     {

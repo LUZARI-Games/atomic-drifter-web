@@ -284,3 +284,24 @@ function nearestConsole(state: GameState, c: CrewMember): Point | null {
 export function isFighting(c: CrewMember): boolean {
   return !!c.fight && alive(c);
 }
+
+/**
+ * A weapon projectile hits room `room`: EVERY character in it (own crew and boarders alike, also those walking
+ * through) loses `damage` HP (default combat.json turret_hit_damage). 0 HP: enemies die, own crew are knocked out.
+ */
+export function hitRoom(state: GameState, room: string, damage = COMBAT.turret_hit_damage): GameState {
+  const inRoom = (c: CrewMember) => alive(c) && roomOf(state, c) === room;
+  if (!state.crew.some(inRoom)) return state;
+  const crew = state.crew.map((c) => (inRoom(c) ? damageMember(c, damage) : c));
+  const sel = crew.find((c) => c.id === state.selectedCrewId);
+  return { ...state, crew, selectedCrewId: sel && alive(sel) ? state.selectedCrewId : null };
+}
+
+/** `dmg` HP off one character; at 0 HP enemies start dying, own crew are knocked out (as in melee). */
+export function damageMember(c: CrewMember, dmg: number): CrewMember {
+  if (!alive(c)) return c;
+  const hp = Math.max(0, c.hp - dmg);
+  if (hp > 0) return { ...c, hp };
+  const down = { ...c, hp: 0, fight: undefined, path: [], pathEnd: undefined, dest: c.node, idle: 0, heal: undefined };
+  return isEnemy(c) ? { ...down, dying: COMBAT.death_s } : { ...down, ko: 0 };
+}

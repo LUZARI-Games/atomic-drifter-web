@@ -1,0 +1,19 @@
+{
+ "_info": "Ship weapons (web: one type, the machine gun). Turrets sit on outriggers along the hull sides (hull.ts airshipHull().turrets). Tap = on/off, tap a room = target; they keep firing. Damage per projectile = combat.json turret_hit_damage (every character in the hit room, friend and foe). Angles in degrees, times in seconds, distances in meters.",
+ "machine_gun": {
+  "name": "MACHINE GUN",
+  "fire_interval_s": 0.14,
+  "projectile_speed_mps": 17,
+  "yaw_max_speed_deg": 70,
+  "yaw_accel_deg": 120,
+  "reaction_delay_s": 0.1,
+  "aim_tolerance_deg": 2,
+  "brake_late": 0.8,
+  "power_up_s": 0.6,
+  "power_down_s": 0.4,
+  "muzzle_m": 0.62,
+  "height_m": 0.34,
+  "target_height_m": 0.8,
+  "recoil_m": 0.05
+ }
+}

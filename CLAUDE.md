@@ -182,6 +182,16 @@ never restate the owner's tasks back to them.
   No moods while boarders are in the room. Poses in `IdlePose` (crew_iso.ts), marks/health bars/damage numbers in
   ShipScene's overlay. Test scenes: `?test=fight|boarders|sabotage|repair|chat|wary|bored`.
 
+## Ship weapons
+- One type on the web: the MACHINE GUN (`src/data/weapons.json`); Godot uses the owner's 4 rigged 3D models.
+  Mounts = `airshipHull().turrets` (outriggers along both hull sides, clear of drives / balconies / vehicles, up to
+  2 per side; a blocked side gives its spots to the other side). Rules in `src/core/weapons.ts` (`GameState.weapons`):
+  tap a turret = on / off (power-up), with turrets on a tap on a room = target (own ship too), tap the void = hold
+  fire; they keep firing (`tickWeapons`: reaction delay 0.1 s + heavy servo like the Godot TURRET TEST rig).
+  Every projectile hits EVERY character in the target room, friend and foe: `hitRoom` in combat.ts,
+  `combat.json turret_hit_damage` (20). Drawn by `ShipView.drawTurret` (hover = green outline on PC, on = amber),
+  tracers / hit flashes in ShipScene's overlay. Sounds `turret_*`. Test: `?test=weapons`.
+
 ## Crew database (website)
 - `/crew-db/` (`src/crewdbpage.ts`, `src/ui/crewdb.css`): characters (name, side, faction, build, sex, HP, hit, portrait,
   free attributes, notes), factions (name, colour, description), portraits (built-in `/portraits/*.webp` + uploads).

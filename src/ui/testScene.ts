@@ -1,6 +1,7 @@
 // Test scenes for quick checks: `?test=<name>` puts crew straight into a set situation (seats, deck spots, walking)
 // and points the camera at it – see src/data/test_scenes.json. Ships pasted from the owner (COPY SHIP) can be stored
 // in src/data/test_ships/ and used by name.
+import { setWeaponTarget, toggleTurret } from '../core/weapons';
 import SCENES from '../data/test_scenes.json';
 import { spawnEnemy } from '../core/combat';
 import { placeCrew, selectCrew, sendSelected } from '../core/crewmove';
@@ -23,6 +24,7 @@ export interface TestScene {
   focus?: Point;
   zoom?: number;
   damage?: Record<string, number>; // preset system damage in health bars (repair tests)
+  weapons?: { on: number[]; target?: string }; // turrets switched on (indices) + their target room
 }
 
 const SHIPS = import.meta.glob('../data/test_ships/*.json', { eager: true, import: 'default' }) as Record<string, unknown>;
@@ -68,6 +70,10 @@ export function applyTestScene(state: GameState, scene: TestScene): GameState {
     s = selectCrew(s, null);
   });
   if (scene.damage) s = { ...s, systemDamage: { ...s.systemDamage, ...scene.damage } };
+  if (scene.weapons) {
+    for (const i of scene.weapons.on) s = toggleTurret(s, i);
+    if (scene.weapons.target) s = setWeaponTarget(s, scene.weapons.target);
+  }
   const sel = own.findIndex((c) => c.selected);
   if (sel >= 0 && s.crew[sel]) s = selectCrew(s, s.crew[sel]!.id);
   return s;

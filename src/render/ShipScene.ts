@@ -11,7 +11,8 @@ import { keepDistance, moods, type Mood } from '../core/mood';
 import { moodEvents, orderRefused, stateEvents } from '../core/events';
 import { nodeAt } from '../core/nav';
 import { tapPoint } from '../core/selection';
-import { roomOutline } from '../core/ship';
+import { anyActive, isActive, setWeaponTarget, tickWeapons, toggleTurret } from '../core/weapons';
+import { roomAtPoint, roomOutline } from '../core/ship';
 import { wallHeight } from '../core/ship3d';
 import type { Store } from '../core/store';
 import type { CrewMember, GameState, Point } from '../core/types';
@@ -73,6 +74,10 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   private pluses: { x: number; y: number; born: number }[] = []; // med bay heal particles (screen points)
   private moodNow = new Map<string, Mood>();
   private blocks: ReturnType<typeof systemBlocks> = [];
+  private turretGfx: Phaser.GameObjects.Graphics[] = []; // one per weapon turret, redrawn every frame
+  private hoverTurret = -1;
+  private lastFired = 0;
+  private lastImpacts = 0;
   ready = false;
   private unsubscribe: (() => void) | null = null;
 
@@ -107,10 +112,32 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.layer.setCrew(this.crewToDraw());
 
     this.area = new Phaser.Geom.Rectangle(0, 0, b.width, b.height);
+    // weapon turrets: in front of the deck objects on the side facing the viewer, behind them on the far side
+    this.turretGfx = (this.store.get().weapons?.turrets ?? []).map((t) => this.add.graphics().setDepth(this.view.turretInFront(t) ? 2.05 : 0.65));
+    this.input.on(Phaser.Input.Events.POINTER_MOVE, (p: Phaser.Input.Pointer) => {
+      if (this.attract || p.wasTouch) return;
+      const wp = this.cameras.main.getWorldPoint(p.x, p.y);
+      this.hoverTurret = this.turretAt(wp.x, wp.y);
+    });
     attachPanZoom(this, {
       bounds: () => this.area,
       onTap: (x, y) => {
         if (this.attract) return;
+        // weapons first: tap a turret = on / off; with turrets on, a tap on a room = their target, the void = hold fire
+        const ti = this.turretAt(x, y);
+        if (ti >= 0) {
+          const on = isActive(this.store.get().weapons!.turrets[ti]!);
+          this.store.update((s) => toggleTurret(s, ti));
+          this.sfx.play?.(on ? 'turret_off' : 'turret_on');
+          return;
+        }
+        if (anyActive(this.store.get())) {
+          const p = this.view.toShip(x, y);
+          const room = roomAtPoint(this.store.get().ship, p);
+          this.store.update((s) => setWeaponTarget(s, room));
+          this.sfx.play?.(room ? 'select' : 'deselect');
+          return;
+        }
         // a figure under the finger wins (they stand up from the floor, so test on screen, not on the deck)
         const hit = this.crewAt(x, y);
         if (hit) this.store.update((s) => selectCrew(s, s.selectedCrewId === hit ? null : hit));
@@ -203,9 +230,24 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.lastTime = now;
     // walking, then fights / boarders / repairs / idle timers (core rules), in real elapsed time
     const prev = this.store.get();
-    this.store.update((st) => keepDistance(tickCombat(walking ? tickCrew(st, dt) : st, dt)));
+    this.store.update((st) => tickWeapons(keepDistance(tickCombat(walking ? tickCrew(st, dt) : st, dt)), dt));
     const state = this.store.get();
     for (const e of stateEvents(prev, state)) this.sfx.play?.(e);
+    const wpn = state.weapons;
+    if (wpn) {
+      if (wpn.fired > this.lastFired) this.sfx.play?.('turret_fire');
+      const landed = wpn.impacts.filter((m) => m.t === 0).length;
+      if (landed > 0 && wpn.impacts.length !== this.lastImpacts) this.sfx.play?.('turret_hit');
+      this.lastFired = wpn.fired;
+      this.lastImpacts = wpn.impacts.length;
+      wpn.turrets.forEach((t, i) => {
+        const g = this.turretGfx[i];
+        if (!g) return;
+        g.clear();
+        const hl = isActive(t) ? (wpn.target ? COLORS_HEX.amber : COLORS_HEX.green) : i === this.hoverTurret ? COLORS_HEX.green : null;
+        this.view.drawTurret(g, t, hl);
+      });
+    }
     // hammering / welding at consoles: a tick every ~0.45 s per worker
     for (const c of state.crew) {
       const work = workOf(state, c);
@@ -248,6 +290,18 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.view.drawEnergy(this.energy, now / 1000);
     this.layer.animate(now / 1000);
     this.dirty = false;
+  }
+
+  /** Index of the weapon turret drawn at world point (x, y), -1 = none. */
+  private turretAt(x: number, y: number): number {
+    let best = -1;
+    let bestD = 0.75 * PX_PER_M;
+    (this.store.get().weapons?.turrets ?? []).forEach((t, i) => {
+      const p = this.view.deckPoint(t.at, 0.3);
+      const d = Math.hypot(p.x - x, p.y - y);
+      if (d < bestD) { bestD = d; best = i; }
+    });
+    return best;
   }
 
   /** Crew as the renderer needs them: facing on screen, lifted onto a vehicle seat, selection ring. */
@@ -342,6 +396,30 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     const { ship, crew, systemDamage } = state;
     const g = this.overlay;
     g.clear();
+    // weapons: the target room blinks amber, tracers fly, hits flash
+    const wpn = state.weapons;
+    if (wpn?.target) {
+      g.lineStyle(3, COLORS_HEX.amber, 0.6 + 0.4 * Math.sin(t * 8));
+      for (const [p, q] of roomOutline(ship, wpn.target)) {
+        const a = this.view.deckPoint(p, 0.05);
+        const c = this.view.deckPoint(q, 0.05);
+        g.lineBetween(a.x, a.y, c.x, c.y);
+      }
+    }
+    for (const sh of wpn?.shots ?? []) {
+      const k = sh.t / sh.dur;
+      const k0 = Math.max(0, k - 0.12);
+      const at = (f: number) => this.view.deckPoint([sh.from[0] + (sh.to[0] - sh.from[0]) * f, sh.from[1] + (sh.to[1] - sh.from[1]) * f], sh.fromH + (sh.toH - sh.fromH) * f);
+      const a = at(k0);
+      const b = at(k);
+      g.lineStyle(4, 0xffb43a, 0.5).lineBetween(a.x, a.y, b.x, b.y);
+      g.lineStyle(2, 0xfff2c0, 1).lineBetween(a.x, a.y, b.x, b.y);
+    }
+    for (const m of wpn?.impacts ?? []) {
+      const x = m.t / 0.35;
+      const p = this.view.deckPoint(m.at, m.h);
+      g.fillStyle(0xffd27a, 0.75 * (1 - x)).fillCircle(p.x, p.y, 6 + 28 * x);
+    }
     // damaged systems: the block pulses red, stronger the more it is wrecked
     for (const [room, dmg] of Object.entries(systemDamage)) {
       const a = (dmg / Math.max(1, systemBars(state, room))) * (0.25 + 0.15 * Math.sin(t * 6));

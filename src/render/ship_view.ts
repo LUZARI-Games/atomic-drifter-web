@@ -5,13 +5,14 @@ import Phaser from 'phaser';
 import type { CrewLook } from '../core/crew';
 import { airshipHull, blockPolygons, systemBlocks } from '../core/hull';
 import { convexHull, depth, drawOrder, isBehind, project, turn, unprojectFloor, type FloorBox, type Vec2, type Vec3, type View } from '../core/projection';
-import { consoleDesk, doorLeaves, doorThreshold, SHIP_HEIGHTS, shipSolids, wallHeight, wallPieces, type Solid } from '../core/ship3d';
+import { consoleDesk, doorLeaves, doorThreshold, segmentBox, SHIP_HEIGHTS, shipSolids, wallHeight, wallPieces, type Solid } from '../core/ship3d';
 import { systemColor } from '../core/systems';
 import type { Point, Ship, ShipVehicle } from '../core/types';
 import { drawCrewIso, type IdlePose, type SitPose } from './crew_iso';
 import { drawSystemIcon } from './icons';
 import { ATOMIC, VEHICLE, WORLD, worldPaint } from './palette';
 import { balconyRoomIds, dockArms, railingParts, SEATS, vehicleFrame } from '../core/exterior';
+import { muzzleOf, type Turret } from '../core/weapons';
 
 type G = Phaser.GameObjects.Graphics;
 type Item = { key: number; box: FloorBox; draw: (g: G) => void };
@@ -58,6 +59,13 @@ export interface CrewOnDeck {
 
 /** Ship space [x, z] + height -> view world (x = towards the bow/right, y = starboard/towards the viewer, z = up). */
 const W = ([x, z]: Point, h = 0): Vec3 => [-z, x, h];
+
+/** Centre of the ship's tiles (ship space). */
+function shipBoundsCentre(ship: Ship): Point {
+  const xs = ship.tiles.flatMap((t) => t.polygon.map((p) => p[0]));
+  const zs = ship.tiles.flatMap((t) => t.polygon.map((p) => p[1]));
+  return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...zs) + Math.max(...zs)) / 2];
+}
 
 /** Seated crew grouped by the vehicle they sit in. */
 function seatedByVehicle(crew: CrewOnDeck[]): Map<number, CrewOnDeck[]> {
@@ -713,6 +721,62 @@ export class ShipView {
     }
     draws.sort((a, b) => a.d - b.d);
     for (const x of draws) x.draw();
+  }
+
+  /** Does this turret sit on the side facing the viewer (draw it over the deck objects) or behind the ship? */
+  turretInFront(t: Turret): boolean {
+    const b = shipBoundsCentre(this.ship);
+    return depth(this.view, W(t.at)) > depth(this.view, W(b));
+  }
+
+  /**
+   * One weapon turret (the machine gun): arm out of the hull, round pad, turntable, gun body with ammo box, two
+   * barrels (kick back on every shot), muzzle flash, atomic power light. `hl` = outline colour (hover / on) or null.
+   */
+  drawTurret(g: G, t: Turret, hl: number | null): void {
+    const u: Point = [Math.cos(t.yaw), Math.sin(t.yaw)];
+    const w: Point = [-u[1], u[0]];
+    const at = (du: number, dw: number): Point => [t.at[0] + u[0] * du + w[0] * dw, t.at[1] + u[1] * du + w[1] * dw];
+    const box = (du0: number, du1: number, dw0: number, dw1: number): Point[] => [at(du0, dw0), at(du1, dw0), at(du1, dw1), at(du0, dw1)];
+    const steel = 0x5c5f52;
+    const rec = t.recoil * 0.05;
+    // fixed parts first (under everything turning)
+    this.prism(g, segmentBox(t.mount, t.at, 0.12), -0.3, -0.06, ATOMIC.housing, ATOMIC.housing);
+    this.prism(g, ring(t.at, t.radius, 16), -0.25, 0.05, ATOMIC.housingLight, ATOMIC.housing, shade(ATOMIC.housingLight, -25));
+    if (hl !== null) {
+      g.lineStyle(Math.max(3, this.pxPerM * 0.08), hl, 1);
+      g.strokePoints(ring(t.at, t.radius + 0.06, 20).map((q) => this.S(W(q, 0.06))), true);
+    }
+    this.prism(g, ring(t.at, 0.3, 12), 0.05, 0.16, shade(steel, -10), shade(steel, 25));
+    // turning parts, back to front
+    const parts: { fp: Point[]; z0: number; z1: number; col: number }[] = [
+      { fp: box(-0.3, 0.22, -0.2, 0.2), z0: 0.16, z1: 0.46, col: steel }, // gun body
+      { fp: box(-0.22, 0.08, 0.2, 0.36), z0: 0.16, z1: 0.38, col: VEHICLE.olive }, // ammo box
+      { fp: box(0.2 - rec, 0.62 - rec, -0.12, -0.04), z0: 0.29, z1: 0.37, col: 0x2a2b25 }, // barrels
+      { fp: box(0.2 - rec, 0.62 - rec, 0.04, 0.12), z0: 0.29, z1: 0.37, col: 0x2a2b25 },
+    ];
+    const mid = (p: { fp: Point[]; z1: number }) => depth(this.view, W([p.fp.reduce((a, q) => a + q[0], 0) / p.fp.length, p.fp.reduce((a, q) => a + q[1], 0) / p.fp.length], p.z1));
+    for (const p of [...parts].sort((a, b) => mid(a) - mid(b))) {
+      this.prism(g, p.fp, p.z0, p.z1, p.col, shade(p.col, 30), shade(p.col, -20));
+      if (hl !== null) {
+        g.lineStyle(Math.max(2, this.pxPerM * 0.05), hl, 0.9);
+        g.strokePoints(p.fp.map((q) => this.S(W(q, p.z1))), true);
+      }
+    }
+    // power light on the gun body: dark when off, atomic green when on
+    if (t.power > 0) {
+      g.fillStyle(ATOMIC.glow, 0.35 + 0.6 * t.power);
+      g.fillPoints(ring(at(-0.12, 0), 0.07, 10).map((q) => this.S(W(q, 0.465))), true);
+    }
+    // muzzle flash right after a shot
+    if (t.recoil > 0.6) {
+      const m = muzzleOf({ ...t, barrel: 1 - t.barrel });
+      const p = this.S(W(m, 0.33));
+      g.fillStyle(0xffe08a, (t.recoil - 0.6) * 2.2);
+      g.fillCircle(p.x, p.y, this.pxPerM * 0.16);
+      g.fillStyle(0xffffff, (t.recoil - 0.6) * 2);
+      g.fillCircle(p.x, p.y, this.pxPerM * 0.07);
+    }
   }
 
   /** How much the outward normal of edge a-b points at the viewer (after the view's yaw; positive = visible). */

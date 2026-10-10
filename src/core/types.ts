@@ -123,4 +123,6 @@ export interface GameState {
   fightAxis: Point;
   /** Characters from the crew database (website) the crew and boarders are drawn from; absent = built-in portraits. */
   roster?: import('./crewdb').Roster;
+  /** Ship weapons (turrets, target room, projectiles in flight) – absent = none mounted yet. */
+  weapons?: import('./weapons').Weapons;
 }

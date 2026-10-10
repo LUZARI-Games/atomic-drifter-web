@@ -1,11 +1,12 @@
 import { startStatus } from './status';
 // Pure game rules for room selection. No Phaser, no DOM.
 import { sendSelected } from './crewmove';
+import { mountWeapons } from './weapons';
 import { getRoom, roomAtPoint } from './ship';
 import type { GameState, Point, Ship, ShipRoom } from './types';
 
 export function createGameState(ship: Ship): GameState {
-  return { ship, selectedRoomId: null, openDoors: [], crew: [], selectedCrewId: null, status: startStatus(), systemDamage: {}, systemBars: {}, fightAxis: [Math.SQRT1_2, -Math.SQRT1_2] };
+  return { ship, selectedRoomId: null, openDoors: [], crew: [], selectedCrewId: null, status: startStatus(), systemDamage: {}, systemBars: {}, fightAxis: [Math.SQRT1_2, -Math.SQRT1_2], weapons: mountWeapons(ship) };
 }
 
 /** Door under a ship point (within `radius` meters of its centre), or -1. */

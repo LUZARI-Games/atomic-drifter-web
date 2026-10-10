@@ -14,6 +14,10 @@ export interface HullShape {
   thrusters: { at: Point; radius: number; root: Point }[];
   /** Four levitation drives, two per side (fore + aft): nozzle centre outside the hull, mount point on the hull edge. */
   lifters: { at: Point; radius: number; mount: Point }[];
+  /** Weapon turret mounts on outriggers along the hull sides: pad centre, pad radius, side (-1 port / +1 starboard),
+   *  mount point on the hull edge. Clear of levitation drives, balconies and docked vehicles; up to 2 per side
+   *  (a blocked side hands its spots to the other side). */
+  turrets: { at: Point; radius: number; side: number; mount: Point }[];
   /** Atomic reactor housing on the stern cap (behind the deck). */
   reactor: { at: Point; radius: number };
 }
@@ -108,6 +112,28 @@ export function airshipHull(ship: Ship, margin = 0.6): HullShape {
       return { at: [x, z] as Point, radius: liftR, mount: [xc + side * halfW * 0.98, z] as Point };
     }),
   );
+  // weapon turrets: spread along both sides, clear of drives, balconies and vehicles (same rule as the Godot port)
+  const turretR = 0.55;
+  const spots = new Map<number, Point[]>([[-1, []], [1, []]]);
+  for (const side of [-1, 1]) {
+    const x = xc + side * (halfW + turretR + 0.15);
+    for (let z = b.minZ + 0.3; z <= b.maxZ - 0.3 + 1e-9; z += 0.25) {
+      const p: Point = [x, z];
+      const ok = clear(p) && lifters.every((l) => Math.hypot(l.at[0] - x, l.at[1] - z) > liftR + turretR + 0.15);
+      if (ok) spots.get(side)!.push(p);
+    }
+  }
+  const want = !spots.get(-1)!.length ? [0, 4] : !spots.get(1)!.length ? [4, 0] : [2, 2];
+  const mid = (b.minZ + b.maxZ) / 2;
+  const turrets: HullShape['turrets'] = [];
+  [-1, 1].forEach((side, si) => {
+    const picked: Point[] = [];
+    for (const p of [...spots.get(side)!].sort((a, c) => Math.abs(a[1] - mid) - Math.abs(c[1] - mid))) {
+      if (picked.length >= want[si]!) break;
+      if (picked.every((q) => Math.abs(q[1] - p[1]) >= turretR * 2 + 0.4)) picked.push(p);
+    }
+    for (const p of picked) turrets.push({ at: p, radius: turretR, side, mount: [xc + side * halfW * 0.98, p[1]] });
+  });
   const finOut = Math.min(Math.max(0.6, halfW * 0.18), 1.0);
   const fins: Point[][] = [-1, 1].map((s) => [
     [xc + s * halfW * 0.9, back - Math.min(1.6, len * 0.12)],
@@ -120,6 +146,7 @@ export function airshipHull(ship: Ship, margin = 0.6): HullShape {
     fins,
     thrusters: [-1, 1].map((s) => ({ at: [xc + s * thrustX, thrustZ] as Point, radius: thrustR, root: [xc + s * thrustX * 0.8, back] as Point })),
     lifters,
+    turrets,
     reactor: { at: [xc, back + sternLen * 0.35], radius: Math.max(0.45, Math.min(halfW * 0.18, 0.8)) },
   };
 }
