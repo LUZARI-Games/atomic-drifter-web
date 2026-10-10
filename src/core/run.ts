@@ -20,6 +20,7 @@ export interface RunState {
   systems: Record<string, number>;
   reactor: number; // reactor bars
   turrets: string[]; // owned turret item ids (salvage)
+  briefed: boolean; // the run's intro log was shown (core/story.ts)
 }
 
 export function defaultRun(): RunState {
@@ -38,6 +39,7 @@ export function defaultRun(): RunState {
     systems: {},
     reactor: 0,
     turrets: [],
+    briefed: false,
   };
 }
 
@@ -63,6 +65,7 @@ export function parseRun(raw: unknown): RunState {
     systems: o.systems && typeof o.systems === 'object' ? Object.fromEntries(Object.entries(o.systems).filter(([, v]) => typeof v === 'number')) : {},
     reactor: num(o.reactor, d.reactor),
     turrets: Array.isArray(o.turrets) ? o.turrets.filter((t): t is string => typeof t === 'string') : [],
+    briefed: o.briefed === true,
   };
 }
 

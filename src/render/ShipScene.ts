@@ -122,7 +122,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     attachPanZoom(this, {
       bounds: () => this.area,
       onTap: (x, y) => {
-        if (this.attract) return;
+        if (this.attract || this.held) return;
         // weapons first: tap a turret = on / off; with turrets on, a tap on a room = their target, the void = hold fire
         const ti = this.turretAt(x, y);
         if (ti >= 0) {
@@ -208,6 +208,9 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
   }
 
   /** Slide doors towards their open/closed state; redraw the standing objects only while something moves. */
+  /** Story popups (intro log): the rules wait and taps are ignored while this is set. */
+  held = false;
+
   override update(time: number, delta: number): void {
     // bob: shift the camera by the change of the offset, so pan/zoom and taps stay exact
     const cam = this.cameras.main;
@@ -230,7 +233,7 @@ export class ShipScene extends Phaser.Scene implements ShipOnScreen {
     this.lastTime = now;
     // walking, then fights / boarders / repairs / idle timers (core rules), in real elapsed time
     const prev = this.store.get();
-    this.store.update((st) => tickWeapons(keepDistance(tickCombat(walking ? tickCrew(st, dt) : st, dt)), dt));
+    if (!this.held) this.store.update((st) => tickWeapons(keepDistance(tickCombat(walking ? tickCrew(st, dt) : st, dt)), dt));
     const state = this.store.get();
     for (const e of stateEvents(prev, state)) this.sfx.play?.(e);
     const wpn = state.weapons;

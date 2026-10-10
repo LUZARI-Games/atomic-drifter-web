@@ -56,7 +56,11 @@ function seeded(seed: number): () => number {
 const hash = (t: string) => [...t].reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) >>> 0, 7);
 
 /** Random crew from the Crew Lab types: origin, build and gear vary; they start at the consoles, then on free deck. */
-export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name), roster?: Roster): CrewMember[] {
+/**
+ * Random start crew on the consoles, then other deck tiles. With a roster: the database captain + its own crew; with
+ * `faction`: that faction's people first, and everyone on board joins it (the start crew all come from one home).
+ */
+export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name), roster?: Roster, faction?: string): CrewMember[] {
   const nav = navOf(ship);
   const r = seeded(seed);
   const pick = <T,>(a: T[]) => a[Math.floor(r() * a.length)]!;
@@ -69,11 +73,15 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name), rost
   // own crew = named characters from the portrait roster (captain: the power-armour portrait); name + sex follow it
   const faces = PORTRAITS.portraits.filter((p) => p.side === 'crew' && p.variant === 1 && p.id !== PORTRAITS.captain_portrait).sort(() => r() - 0.5);
   // crew database (website): captain = its captain-portrait character, then its own crew in random order
-  const dbCrew = roster ? [...roster.crew].sort(() => r() - 0.5) : [];
+  const shuffled = roster ? [...roster.crew].sort(() => r() - 0.5) : [];
+  const dbCrew = faction ? [...shuffled.filter((e) => e.faction === faction), ...shuffled.filter((e) => e.faction !== faction)] : shuffled;
+  const factionColor = faction ? (CREW_LOOKS.origins as Record<string, { color: string }>)[faction]?.color : undefined;
+  const join = (e: RosterEntry): RosterEntry => (faction && e.faction !== faction ? { ...e, faction, clothes: factionColor?.toLowerCase() ?? e.clothes } : e);
   const crew: CrewMember[] = [];
   for (let i = 0; i < Math.min(count, starts.length); i++) {
     if (roster) {
-      const entry = i === 0 ? roster.captain ?? dbCrew.shift() : dbCrew[(i - 1) % Math.max(1, dbCrew.length)];
+      const picked = i === 0 ? roster.captain ?? dbCrew.shift() : dbCrew[(i - 1) % Math.max(1, dbCrew.length)];
+      const entry = picked && join(picked);
       if (entry) {
         const base = pick(bases);
         let gear: GearId[] = [];
@@ -82,7 +90,8 @@ export function generateCrew(ship: Ship, count = 4, seed = hash(ship.name), rost
         continue;
       }
     }
-    const base = pick(bases);
+    const any = pick(bases);
+    const base = faction && faction in CREW_LOOKS.origins ? { ...any, origin: faction as CrewLook['origin'] } : any;
     let gear: GearId[] = [];
     for (const g of gearIds) if (r() < 0.4) gear = equip(gear, g);
     const face = i === 0 ? PORTRAITS.portraits.find((p) => p.id === PORTRAITS.captain_portrait) : faces[(i - 1) % Math.max(1, faces.length)];

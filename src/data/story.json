@@ -1,0 +1,29 @@
+{
+  "_note": "Run premise. Every run: you carry a P.A.U.S.E. unit, the Sentinels hunt you, get it home. Home + backstory depend on the start faction (more factions / start ships later).",
+  "company": {
+    "name": "PROMETHEUS ATOMIC",
+    "about": "Pre-war company that built every atomic reactor in America (homes, cars, airships). Also built P.A.U.S.E.",
+    "slogan": "Prometheus – Power to the People!"
+  },
+  "pause": {
+    "short": "P.A.U.S.E.",
+    "long": "Prometheus Atomic Universal Stasis Engine",
+    "about": "Stops time in one fight (like V.A.T.S.). Very rare, cannot be rebuilt – the knowledge is lost. Others may own one too."
+  },
+  "start_faction": "ironmall",
+  "start_crew": 3,
+  "intros": {
+    "ironmall": {
+      "home": "IRON MALL",
+      "title": "IRON MALL // EMERGENCY LOG",
+      "lines": [
+        "The Sentinels hit us on the way home. We got out – barely.",
+        "Three of us left. The rest of the crew are scattered across the wasteland.",
+        "But the crate is still in the hold: a Prometheus Atomic P.A.U.S.E. unit, pulled from the old military ruin.",
+        "The Sentinels know we have it. The Iron Mall is far – we won't make it in one go.",
+        "Get it home. If they catch up – use it."
+      ],
+      "button": "UNDERSTOOD"
+    }
+  }
+}

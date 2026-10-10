@@ -17,7 +17,7 @@ export interface ModifierEffect {
   scrap?: number;
   reactor?: number; // + reactor bars
   turret?: string; // extra owned turret item id
-  crew?: number; // extra crew – RunState has no crew list yet, so not applied
+  crew?: number; // extra crew at the start (core/story.ts startCrewCount)
 }
 
 export interface Modifier {

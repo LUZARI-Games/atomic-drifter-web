@@ -16,6 +16,7 @@ import { COLORS } from '../render/palette';
 import { ShipScene } from '../render/ShipScene';
 import { HazeScene, WastelandScene } from '../render/wasteland';
 import { TEST_SHIP_KEY } from './shipSource';
+import { START_CREW, START_FACTION } from '../core/story';
 import { mountStatusHud } from './statusHud';
 
 export const SHIP_CHOICE_KEY = 'adw.shipChoice';
@@ -80,7 +81,7 @@ export function mountHangar(root: HTMLElement): Hangar {
     root.classList.toggle('locked', h.locked);
     // crew: the ones placed in the planner, else random from the crew database (none for locked ships)
     const placed = placedCrew(h.ship, roster);
-    const crew = h.locked ? [] : placed.length ? placed : generateCrew(h.ship, 4, undefined, roster);
+    const crew = h.locked ? [] : placed.length ? placed : generateCrew(h.ship, START_CREW, undefined, roster, START_FACTION);
     const state: GameState = { ...createGameState(h.ship), crew, status: statusFromRun(run), roster };
     const store = new Store(state);
     $('hud').innerHTML = '';

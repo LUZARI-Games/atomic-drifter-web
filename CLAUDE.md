@@ -192,6 +192,16 @@ never restate the owner's tasks back to them.
   `combat.json turret_hit_damage` (20). Drawn by `ShipView.drawTurret` (hover = green outline on PC, on = amber),
   tracers / hit flashes in ShipScene's overlay. Sounds `turret_*`. Test: `?test=weapons`.
 
+## Story (run premise)
+- `src/data/story.json` + `src/core/story.ts`. Prometheus Atomic = pre-war company that built every atomic reactor (and
+  P.A.U.S.E. = Prometheus Atomic Universal Stasis Engine: stops time in one fight, like V.A.T.S.; rare, cannot be rebuilt).
+  Every run: your crew carries a P.A.U.S.E. unit, the Sentinels hunt you, get it home. Home + backstory depend on the
+  start faction (now only `ironmall`: Iron Mall citizens, ambushed on the way home, crew scattered).
+- Start crew: `start_crew` (3) + modifiers with `effect.crew` (EXTRA RECRUIT), all of the start faction
+  (`generateCrew(..., faction)`: its database people first, everyone wears its colours). Test scenes keep 4 random.
+- Intro log (`src/ui/introLog.ts`): typed terminal transmission on the first start of a run (`RunState.briefed`), game
+  held behind it (`ShipScene.held`). `/?play&intro` always shows it (DEV TOOLS: INTRO LOG).
+
 ## Crew database (website)
 - `/crew-db/` (`src/crewdbpage.ts`, `src/ui/crewdb.css`): characters (name, side, faction, build, sex, HP, hit, portrait,
   free attributes, notes), factions (name, colour, description), portraits (built-in `/portraits/*.webp` + uploads).

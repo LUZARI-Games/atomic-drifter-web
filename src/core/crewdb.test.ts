@@ -98,6 +98,18 @@ describe('roster for the game', () => {
     expect(one.look.origin).toBe('ironmall');
   });
 
+  it('a faction start crew: that faction first, everyone on board wears its colours', () => {
+    const crew = generateCrew(ship, 3, 7, roster, 'ironmall');
+    expect(crew).toHaveLength(3);
+    expect(crew[0]!.captain).toBe(true);
+    const citizens = roster.crew.filter((c) => c.faction === 'ironmall').map((c) => c.name);
+    expect(citizens.length).toBeGreaterThanOrEqual(2);
+    expect(citizens).toContain(crew[1]!.name); // Iron Mall citizens come first
+    expect(citizens).toContain(crew[2]!.name);
+    expect(crew.every((c) => c.look.origin === 'ironmall' && c.look.clothes === '#24928a')).toBe(true);
+    expect(generateCrew(ship, 3, 7, undefined, 'ironmall').every((c) => c.look.origin === 'ironmall')).toBe(true);
+  });
+
   it('boarders come from the database enemies', () => {
     let s: GameState = { ...createGameState(ship), crew: [], roster };
     s = spawnEnemy(s, [3, 1]);

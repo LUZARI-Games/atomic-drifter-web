@@ -16,6 +16,7 @@ const DEV_LINKS: [string, string][] = [
   ['SOUND LIST', '/sounds/'],
   ['SHIP UPGRADES', '/upgrades/'],
   ['SALVAGE (TEST)', '/salvage/'],
+  ['INTRO LOG (STORY)', '/?play&intro'],
 ];
 
 const ATOM = `<svg class="ts-atom" viewBox="-100 -100 200 200" aria-hidden="true">

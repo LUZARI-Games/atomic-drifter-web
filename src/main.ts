@@ -14,7 +14,9 @@ import { parseShip } from './core/ship';
 import { rosterFrom } from './core/crewdb';
 import type { GameState } from './core/types';
 import { loadCrewDb } from './ui/crewDbApi';
-import { hasSavedRun, loadRun } from './ui/runStore';
+import { hasSavedRun, loadRun, saveRun } from './ui/runStore';
+import { introFor, markBriefed, needsIntro, START_FACTION, startCrewCount } from './core/story';
+import { mountIntroLog } from './ui/introLog';
 import { mountTitleScreen } from './ui/titleScreen';
 import { SHIP_CHOICE_KEY } from './ui/hangar';
 import { loadShip, TEST_SHIP_KEY } from './ui/shipSource';
@@ -45,9 +47,10 @@ async function boot(): Promise<void> {
   // the captain carries the name entered in New Run
   // crew + boarders come from the crew database on the website (/crew-db/); built-in copy if the server is not reachable
   const roster = rosterFrom((await loadCrewDb()).db);
-  // crew placed in the planner (CREW tool) spawn where they were put; nobody placed = random crew from the database
+  // crew placed in the planner (CREW tool) spawn where they were put; nobody placed = the run's survivors (story.json:
+  // 3 Iron Mall citizens); test scenes keep 4 random database crew
   const placed = placedCrew(loaded.ship, roster);
-  const crew = (placed.length ? placed : generateCrew(loaded.ship, 4, undefined, roster)).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
+  const crew = (placed.length ? placed : (scene ? generateCrew(loaded.ship, 4, undefined, roster) : generateCrew(loaded.ship, startCrewCount(run), undefined, roster, START_FACTION))).map((c) => (c.captain && run.captainName ? { ...c, name: run.captainName, look: { ...c.look, name: run.captainName } } : c));
   // system health bars = their power level in this run (Ship Upgrades)
   // (systems without upgrade levels, e.g. the reactor, keep the default number of bars)
   const systemBarsByRoom: Record<string, number> = {};
@@ -88,6 +91,15 @@ async function boot(): Promise<void> {
   const shipScene = new ShipScene(store, sound, scene?.focus ? { at: scene.focus, zoom: scene.zoom ?? 1 } : undefined, title);
   // debug hook for automated checks: window.adw.screenOf([x, z]) = where to tap for a ship point
   (window as unknown as { adw: unknown }).adw = { store, scene: shipScene };
+  // a new run opens on its intro log (once per run; not in test scenes / planner tests; `?play&intro` = always);
+  // the game waits behind it
+  if (!title && !scene && (params.has('intro') || (!params.has('ship') && hasSavedRun() && needsIntro(run)))) {
+    shipScene.held = true;
+    mountIntroLog(document.getElementById('hud')!, introFor(START_FACTION), () => {
+      if (hasSavedRun()) saveRun(markBriefed(loadRun()));
+      shipScene.held = false;
+    });
+  }
   look = (id) => {
     const c = store.get().crew.find((m) => m.id === id);
     if (c) shipScene.lookAt(c.pos);

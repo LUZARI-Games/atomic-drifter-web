@@ -9,7 +9,7 @@ const godot = process.argv[2] ?? '../atomic_drifter_godot';
 const files = [
   'combat.json', 'crew_move.json', 'crew_looks.json', 'crew_lab.json', 'crew_gear.json', 'portraits.json', 'systems.json',
   'ship_view.json', 'run_start.json', 'test_scenes.json', 'sounds.json', 'crew_db_seed.json', 'crew_db_patches.json',
-  'demo_ship.json', 'game_info.json',
+  'demo_ship.json', 'game_info.json', 'story.json', 'new_run.json',
 ];
 const out = join(godot, 'data/web');
 mkdirSync(join(out, 'test_ships'), { recursive: true });
