@@ -1,5 +1,5 @@
 {
- "_info": "Boarding combat (FTL-like melee), knock-out, med bay and crew moods. Times in seconds, damage in HP.",
+ "_info": "Boarding combat (FTL-like melee), knock-out, med bay and crew moods. Times in seconds, damage in HP. turret_hit_damage = HP every character in a room loses per turret projectile (friend and foe).",
  "hp": {
   "crew": {
    "normal": 25,
@@ -24,5 +24,6 @@
  "default_system_bars": 2,
  "ko_wake_share": 0.1,
  "ko_wake_after_s": 1.5,
- "medbay_heal_per_s": 5
+ "medbay_heal_per_s": 5,
+ "turret_hit_damage": 20
 }
